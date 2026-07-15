@@ -1,7 +1,8 @@
-import { Dumbbell, Flame, History, Settings, BicepsFlexed, Play, TrendingUp } from 'lucide-react'
+import { Dumbbell, Flame, History, Settings, BicepsFlexed, Play, Timer, TrendingUp } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useWorkout } from '../contexts/WorkoutContext'
 import { formatClock, parseUTC } from '../lib/format'
+import { useRestTimer } from '../lib/timer'
 import { cn } from '../lib/utils'
 import { useEffect, useRef, useState } from 'react'
 
@@ -16,6 +17,7 @@ const TABS = [
 function ResumeBar({ className }: { className?: string }) {
   const { workout } = useWorkout()
   const navigate = useNavigate()
+  const timer = useRestTimer()
   const [, setTick] = useState(0)
 
   useEffect(() => {
@@ -29,7 +31,7 @@ function ResumeBar({ className }: { className?: string }) {
 
   return (
     <button
-      onClick={() => navigate('/workout')}
+      onClick={() => navigate('/workout', { viewTransition: true })}
       className={cn(
         'touch-feedback flex items-center gap-3 rounded-xl bg-primary px-4 py-3 text-left text-primary-foreground shadow-lg',
         className,
@@ -37,6 +39,11 @@ function ResumeBar({ className }: { className?: string }) {
     >
       <Play size={18} className="shrink-0 fill-current" />
       <span className="min-w-0 flex-1 truncate font-semibold">{workout.name}</span>
+      {timer && (
+        <span className="tnum flex items-center gap-1 rounded-full bg-primary-foreground/15 px-2 py-0.5 text-sm font-semibold">
+          <Timer size={13} /> {formatClock(timer.remaining)}
+        </span>
+      )}
       <span className="tnum text-sm font-medium opacity-90">{formatClock(elapsed)}</span>
     </button>
   )
@@ -66,6 +73,7 @@ export default function AppShell() {
             <NavLink
               key={to}
               to={to}
+              viewTransition
               end={to === '/'}
               className={({ isActive }) =>
                 cn(
@@ -101,6 +109,7 @@ export default function AppShell() {
                 <NavLink
                   key={to}
                   to={to}
+              viewTransition
                   end={to === '/'}
                   className={({ isActive }) =>
                     cn(

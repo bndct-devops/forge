@@ -22,12 +22,12 @@ export default function WorkoutHomePage() {
   const begin = async (routineId?: number) => {
     setError('')
     if (workout) {
-      navigate('/workout')
+      navigate('/workout', { viewTransition: true })
       return
     }
     try {
       await start(routineId != null ? { routineId } : undefined)
-      navigate('/workout')
+      navigate('/workout', { viewTransition: true })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not start workout')
     }

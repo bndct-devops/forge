@@ -77,7 +77,7 @@ export default function ExercisesPage() {
         {filtered.map((e) => (
           <li key={e.id}>
             <button
-              onClick={() => navigate(`/exercises/${e.id}`)}
+              onClick={() => navigate(`/exercises/${e.id}`, { viewTransition: true })}
               className="touch-feedback flex w-full items-center justify-between px-1 py-3 text-left"
             >
               <span>

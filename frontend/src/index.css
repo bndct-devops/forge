@@ -130,6 +130,19 @@
   animation: set-done 0.5s ease-out;
 }
 
+/* Route changes cross-fade via the View Transitions API (router navigations
+   opt in with viewTransition). Kept quick so it reads as polish, not lag. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.18s;
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
+}
+
 /* Bottom sheet enter/exit — transform is inline while open (drag + keyboard
    offsets); these classes define the closed pose and the transitions. */
 .sheet-backdrop {

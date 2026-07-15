@@ -65,7 +65,7 @@ export default function HistoryPage() {
                 {group.workouts.map((w, i) => (
                   <button
                     key={w.id}
-                    onClick={() => navigate(`/history/${w.id}`)}
+                    onClick={() => navigate(`/history/${w.id}`, { viewTransition: true })}
                     className="animate-card-appear touch-feedback rounded-xl border bg-card p-4 text-left"
                     style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
                   >

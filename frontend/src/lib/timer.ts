@@ -22,6 +22,7 @@ type Listener = () => void
 
 let state: TimerState | null = null
 let interval: ReturnType<typeof setInterval> | null = null
+let lastNaturalEnd = 0 // natural completion (not skip) — drives the "go!" state
 const listeners = new Set<Listener>()
 
 function load() {
@@ -70,6 +71,7 @@ function tick() {
   }
   if (state.endsAt <= Date.now()) {
     state = null
+    lastNaturalEnd = Date.now()
     persist()
     stopTicking()
     fireDone()
@@ -147,6 +149,9 @@ export const restTimer = {
   get(): { remaining: number; total: number } | null {
     if (!state) return null
     return { remaining: Math.max(0, (state.endsAt - Date.now()) / 1000), total: state.total }
+  },
+  lastNaturalEnd(): number {
+    return lastNaturalEnd
   },
   subscribe(listener: Listener): () => void {
     listeners.add(listener)

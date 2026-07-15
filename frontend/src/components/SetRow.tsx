@@ -66,7 +66,7 @@ export default function SetRow({
   }
 
   return (
-    <div className="relative overflow-hidden">
+    <div className="animate-card-appear relative overflow-hidden">
       {offset < 0 && (
         <button
           onClick={onDelete}

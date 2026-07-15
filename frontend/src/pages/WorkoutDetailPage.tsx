@@ -289,12 +289,12 @@ export default function WorkoutDetailPage() {
             onClick={async () => {
               setRepeatError('')
               if (activeWorkout) {
-                navigate('/workout')
+                navigate('/workout', { viewTransition: true })
                 return
               }
               try {
                 await start({ workoutId: workout.id })
-                navigate('/workout')
+                navigate('/workout', { viewTransition: true })
               } catch (e) {
                 setRepeatError(e instanceof Error ? e.message : 'Could not start workout')
               }

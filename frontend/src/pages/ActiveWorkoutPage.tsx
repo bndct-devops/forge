@@ -265,7 +265,7 @@ export default function ActiveWorkoutPage() {
             </button>
           </main>
 
-          <div className="safe-bottom shrink-0 px-3 pb-3">
+          <div className="safe-bottom shrink-0">
             <RestTimerBar />
           </div>
         </>
