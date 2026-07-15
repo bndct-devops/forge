@@ -5,3 +5,4 @@ python-jose[cryptography]>=3.3
 bcrypt>=4.2
 pydantic>=2.9
 python-multipart>=0.0.12
+pywebpush>=2.0

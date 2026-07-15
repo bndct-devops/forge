@@ -8,6 +8,7 @@ import Segmented from '../components/Segmented'
 import Sheet from '../components/Sheet'
 import { useAuth } from '../contexts/AuthContext'
 import { restLabel } from '../lib/format'
+import { disableRestPush, enableRestPush, pushEnabled, pushSupported } from '../lib/push'
 import { isTimerSoundEnabled, setTimerSoundEnabled } from '../lib/timer'
 import { applyTheme, getStoredTheme, THEMES, type ThemeId } from '../lib/theme'
 import type { User } from '../lib/types'
@@ -121,6 +122,12 @@ function ViewportDebug() {
   return <p className="tnum mt-1 text-center text-[10px] text-muted-foreground/60">{info}</p>
 }
 
+function cnPush(on: boolean): string {
+  return on
+    ? 'touch-feedback rounded-lg bg-accent-soft px-4 py-2 text-sm font-semibold text-primary'
+    : 'touch-feedback rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50'
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mt-6">
@@ -145,6 +152,8 @@ export default function SettingsPage() {
   const { user, logout, updateUser } = useAuth()
   const [theme, setTheme] = useState<ThemeId>(getStoredTheme())
   const [timerSound, setTimerSound] = useState(isTimerSoundEnabled())
+  const [restPush, setRestPush] = useState(pushEnabled())
+  const [pushBusy, setPushBusy] = useState(false)
   const [users, setUsers] = useState<User[]>([])
   const [addUserOpen, setAddUserOpen] = useState(false)
   const [passwordOpen, setPasswordOpen] = useState(false)
@@ -266,6 +275,7 @@ export default function SettingsPage() {
       </header>
 
       {message && <p className="mt-2 text-sm text-success">{message}</p>}
+      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
 
       <Section title="Appearance">
         <Row label="Theme">
@@ -303,6 +313,37 @@ export default function SettingsPage() {
             }}
             className="w-32"
           />
+        </Row>
+        <Row label="Rest alerts (lock screen)">
+          {pushSupported() ? (
+            <button
+              onClick={async () => {
+                setPushBusy(true)
+                setError('')
+                try {
+                  if (restPush) {
+                    await disableRestPush()
+                    setRestPush(false)
+                  } else {
+                    const result = await enableRestPush()
+                    if (result === 'enabled') setRestPush(true)
+                    else if (result === 'denied')
+                      setError('Notifications are blocked for Forge in system settings')
+                  }
+                } catch {
+                  setError('Could not set up push notifications')
+                } finally {
+                  setPushBusy(false)
+                }
+              }}
+              disabled={pushBusy}
+              className={cnPush(restPush)}
+            >
+              {pushBusy ? 'Working…' : restPush ? 'On' : 'Enable'}
+            </button>
+          ) : (
+            <span className="text-sm text-muted-foreground">Needs HTTPS</span>
+          )}
         </Row>
         <Row label="Default rest timer">
           <div className="flex items-center gap-2">

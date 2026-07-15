@@ -1,6 +1,7 @@
 /** Rest timer singleton — survives reloads via localStorage, ticks subscribers,
  *  and fires sound + vibration + notification when time is up. */
 import { useEffect, useState } from 'react'
+import { syncRestPush } from './push'
 
 const TIMER_KEY = 'forge_rest_timer'
 const SOUND_KEY = 'forge_timer_sound'
@@ -131,6 +132,7 @@ export const restTimer = {
     persist()
     ensureTicking()
     notify()
+    syncRestPush(state.endsAt) // lock-screen alert via server push (HTTPS only)
   },
   adjust(deltaSeconds: number) {
     if (!state) return
@@ -139,12 +141,14 @@ export const restTimer = {
     state = { endsAt: Date.now() + next * 1000, total: Math.max(state.total + deltaSeconds, next) }
     persist()
     notify()
+    syncRestPush(state.endsAt)
   },
   skip() {
     state = null
     persist()
     stopTicking()
     notify()
+    syncRestPush(null)
   },
   get(): { remaining: number; total: number } | null {
     if (!state) return null
