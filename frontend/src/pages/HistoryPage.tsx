@@ -1,6 +1,7 @@
 import { CalendarDays, Clock, Trophy, Weight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import EmptyState from '../components/EmptyState'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
 import { formatDuration, formatRelativeDate, formatVolume, parseUTC } from '../lib/format'
@@ -50,9 +51,9 @@ export default function HistoryPage() {
       </header>
 
       {workouts.length === 0 && !loading ? (
-        <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-          No workouts yet. Your finished workouts will show up here.
-        </div>
+        <EmptyState title="No workouts yet">
+          Your finished workouts will show up here.
+        </EmptyState>
       ) : (
         <div className="flex flex-col gap-4">
           {groupByMonth(workouts).map((group) => (

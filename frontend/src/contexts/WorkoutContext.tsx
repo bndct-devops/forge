@@ -7,7 +7,7 @@ interface WorkoutContextValue {
   workout: Workout | null
   loading: boolean
   refresh: () => Promise<void>
-  start: (routineId?: number) => Promise<Workout>
+  start: (from?: { routineId?: number; workoutId?: number }) => Promise<Workout>
   rename: (name: string) => Promise<void>
   updateNotes: (notes: string) => Promise<void>
   addExercise: (exerciseId: number) => Promise<void>
@@ -41,6 +41,15 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false))
   }, [refresh])
 
+  // Coming back to a suspended PWA: resync the active workout
+  useEffect(() => {
+    const onVisible = () => {
+      if (!document.hidden) refresh().catch(() => {})
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [refresh])
+
   // Replay offline-queued set updates whenever connectivity may have returned
   useEffect(() => {
     const tryFlush = () => {
@@ -58,10 +67,10 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     }
   }, [refresh])
 
-  const start = useCallback(async (routineId?: number) => {
+  const start = useCallback(async (from?: { routineId?: number; workoutId?: number }) => {
     const w = await api<Workout>('/workouts', {
       method: 'POST',
-      body: routineId != null ? { routine_id: routineId } : {},
+      body: { routine_id: from?.routineId ?? null, workout_id: from?.workoutId ?? null },
     })
     setWorkout(w)
     return w

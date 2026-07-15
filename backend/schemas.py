@@ -75,6 +75,7 @@ class RoutineIn(BaseModel):
 
 class WorkoutStart(BaseModel):
     routine_id: int | None = None
+    workout_id: int | None = None  # repeat a past workout's structure
     name: str | None = None
 
 

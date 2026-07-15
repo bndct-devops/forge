@@ -1,9 +1,10 @@
-import { Check, ChevronLeft, Clock, Pencil, Plus, Trash2, Trophy, Weight, X } from 'lucide-react'
+import { Check, ChevronLeft, Clock, Pencil, Plus, RotateCcw, Trash2, Trophy, Weight, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import ExercisePicker from '../components/ExercisePicker'
 import Sheet from '../components/Sheet'
 import { useAuth } from '../contexts/AuthContext'
+import { useWorkout } from '../contexts/WorkoutContext'
 import { api } from '../lib/api'
 import {
   formatDuration,
@@ -86,8 +87,10 @@ export default function WorkoutDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { workout: activeWorkout, start } = useWorkout()
   const [workout, setWorkout] = useState<Workout | null>(null)
   const [editing, setEditing] = useState(false)
+  const [repeatError, setRepeatError] = useState('')
   const [pickerOpen, setPickerOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -281,7 +284,32 @@ export default function WorkoutDetailPage() {
       </header>
 
       {!editing && (
-        <div className="mt-2 grid grid-cols-3 gap-2 md:max-w-md">
+        <>
+          <button
+            onClick={async () => {
+              setRepeatError('')
+              if (activeWorkout) {
+                navigate('/workout')
+                return
+              }
+              try {
+                await start({ workoutId: workout.id })
+                navigate('/workout')
+              } catch (e) {
+                setRepeatError(e instanceof Error ? e.message : 'Could not start workout')
+              }
+            }}
+            className="touch-feedback mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-soft py-3 font-semibold text-primary md:max-w-md"
+          >
+            <RotateCcw size={17} />
+            {activeWorkout ? 'Resume current workout' : 'Repeat this workout'}
+          </button>
+          {repeatError && <p className="mt-2 text-sm text-destructive">{repeatError}</p>}
+        </>
+      )}
+
+      {!editing && (
+        <div className="mt-3 grid grid-cols-3 gap-2 md:max-w-md">
           <div className="rounded-xl border bg-card p-3 text-center">
             <Clock size={16} className="mx-auto mb-1 text-muted-foreground" />
             <div className="tnum font-semibold">{formatDuration(workout.duration_seconds ?? 0)}</div>

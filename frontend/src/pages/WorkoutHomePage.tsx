@@ -1,6 +1,7 @@
-import { MoreVertical, Pencil, Play, Plus, Trash2 } from 'lucide-react'
+import { Copy, MoreVertical, Pencil, Play, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import EmptyState from '../components/EmptyState'
 import Sheet from '../components/Sheet'
 import { useWorkout } from '../contexts/WorkoutContext'
 import { api } from '../lib/api'
@@ -25,7 +26,7 @@ export default function WorkoutHomePage() {
       return
     }
     try {
-      await start(routineId)
+      await start(routineId != null ? { routineId } : undefined)
       navigate('/workout')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not start workout')
@@ -35,6 +36,22 @@ export default function WorkoutHomePage() {
   const deleteRoutine = async (routine: Routine) => {
     await api(`/routines/${routine.id}`, { method: 'DELETE' })
     setRoutines((rs) => rs.filter((r) => r.id !== routine.id))
+    setMenuRoutine(null)
+  }
+
+  const duplicateRoutine = async (routine: Routine) => {
+    const copy = await api<Routine>('/routines', {
+      method: 'POST',
+      body: {
+        name: `${routine.name} (copy)`,
+        exercises: routine.exercises.map((e) => ({
+          exercise_id: e.exercise_id,
+          set_count: e.set_count,
+          rest_seconds: e.rest_seconds,
+        })),
+      },
+    })
+    setRoutines((rs) => [...rs, copy])
     setMenuRoutine(null)
   }
 
@@ -64,9 +81,9 @@ export default function WorkoutHomePage() {
       </div>
 
       {routines.length === 0 ? (
-        <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-          No templates yet. Create one to start workouts with a single tap.
-        </div>
+        <EmptyState title="No templates yet">
+          Create one to start workouts with a single tap.
+        </EmptyState>
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {routines.map((routine, i) => (
@@ -118,6 +135,12 @@ export default function WorkoutHomePage() {
               className="touch-feedback flex items-center gap-3 rounded-lg px-3 py-3 text-left font-medium hover:bg-secondary"
             >
               <Pencil size={18} /> Edit template
+            </button>
+            <button
+              onClick={() => duplicateRoutine(menuRoutine)}
+              className="touch-feedback flex items-center gap-3 rounded-lg px-3 py-3 text-left font-medium hover:bg-secondary"
+            >
+              <Copy size={18} /> Duplicate template
             </button>
             <button
               onClick={() => deleteRoutine(menuRoutine)}

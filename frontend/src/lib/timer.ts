@@ -3,6 +3,15 @@
 import { useEffect, useState } from 'react'
 
 const TIMER_KEY = 'forge_rest_timer'
+const SOUND_KEY = 'forge_timer_sound'
+
+export function isTimerSoundEnabled(): boolean {
+  return localStorage.getItem(SOUND_KEY) !== 'off'
+}
+
+export function setTimerSoundEnabled(on: boolean) {
+  localStorage.setItem(SOUND_KEY, on ? 'on' : 'off')
+}
 
 export interface TimerState {
   endsAt: number
@@ -85,6 +94,7 @@ function fireDone() {
 }
 
 function beep() {
+  if (!isTimerSoundEnabled()) return
   try {
     const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
     const ctx = new Ctx()

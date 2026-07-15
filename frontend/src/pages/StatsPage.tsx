@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import EmptyState from '../components/EmptyState'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
 import { formatShortDate, formatVolume } from '../lib/format'
@@ -92,9 +93,9 @@ export default function StatsPage() {
       </header>
 
       {stats.totals.workouts === 0 ? (
-        <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-          Finish your first workout and your training stats will grow here.
-        </div>
+        <EmptyState title="No training data yet">
+          Finish your first workout and your stats will grow here.
+        </EmptyState>
       ) : (
         <div className="flex flex-col gap-4">
           <div

@@ -140,6 +140,19 @@ def start_workout(
             )
             we.sets = [SetEntry(position=i) for i in range(re_.set_count)]
             exercises.append(we)
+    elif body.workout_id is not None:
+        source = db.get(Workout, body.workout_id)
+        if source is None or source.owner_id != user.id:
+            raise HTTPException(status_code=404, detail="Workout not found")
+        name = name or source.name
+        for src_we in source.exercises:
+            we = WorkoutExercise(
+                exercise_id=src_we.exercise_id,
+                position=src_we.position,
+                rest_seconds=src_we.rest_seconds,
+            )
+            we.sets = [SetEntry(position=i) for i in range(max(1, len(src_we.sets)))]
+            exercises.append(we)
 
     workout = Workout(owner_id=user.id, name=name or "Workout", started_at=utcnow())
     workout.exercises = exercises

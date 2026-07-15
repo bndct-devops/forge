@@ -1,6 +1,7 @@
 import { ChevronLeft, Pencil, Trash2, Trophy } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import EmptyState from '../components/EmptyState'
 import ExerciseForm, { type ExerciseFields } from '../components/ExerciseForm'
 import Sheet from '../components/Sheet'
 import {
@@ -120,8 +121,10 @@ export default function ExerciseDetailPage() {
       </header>
 
       {records.times_performed === 0 ? (
-        <div className="mt-4 rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-          No sets logged yet. Records and progress will appear once you train this exercise.
+        <div className="mt-4">
+          <EmptyState title="No sets logged yet">
+            Records and progress will appear once you train this exercise.
+          </EmptyState>
         </div>
       ) : (
         <>

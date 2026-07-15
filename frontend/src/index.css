@@ -130,6 +130,43 @@
   animation: set-done 0.5s ease-out;
 }
 
+/* Check button pop on set completion */
+@keyframes check-pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.28); }
+  100% { transform: scale(1); }
+}
+.animate-check-pop {
+  animation: check-pop 0.35s var(--spring);
+}
+
+/* Trophy entrance in the finish summary */
+@keyframes trophy-pop {
+  0% { transform: scale(0) rotate(-14deg); opacity: 0; }
+  70% { transform: scale(1.15) rotate(4deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+.animate-trophy-pop {
+  animation: trophy-pop 0.45s var(--spring) both;
+}
+
+/* Barbell empty-state animation — Forge's counterpart to Tome's floating book.
+   Stroke/fill inherit currentColor; the shadow breathes with the bob. */
+.bb-anim svg { width: 100%; height: 100%; overflow: visible; }
+.bb-anim .bb-bar { animation: bb-floaty 3.2s ease-in-out infinite; transform-origin: 32px 20px; }
+.bb-anim .bb-shadow { animation: bb-shadowpulse 3.2s ease-in-out infinite; transform-origin: 32px 36px; opacity: 0.25; }
+@keyframes bb-floaty {
+  0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+  50% { transform: translateY(-6px) rotate(1.5deg); }
+}
+@keyframes bb-shadowpulse {
+  0%, 100% { transform: scaleX(1); opacity: 0.25; }
+  50% { transform: scaleX(0.75); opacity: 0.12; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bb-anim .bb-bar, .bb-anim .bb-shadow { animation: none !important; }
+}
+
 /* Rest-timer finished pulse */
 @keyframes timer-pulse {
   0%, 100% { transform: scale(1); }

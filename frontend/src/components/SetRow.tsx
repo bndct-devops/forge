@@ -117,7 +117,9 @@ export default function SetRow({
           value={weight}
           onChange={(e) => setWeight(e.target.value)}
           onFocus={(e) => e.target.select()}
+          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           inputMode="decimal"
+          enterKeyHint="next"
           placeholder={
             fallbackWeight != null && fallbackWeight !== 0
               ? String(fallbackWeight)
@@ -131,7 +133,9 @@ export default function SetRow({
           value={reps}
           onChange={(e) => setReps(e.target.value)}
           onFocus={(e) => e.target.select()}
+          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           inputMode="numeric"
+          enterKeyHint="done"
           placeholder={fallbackReps != null ? String(fallbackReps) : 'reps'}
           className="tnum h-9 rounded-md border border-input bg-background px-1 text-center text-base font-medium outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-ring"
         />
@@ -144,6 +148,7 @@ export default function SetRow({
             set.is_completed
               ? 'border-success bg-success text-white'
               : 'border-input bg-secondary text-muted-foreground disabled:opacity-40',
+            justDone && 'animate-check-pop',
           )}
         >
           <Check size={18} strokeWidth={3} />

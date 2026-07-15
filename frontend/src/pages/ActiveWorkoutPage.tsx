@@ -1,7 +1,8 @@
-import { ChevronDown, CloudOff, Flag, GripVertical, MoreHorizontal, Plus, Timer, Trash2, Trophy, X } from 'lucide-react'
+import { Calculator, ChevronDown, CloudOff, Flag, GripVertical, MoreHorizontal, Plus, Timer, Trash2, Trophy, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ExercisePicker from '../components/ExercisePicker'
+import PlateCalculator from '../components/PlateCalculator'
 import RestTimerBar from '../components/RestTimerBar'
 import SetRow from '../components/SetRow'
 import Sheet from '../components/Sheet'
@@ -14,6 +15,15 @@ import { moveItem, useDragReorder } from '../lib/useDragReorder'
 import type { FinishResult, WorkoutExercise } from '../lib/types'
 
 const REST_OPTIONS = [0, 30, 45, 60, 90, 120, 150, 180, 240, 300]
+const BARBELL_EQUIPMENT = new Set(['Barbell', 'EZ Bar', 'Trap Bar'])
+
+/** Best plate-calc prefill: heaviest filled set, else heaviest previous ghost. */
+function plateWeightFor(we: WorkoutExercise): number | null {
+  const filled = we.sets.map((s) => s.weight ?? 0).filter((w) => w > 0)
+  if (filled.length) return Math.max(...filled)
+  const previous = we.previous_sets.map((s) => s.weight ?? 0).filter((w) => w > 0)
+  return previous.length ? Math.max(...previous) : null
+}
 
 function NameInput({ name, onCommit }: { name: string; onCommit: (name: string) => void }) {
   const [value, setValue] = useState(name)
@@ -63,6 +73,7 @@ export default function ActiveWorkoutPage() {
   } = useWorkout()
   const [pickerOpen, setPickerOpen] = useState(false)
   const [menuExercise, setMenuExercise] = useState<WorkoutExercise | null>(null)
+  const [plateExercise, setPlateExercise] = useState<WorkoutExercise | null>(null)
   const [workoutMenu, setWorkoutMenu] = useState(false)
   const [confirmFinish, setConfirmFinish] = useState(false)
   const [summary, setSummary] = useState<FinishResult | null>(null)
@@ -84,6 +95,17 @@ export default function ActiveWorkoutPage() {
     workout?.exercises.reduce((n, we) => n + we.sets.filter((s) => s.is_completed).length, 0) ?? 0
   const incompleteCount =
     workout?.exercises.reduce((n, we) => n + we.sets.filter((s) => !s.is_completed).length, 0) ?? 0
+  const liveVolume =
+    workout?.exercises.reduce(
+      (v, we) =>
+        v +
+        we.sets.reduce(
+          (sv, s) =>
+            s.is_completed && !s.is_warmup && s.reps != null ? sv + (s.weight ?? 0) * s.reps : sv,
+          0,
+        ),
+      0,
+    ) ?? 0
 
   const completeSet = async (we: WorkoutExercise, setId: number, weight: number, reps: number) => {
     await updateSet(setId, { weight, reps, is_completed: true })
@@ -126,6 +148,12 @@ export default function ActiveWorkoutPage() {
                 <NameInput name={workout.name} onCommit={rename} />
                 <span className="flex items-center gap-2">
                   <ElapsedClock startedAt={workout.started_at} />
+                  {completedCount > 0 && (
+                    <span className="tnum text-sm text-muted-foreground">
+                      · {completedCount} {completedCount === 1 ? 'set' : 'sets'} ·{' '}
+                      {formatVolume(liveVolume, user?.unit ?? 'kg')}
+                    </span>
+                  )}
                   {pendingSync > 0 && (
                     <span className="flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning">
                       <CloudOff size={12} /> {pendingSync} to sync
@@ -255,6 +283,17 @@ export default function ActiveWorkoutPage() {
       <Sheet open={menuExercise != null} onClose={() => setMenuExercise(null)} title={menuExercise?.name}>
         {menuExercise && (
           <div className="flex flex-col gap-3 pt-1">
+            {BARBELL_EQUIPMENT.has(menuExercise.equipment) && (
+              <button
+                onClick={() => {
+                  setPlateExercise(menuExercise)
+                  setMenuExercise(null)
+                }}
+                className="touch-feedback flex items-center gap-3 rounded-lg px-3 py-3 text-left font-medium hover:bg-secondary"
+              >
+                <Calculator size={18} /> Plate calculator
+              </button>
+            )}
             <label className="flex items-center justify-between gap-2 text-sm font-medium">
               Rest timer for this exercise
               <select
@@ -289,6 +328,14 @@ export default function ActiveWorkoutPage() {
         )}
       </Sheet>
 
+      <PlateCalculator
+        key={plateExercise?.id ?? 'closed'}
+        open={plateExercise != null}
+        onClose={() => setPlateExercise(null)}
+        initialWeight={plateExercise ? plateWeightFor(plateExercise) : null}
+        unit={user?.unit ?? 'kg'}
+      />
+
       <Sheet open={workoutMenu} onClose={() => setWorkoutMenu(false)} title="Workout options">
         <div className="flex flex-col gap-3 pt-1">
           <label className="flex flex-col gap-1.5 text-sm font-medium">
@@ -316,16 +363,32 @@ export default function ActiveWorkoutPage() {
       <Sheet open={confirmFinish} onClose={() => setConfirmFinish(false)} title="Finish workout?">
         <div className="flex flex-col gap-3 pt-1">
           <p className="text-sm text-muted-foreground">
-            {completedCount} completed {completedCount === 1 ? 'set' : 'sets'}
-            {incompleteCount > 0 && ` — ${incompleteCount} incomplete ${incompleteCount === 1 ? 'set' : 'sets'} will be discarded`}
-            .
+            {completedCount === 0
+              ? 'No completed sets yet — check off at least one set, or discard the workout.'
+              : `${completedCount} completed ${completedCount === 1 ? 'set' : 'sets'}${
+                  incompleteCount > 0
+                    ? ` — ${incompleteCount} incomplete ${incompleteCount === 1 ? 'set' : 'sets'} will be discarded`
+                    : ''
+                }.`}
           </p>
           <button
             onClick={doFinish}
-            className="touch-feedback flex h-12 items-center justify-center gap-2 rounded-xl bg-primary font-semibold text-primary-foreground"
+            disabled={completedCount === 0}
+            className="touch-feedback flex h-12 items-center justify-center gap-2 rounded-xl bg-primary font-semibold text-primary-foreground disabled:opacity-50"
           >
             <Flag size={18} /> Finish workout
           </button>
+          {completedCount === 0 && (
+            <button
+              onClick={() => {
+                setConfirmFinish(false)
+                doDiscard()
+              }}
+              className="touch-feedback flex h-12 items-center justify-center gap-2 rounded-xl bg-secondary font-semibold text-destructive"
+            >
+              <Trash2 size={18} /> Discard workout
+            </button>
+          )}
         </div>
       </Sheet>
 
@@ -361,7 +424,11 @@ export default function ActiveWorkoutPage() {
                 <div className="flex flex-col gap-1.5">
                   {summary.prs.map((pr, i) => (
                     <div key={i} className="flex items-center gap-2.5 rounded-lg bg-secondary px-3 py-2.5 text-sm">
-                      <Trophy size={16} className="shrink-0 text-record" />
+                      <Trophy
+                        size={16}
+                        className="animate-trophy-pop shrink-0 text-record"
+                        style={{ animationDelay: `${150 + i * 120}ms` }}
+                      />
                       <span className="min-w-0 flex-1 truncate font-medium">{pr.exercise_name}</span>
                       <span className="tnum text-muted-foreground">
                         {pr.kind === 'weight' && `${pr.value} ${user?.unit ?? 'kg'} × ${pr.reps}`}

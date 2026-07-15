@@ -7,6 +7,7 @@ import Segmented from '../components/Segmented'
 import Sheet from '../components/Sheet'
 import { useAuth } from '../contexts/AuthContext'
 import { restLabel } from '../lib/format'
+import { isTimerSoundEnabled, setTimerSoundEnabled } from '../lib/timer'
 import { applyTheme, getStoredTheme, THEMES, type ThemeId } from '../lib/theme'
 import type { User } from '../lib/types'
 
@@ -142,6 +143,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 export default function SettingsPage() {
   const { user, logout, updateUser } = useAuth()
   const [theme, setTheme] = useState<ThemeId>(getStoredTheme())
+  const [timerSound, setTimerSound] = useState(isTimerSoundEnabled())
   const [users, setUsers] = useState<User[]>([])
   const [addUserOpen, setAddUserOpen] = useState(false)
   const [passwordOpen, setPasswordOpen] = useState(false)
@@ -283,6 +285,20 @@ export default function SettingsPage() {
             ]}
             value={user.unit}
             onChange={(unit) => updateUser({ unit }).catch(() => {})}
+            className="w-32"
+          />
+        </Row>
+        <Row label="Timer sound">
+          <Segmented<'on' | 'off'>
+            options={[
+              { value: 'on', label: 'On' },
+              { value: 'off', label: 'Off' },
+            ]}
+            value={timerSound ? 'on' : 'off'}
+            onChange={(v) => {
+              setTimerSound(v === 'on')
+              setTimerSoundEnabled(v === 'on')
+            }}
             className="w-32"
           />
         </Row>
