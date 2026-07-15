@@ -120,14 +120,14 @@
   animation: card-appear 0.25s ease-out both;
 }
 
-/* Completed-set flash — quick success pulse when a set is checked off */
+/* Completed-set pulse — starts brighter than the resting tint and settles
+   exactly onto it, so the animation hands off to the bg class with no jump */
 @keyframes set-done {
-  0% { background-color: transparent; }
-  30% { background-color: var(--accent-soft); }
-  100% { background-color: transparent; }
+  from { background-color: color-mix(in oklch, var(--primary) 34%, transparent); }
+  to { background-color: var(--accent-soft); }
 }
 .animate-set-done {
-  animation: set-done 0.5s ease-out;
+  animation: set-done 0.6s ease-out;
 }
 
 /* Route changes cross-fade via the View Transitions API (router navigations

@@ -77,7 +77,7 @@ export default function SetRow({
       )}
       <div
         className={cn(
-          'relative grid grid-cols-[2rem_1fr_4.5rem_4rem_2.75rem] items-center gap-2 bg-card py-1.5 transition-transform',
+          'relative grid grid-cols-[2rem_1fr_4.5rem_4rem_2.75rem] items-center gap-2 bg-card py-1.5 transition-[transform,background-color] duration-300',
           set.is_completed && 'bg-accent-soft',
           justDone && 'animate-set-done',
         )}
