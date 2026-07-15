@@ -1,4 +1,4 @@
-import { Dumbbell, Flame, History, Settings, BicepsFlexed, Play, Timer, TrendingUp } from 'lucide-react'
+import { Dumbbell, Flame, History, LoaderCircle, Settings, BicepsFlexed, Play, Timer, TrendingUp } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useWorkout } from '../contexts/WorkoutContext'
 import { formatClock, parseUTC } from '../lib/format'
@@ -52,13 +52,32 @@ function ResumeBar({ className }: { className?: string }) {
 export default function AppShell() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
+  const { refresh } = useWorkout()
   const scrollRef = useRef<HTMLElement>(null)
   const edgeSwipe = useRef<{ x: number; y: number } | null>(null)
+  const pullArmed = useRef(false)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [refreshing, setRefreshing] = useState(false)
 
   // The document never scrolls, so reset the inner scroller on navigation
   useEffect(() => {
     scrollRef.current?.scrollTo(0, 0)
   }, [pathname])
+
+  // Pull-to-refresh: iOS rubber-bands the inner scroller into negative
+  // scrollTop — pull far enough and release to remount the page (refetch)
+  const onScroll = () => {
+    const el = scrollRef.current
+    if (el && el.scrollTop < -64) pullArmed.current = true
+  }
+  const onPullRelease = () => {
+    if (!pullArmed.current) return
+    pullArmed.current = false
+    setRefreshing(true)
+    refresh().catch(() => {})
+    setRefreshKey((k) => k + 1)
+    setTimeout(() => setRefreshing(false), 700)
+  }
 
   // iOS-style back gesture: swipe right from the left screen edge
   const onEdgeDown = (e: React.PointerEvent) => {
@@ -118,14 +137,26 @@ export default function AppShell() {
 
       {/* Content column: scrollable main + in-flow mobile tab bar */}
       <div
-        className="flex min-w-0 flex-1 flex-col"
+        className="relative flex min-w-0 flex-1 flex-col"
         onPointerDown={onEdgeDown}
         onPointerMove={onEdgeMove}
         onPointerUp={onEdgeEnd}
         onPointerCancel={onEdgeEnd}
       >
-        <main ref={scrollRef} className="overscroll-contain flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-lg pb-8 md:max-w-4xl md:px-6">
+        {refreshing && (
+          <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
+            <div className="rounded-full border bg-card p-2 shadow-lg">
+              <LoaderCircle size={20} className="animate-spin text-primary" />
+            </div>
+          </div>
+        )}
+        <main
+          ref={scrollRef}
+          onScroll={onScroll}
+          onTouchEnd={onPullRelease}
+          className="overscroll-contain flex-1 overflow-y-auto"
+        >
+          <div key={refreshKey} className="mx-auto w-full max-w-lg pb-8 md:max-w-4xl md:px-6">
             <Outlet />
           </div>
         </main>

@@ -99,7 +99,17 @@ export default function WorkoutHomePage() {
       return
     }
     try {
-      await start(routineId != null ? { routineId } : undefined)
+      // Empty workouts get named by time of day, Strong-style
+      const hour = new Date().getHours()
+      const autoName =
+        hour < 5 || hour >= 21
+          ? 'Night Workout'
+          : hour < 12
+            ? 'Morning Workout'
+            : hour < 17
+              ? 'Afternoon Workout'
+              : 'Evening Workout'
+      await start(routineId != null ? { routineId } : { name: autoName })
       navigate('/workout', { viewTransition: true })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not start workout')

@@ -8,7 +8,7 @@ interface WorkoutContextValue {
   workout: Workout | null
   loading: boolean
   refresh: () => Promise<void>
-  start: (from?: { routineId?: number; workoutId?: number }) => Promise<Workout>
+  start: (from?: { routineId?: number; workoutId?: number; name?: string }) => Promise<Workout>
   rename: (name: string) => Promise<void>
   updateNotes: (notes: string) => Promise<void>
   addExercise: (exerciseId: number) => Promise<void>
@@ -68,14 +68,21 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     }
   }, [refresh])
 
-  const start = useCallback(async (from?: { routineId?: number; workoutId?: number }) => {
-    const w = await api<Workout>('/workouts', {
-      method: 'POST',
-      body: { routine_id: from?.routineId ?? null, workout_id: from?.workoutId ?? null },
-    })
-    setWorkout(w)
-    return w
-  }, [])
+  const start = useCallback(
+    async (from?: { routineId?: number; workoutId?: number; name?: string }) => {
+      const w = await api<Workout>('/workouts', {
+        method: 'POST',
+        body: {
+          routine_id: from?.routineId ?? null,
+          workout_id: from?.workoutId ?? null,
+          name: from?.name ?? null,
+        },
+      })
+      setWorkout(w)
+      return w
+    },
+    [],
+  )
 
   const rename = useCallback(
     async (name: string) => {

@@ -2,6 +2,7 @@ import { ChevronLeft, GripVertical, Minus, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import ExercisePicker from '../components/ExercisePicker'
+import Skeleton from '../components/Skeleton'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
 import type { Exercise, Routine } from '../lib/types'
@@ -23,6 +24,7 @@ export default function RoutineEditorPage() {
   const { user } = useAuth()
   const editing = id != null
   const [name, setName] = useState('')
+  const [loadingRoutine, setLoadingRoutine] = useState(editing)
   const [exercises, setExercises] = useState<DraftExercise[]>([])
   const [pickerOpen, setPickerOpen] = useState(false)
   const [error, setError] = useState('')
@@ -46,8 +48,25 @@ export default function RoutineEditorPage() {
           )
         })
         .catch(() => navigate('/', { replace: true }))
+        .finally(() => setLoadingRoutine(false))
     }
   }, [editing, id, navigate])
+
+  if (loadingRoutine) {
+    return (
+      <div className="safe-top px-4 md:max-w-2xl">
+        <div className="flex items-center gap-2 pt-4 pb-4">
+          <Skeleton className="h-8 w-48" />
+        </div>
+        <Skeleton className="h-12 w-full" />
+        <div className="mt-5 flex flex-col gap-3">
+          {Array.from({ length: 3 }, (_, i) => (
+            <Skeleton key={i} className="h-24 rounded-xl" />
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   const addExercise = (exercise: Exercise) => {
     setExercises((xs) => [
