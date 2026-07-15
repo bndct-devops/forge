@@ -136,6 +136,21 @@ export default function ExerciseDetailPage() {
         )}
       </header>
 
+      <textarea
+        key={`note-${exercise.id}`}
+        defaultValue={stats.note}
+        onBlur={(e) => {
+          if (e.target.value !== stats.note) {
+            api(`/exercises/${exercise.id}/note`, { method: 'PUT', body: { text: e.target.value } })
+              .then((r) => setStats({ ...stats, note: (r as { text: string }).text }))
+              .catch(() => {})
+          }
+        }}
+        placeholder="Pinned note — seat height, cues, grip width. Shown during workouts."
+        rows={1}
+        className="mt-1 mb-2 w-full resize-none rounded-xl border border-input bg-card px-3.5 py-2.5 text-sm outline-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ring"
+      />
+
       {variations.length > 0 && (
         <div className="scrollbar-none -mx-1 flex gap-1.5 overflow-x-auto px-1 pt-1 pb-2">
           {variations.map((v) => (
@@ -276,6 +291,25 @@ export default function ExerciseDetailPage() {
               </ResponsiveContainer>
             </div>
           </section>
+
+          {records.best_1rm && (
+            <section className="mt-4 rounded-xl border bg-card p-4">
+              <h2 className="text-base">Training percentages</h2>
+              <p className="mt-0.5 mb-3 text-xs text-muted-foreground">
+                of your {records.best_1rm.value} {unit} estimated 1RM, rounded to 2.5
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                {[95, 90, 85, 80, 75, 70, 65, 60].map((pct) => (
+                  <div key={pct} className="rounded-lg bg-secondary px-2 py-1.5 text-center">
+                    <div className="text-xs text-muted-foreground">{pct}%</div>
+                    <div className="tnum text-sm font-semibold">
+                      {Math.round((records.best_1rm!.value * pct) / 100 / 2.5) * 2.5}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           <section className="mt-4 pb-8">
             <h2 className="mb-2 text-base">History</h2>

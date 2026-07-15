@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import Toaster from './components/Toaster'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { WorkoutProvider } from './contexts/WorkoutContext'
 import { api } from './lib/api'
@@ -46,6 +47,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <Toaster />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/setup" element={<SetupPage />} />

@@ -1,4 +1,4 @@
-import { Calculator, ChevronDown, CloudOff, Flag, GripVertical, MoreHorizontal, Plus, Timer, Trash2, Trophy, X } from 'lucide-react'
+import { Calculator, ChevronDown, CloudOff, Flag, GripVertical, MoreHorizontal, Plus, StickyNote, Timer, Trash2, Trophy, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ExercisePicker from '../components/ExercisePicker'
@@ -8,6 +8,8 @@ import SetRow from '../components/SetRow'
 import Sheet from '../components/Sheet'
 import { useAuth } from '../contexts/AuthContext'
 import { useWorkout } from '../contexts/WorkoutContext'
+import { api } from '../lib/api'
+import { toast } from '../lib/toast'
 import { formatClock, formatVolume, formatDuration, parseUTC, restLabel } from '../lib/format'
 import { useOutboxSize } from '../lib/outbox'
 import { restTimer } from '../lib/timer'
@@ -59,6 +61,7 @@ export default function ActiveWorkoutPage() {
   const {
     workout,
     loading,
+    refresh,
     rename,
     updateNotes,
     addExercise,
@@ -212,6 +215,13 @@ export default function ActiveWorkoutPage() {
                     </div>
                   </div>
 
+                  {we.note && (
+                    <p className="mt-1 flex items-start gap-1.5 text-xs text-muted-foreground">
+                      <StickyNote size={13} className="mt-0.5 shrink-0" />
+                      <span className="whitespace-pre-wrap">{we.note}</span>
+                    </p>
+                  )}
+
                   <div className="mt-2 grid grid-cols-[2rem_1fr_4.5rem_4rem_2.75rem] gap-2 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
                     <span className="text-center">Set</span>
                     <span className="text-center">Previous</span>
@@ -283,6 +293,23 @@ export default function ActiveWorkoutPage() {
       <Sheet open={menuExercise != null} onClose={() => setMenuExercise(null)} title={menuExercise?.name}>
         {menuExercise && (
           <div className="flex flex-col gap-3 pt-1">
+            <label className="flex flex-col gap-1.5 text-sm font-medium">
+              Exercise note
+              <textarea
+                defaultValue={menuExercise.note}
+                onBlur={(e) =>
+                  api(`/exercises/${menuExercise.exercise_id}/note`, {
+                    method: 'PUT',
+                    body: { text: e.target.value },
+                  })
+                    .then(() => refresh())
+                    .catch(() => toast('Could not save the note'))
+                }
+                placeholder="Seat height, cues, grip width — pinned to this exercise everywhere"
+                rows={2}
+                className="rounded-lg border border-input bg-card px-3 py-2 text-base outline-none focus:ring-2 focus:ring-ring"
+              />
+            </label>
             {BARBELL_EQUIPMENT.has(menuExercise.equipment) && (
               <button
                 onClick={() => {

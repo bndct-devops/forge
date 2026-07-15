@@ -4,7 +4,9 @@ from sqlalchemy.orm import Session
 
 from backend.core.database import get_db
 from backend.core.security import get_current_user
-from backend.models import Exercise, User, Workout, WorkoutExercise
+from pydantic import BaseModel, Field
+
+from backend.models import Exercise, ExerciseNote, User, Workout, WorkoutExercise
 from backend.schemas import ExerciseCreate, ExerciseOut, RecategorizeIn
 from backend.serializers import completed_sets_query, epley_1rm
 
@@ -97,6 +99,40 @@ def recategorize(
             updated += 1
     db.commit()
     return {"updated": updated}
+
+
+class NoteIn(BaseModel):
+    text: str = Field(max_length=2000)
+
+
+@router.put("/{exercise_id}/note")
+def put_note(
+    exercise_id: int,
+    body: NoteIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    exercise = db.execute(
+        select(Exercise).where(Exercise.id == exercise_id, _visible(user.id))
+    ).scalar_one_or_none()
+    if exercise is None:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+    note = db.execute(
+        select(ExerciseNote).where(
+            ExerciseNote.user_id == user.id, ExerciseNote.exercise_id == exercise_id
+        )
+    ).scalar_one_or_none()
+    text = body.text.strip()
+    if not text:
+        if note is not None:
+            db.delete(note)
+    elif note is None:
+        db.add(ExerciseNote(user_id=user.id, exercise_id=exercise_id, text=text))
+    else:
+        note.text = text
+        db.add(note)
+    db.commit()
+    return {"text": text}
 
 
 @router.get("/{exercise_id}/stats")
@@ -201,6 +237,12 @@ def exercise_stats(
         ).scalars()
     ]
 
+    note = db.execute(
+        select(ExerciseNote.text).where(
+            ExerciseNote.user_id == user.id, ExerciseNote.exercise_id == exercise_id
+        )
+    ).scalar_one_or_none()
+
     return {
         "exercise": {
             "id": exercise.id,
@@ -211,6 +253,7 @@ def exercise_stats(
             "variant_of_id": exercise.variant_of_id,
             "is_custom": exercise.owner_id is not None,
         },
+        "note": note or "",
         "variations": variations,
         "records": {
             "best_weight": best_weight,

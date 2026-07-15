@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { api } from '../lib/api'
 import { isNetworkError, outbox } from '../lib/outbox'
+import { toast } from '../lib/toast'
 import type { FinishResult, SetEntry, Workout } from '../lib/types'
 
 interface WorkoutContextValue {
@@ -192,6 +193,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
           outbox.add(setId, patch)
           return optimistic
         }
+        toast('Could not save the set — try again')
         throw e
       }
     },

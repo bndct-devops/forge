@@ -1,10 +1,12 @@
 from backend.models.exercise import Exercise
+from backend.models.exercise_note import ExerciseNote
 from backend.models.routine import Routine, RoutineExercise
 from backend.models.user import User
 from backend.models.workout import SetEntry, Workout, WorkoutExercise
 
 __all__ = [
     "Exercise",
+    "ExerciseNote",
     "Routine",
     "RoutineExercise",
     "SetEntry",

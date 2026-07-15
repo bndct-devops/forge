@@ -62,6 +62,7 @@ export interface WorkoutExercise {
   name: string
   muscle_group: string
   equipment: string
+  note: string
   position: number
   rest_seconds: number | null
   sets: SetEntry[]
@@ -118,6 +119,7 @@ export interface RecordSet {
 
 export interface ExerciseStats {
   exercise: Exercise
+  note: string
   variations: { id: number; name: string; grip: string | null }[]
   records: {
     best_weight: RecordSet | null

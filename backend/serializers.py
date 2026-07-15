@@ -2,7 +2,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backend.models import Exercise, SetEntry, Workout, WorkoutExercise
+from backend.models import Exercise, ExerciseNote, SetEntry, Workout, WorkoutExercise
 
 
 def epley_1rm(weight: float, reps: int) -> float:
@@ -82,6 +82,15 @@ def historical_bests(db: Session, user_id: int, exercise_id: int, exclude_workou
 
 
 def serialize_workout(db: Session, workout: Workout, with_previous: bool = True) -> dict:
+    notes = {
+        n.exercise_id: n.text
+        for n in db.execute(
+            select(ExerciseNote).where(
+                ExerciseNote.user_id == workout.owner_id,
+                ExerciseNote.exercise_id.in_([we.exercise_id for we in workout.exercises]),
+            )
+        ).scalars()
+    }
     exercises = []
     for we in workout.exercises:
         exercise = db.get(Exercise, we.exercise_id)
@@ -92,6 +101,7 @@ def serialize_workout(db: Session, workout: Workout, with_previous: bool = True)
                 "name": exercise.name if exercise else "Unknown",
                 "muscle_group": exercise.muscle_group if exercise else "",
                 "equipment": exercise.equipment if exercise else "",
+                "note": notes.get(we.exercise_id, ""),
                 "position": we.position,
                 "rest_seconds": we.rest_seconds,
                 "sets": [
