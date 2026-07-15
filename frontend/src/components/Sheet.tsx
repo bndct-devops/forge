@@ -1,5 +1,5 @@
 import { X } from 'lucide-react'
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { cn } from '../lib/utils'
 
 interface SheetProps {
@@ -10,17 +10,37 @@ interface SheetProps {
   full?: boolean
 }
 
-/** Bottom sheet — the mobile-native modal surface. */
+/** iOS keyboards overlay the layout viewport instead of resizing it — track the
+ *  visual viewport so the sheet can lift and shrink above the keyboard. */
+function useKeyboardInset(active: boolean): number {
+  const [inset, setInset] = useState(0)
+  useEffect(() => {
+    if (!active) return
+    const vv = window.visualViewport
+    if (!vv) return
+    const update = () =>
+      setInset(Math.max(0, window.innerHeight - vv.height - vv.offsetTop))
+    update()
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+      setInset(0)
+    }
+  }, [active])
+  return inset
+}
+
+/** Bottom sheet on mobile, centered dialog on md+. */
 export default function Sheet({ open, onClose, title, children, full }: SheetProps) {
+  const keyboardInset = useKeyboardInset(open)
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', onKey)
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = ''
-    }
+    return () => document.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
   if (!open) return null
@@ -33,7 +53,14 @@ export default function Sheet({ open, onClose, title, children, full }: SheetPro
           'animate-in slide-in-from-bottom md:fade-in md:zoom-in-95 md:slide-in-from-bottom-0 relative flex w-full max-w-lg flex-col rounded-t-2xl bg-popover shadow-2xl duration-300 md:rounded-2xl md:border md:duration-200',
           full ? 'h-[92dvh] md:h-[80dvh]' : 'max-h-[85dvh] md:max-h-[80dvh]',
         )}
-        style={{ animationTimingFunction: 'var(--spring)' }}
+        style={{
+          animationTimingFunction: 'var(--spring)',
+          ...(keyboardInset > 0 && {
+            transform: `translateY(-${keyboardInset}px)`,
+            height: full ? `calc(92dvh - ${keyboardInset}px)` : undefined,
+            maxHeight: `calc(92dvh - ${keyboardInset}px)`,
+          }),
+        }}
       >
         <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-muted-foreground/30 md:hidden" />
         <div className="flex items-center justify-between px-5 pt-3 pb-1">

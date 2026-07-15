@@ -101,10 +101,10 @@ export default function ActiveWorkoutPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-lg flex-col md:max-w-2xl">
+    <div className="mx-auto flex h-full max-w-lg flex-col md:max-w-2xl">
       {workout && (
         <>
-          <header className="safe-top sticky top-0 z-30 border-b bg-background/90 backdrop-blur-lg">
+          <header className="safe-top shrink-0 border-b bg-background">
             <div className="flex items-center gap-2 px-4 py-3">
               <button
                 onClick={() => navigate('/')}
@@ -133,7 +133,7 @@ export default function ActiveWorkoutPage() {
             </div>
           </header>
 
-          <main className="flex-1 px-4 pt-4 pb-44">
+          <main className="overscroll-contain flex-1 overflow-y-auto px-4 pt-4 pb-8">
             {error && <p className="mb-3 text-sm text-destructive">{error}</p>}
             <div className="flex flex-col gap-4">
               {workout.exercises.map((we) => (
@@ -206,10 +206,8 @@ export default function ActiveWorkoutPage() {
             </button>
           </main>
 
-          <div className="safe-bottom fixed inset-x-0 bottom-0 z-40">
-            <div className="mx-auto max-w-lg px-3 pb-3 md:max-w-2xl">
-              <RestTimerBar />
-            </div>
+          <div className="safe-bottom shrink-0 px-3 pb-3">
+            <RestTimerBar />
           </div>
         </>
       )}

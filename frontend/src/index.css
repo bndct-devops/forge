@@ -179,16 +179,21 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 input[type="number"] { -moz-appearance: textfield; }
 
-html, body {
+/* App-frame layout: the document never scrolls — pages scroll inside their own
+   containers. This sidesteps iOS's fixed-position-vs-layout-viewport bugs
+   (black bar under the tab bar on PWA launch, bars left floating after the
+   keyboard closes). */
+html, body, #root {
   height: 100%;
 }
 
 body {
+  overflow: hidden;
   background-color: var(--background);
   color: var(--foreground);
   font-family: 'Onest', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
-  overscroll-behavior-y: none;
+  overscroll-behavior: none;
 }
 
 /* Display face — characterful grotesque for headings and page titles.

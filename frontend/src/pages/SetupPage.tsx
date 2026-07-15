@@ -40,7 +40,7 @@ export default function SetupPage() {
   }
 
   return (
-    <div className="safe-top safe-bottom flex min-h-dvh items-center justify-center px-6">
+    <div className="safe-top safe-bottom overscroll-contain flex h-full items-center justify-center overflow-y-auto px-6">
       <form onSubmit={submit} className="animate-card-appear w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground">

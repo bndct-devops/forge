@@ -29,7 +29,7 @@ function Protected({ children }: { children: ReactNode }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-dvh items-center justify-center text-muted-foreground">
+      <div className="flex h-full items-center justify-center text-muted-foreground">
         Loading…
       </div>
     )

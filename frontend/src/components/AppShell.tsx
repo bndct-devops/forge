@@ -1,9 +1,9 @@
 import { Dumbbell, Flame, History, Settings, BicepsFlexed, Play } from 'lucide-react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useWorkout } from '../contexts/WorkoutContext'
 import { formatClock, parseUTC } from '../lib/format'
 import { cn } from '../lib/utils'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const TABS = [
   { to: '/', label: 'Workout', icon: Dumbbell },
@@ -42,10 +42,18 @@ function ResumeBar({ className }: { className?: string }) {
 }
 
 export default function AppShell() {
+  const { pathname } = useLocation()
+  const scrollRef = useRef<HTMLElement>(null)
+
+  // The document never scrolls, so reset the inner scroller on navigation
+  useEffect(() => {
+    scrollRef.current?.scrollTo(0, 0)
+  }, [pathname])
+
   return (
-    <div className="min-h-dvh">
+    <div className="flex h-full">
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r bg-card px-3 py-5 md:flex">
+      <aside className="hidden w-60 shrink-0 flex-col border-r bg-card px-3 py-5 md:flex">
         <div className="mb-6 flex items-center gap-2.5 px-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <Flame size={20} />
@@ -77,18 +85,16 @@ export default function AppShell() {
         </div>
       </aside>
 
-      {/* Content */}
-      <main className="pb-36 md:pb-12 md:pl-60">
-        <div className="mx-auto w-full max-w-lg md:max-w-4xl md:px-6">
-          <Outlet />
-        </div>
-      </main>
-
-      {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 md:hidden">
-        <div className="mx-auto max-w-lg">
+      {/* Content column: scrollable main + in-flow mobile tab bar */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <main ref={scrollRef} className="overscroll-contain flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-lg pb-8 md:max-w-4xl md:px-6">
+            <Outlet />
+          </div>
+        </main>
+        <div className="shrink-0 md:hidden">
           <ResumeBar className="mx-3 mb-2 flex w-[calc(100%-1.5rem)]" />
-          <div className="safe-bottom border-t bg-card/90 backdrop-blur-lg">
+          <nav className="safe-bottom border-t bg-card">
             <div className="grid grid-cols-4">
               {TABS.map(({ to, label, icon: Icon }) => (
                 <NavLink
@@ -107,9 +113,9 @@ export default function AppShell() {
                 </NavLink>
               ))}
             </div>
-          </div>
+          </nav>
         </div>
-      </nav>
+      </div>
     </div>
   )
 }
