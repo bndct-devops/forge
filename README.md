@@ -8,23 +8,42 @@ your own server. No cardio, by design.
 Sibling app to [Tome](../tome): same design language (warm paper / charcoal
 surfaces, OKLCH tokens, Onest + Bricolage Grotesque), its own ember accent.
 
+| Workout | Live logging | Stats |
+|---|---|---|
+| ![Home](docs/screenshots/home.png) | ![Active workout](docs/screenshots/workout.png) | ![Stats](docs/screenshots/stats.png) |
+
+| Progress | History |
+|---|---|
+| ![Exercise detail](docs/screenshots/exercise.png) | ![History](docs/screenshots/history.png) |
+
+![Desktop](docs/screenshots/desktop.png)
+
 ## Features
 
-- **Workout logging** — start empty or from a template; per-set weight × reps
-  with the previous workout's numbers as tap-to-accept ghosts; swipe a set to
-  delete it
+- **Workout logging** — start empty, from a template, or repeat a past workout;
+  per-set weight × reps with the previous workout's numbers as tap-to-accept
+  ghosts; warm-up sets (excluded from PRs and volume); bodyweight exercises
+  complete on reps alone; swipe a set to delete; drag to reorder exercises
 - **Rest timer** — starts automatically when you check off a set, per-exercise
-  override or account default, ±15s / skip, sound + vibration + notification
-  when time's up; survives reloads
-- **Templates (routines)** — exercises with target set counts and rest times
-- **History** — every finished workout with duration, volume, and PRs
+  override or account default, ±15s / skip, sound (toggleable) + vibration;
+  survives reloads and follows you across tabs
+- **Offline-tolerant** — set logging applies instantly and queues through gym
+  dead zones, syncing when the connection returns
+- **Templates (routines)** — target set counts and rest times, duplicate, drag
+  to reorder
+- **History** — every workout with duration, volume, and PRs; fully editable
+  after the fact (sets, exercises, date — PRs recompute chronologically)
 - **Records & progress** — per-exercise best weight, estimated 1RM (Epley),
-  best set volume, and charts of 1RM / weight / volume over time
-- **Exercise library** — ~90 seeded weight exercises + custom ones per user
+  best set volume, rep records, and charts over time
+- **Stats** — weekly streak, training calendar, weekly volume, muscle split
+- **Plate calculator** — per-side plate breakdown for barbell work
+- **Strong import / CSV export** — bring your full history over; never locked in
+- **Exercise library** — ~90 seeded weight exercises, custom exercises, bulk
+  re-categorization for imports
 - **Multi-user** — first-run setup creates the admin; admins manage users in
   Settings; JWT auth
-- **PWA** — installable on the phone home screen, standalone display, dark
-  (default), light, and true-black OLED themes
+- **PWA** — installable, launch splash screens, dark (default) / light /
+  true-black OLED themes, drag-dismissable sheets, edge-swipe back
 
 ## Self-hosting
 
