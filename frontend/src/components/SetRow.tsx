@@ -79,7 +79,6 @@ export default function SetRow({
         className={cn(
           'relative grid grid-cols-[2rem_1fr_4.5rem_4rem_2.75rem] items-center gap-2 bg-card py-1.5 transition-[transform,background-color] duration-300',
           set.is_completed && 'bg-accent-soft',
-          justDone && 'animate-set-done',
         )}
         style={{ transform: `translateX(${offset}px)` }}
         onTouchStart={(e) => {
@@ -95,6 +94,9 @@ export default function SetRow({
           touchStart.current = null
         }}
       >
+        {justDone && (
+          <div className="animate-set-flash pointer-events-none absolute inset-0 bg-primary" />
+        )}
         <button
           onClick={onToggleWarmup}
           aria-label={set.is_warmup ? 'Make working set' : 'Make warm-up set'}

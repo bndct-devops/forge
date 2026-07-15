@@ -120,14 +120,16 @@
   animation: card-appear 0.25s ease-out both;
 }
 
-/* Completed-set pulse — starts brighter than the resting tint and settles
-   exactly onto it, so the animation hands off to the bg class with no jump */
-@keyframes set-done {
-  from { background-color: color-mix(in oklch, var(--primary) 34%, transparent); }
-  to { background-color: var(--accent-soft); }
+/* Completed-set flash — an overlay that fades out ON TOP of the row, so the
+   row's own background (class + transition) is never animated. Animating the
+   same property from both an animation and a transition made Safari replay
+   the transition after the animation ended (the "double fade"). */
+@keyframes set-flash {
+  from { opacity: 0.22; }
+  to { opacity: 0; }
 }
-.animate-set-done {
-  animation: set-done 0.6s ease-out;
+.animate-set-flash {
+  animation: set-flash 0.5s ease-out both;
 }
 
 /* Route changes cross-fade via the View Transitions API (router navigations
@@ -292,8 +294,11 @@ h1, h2, h3, .font-display {
 
 @media (prefers-reduced-motion: reduce) {
   .animate-card-appear,
-  .animate-set-done,
   .animate-timer-pulse {
     animation: none !important;
+  }
+  .animate-set-flash {
+    animation: none !important;
+    opacity: 0;
   }
 }
