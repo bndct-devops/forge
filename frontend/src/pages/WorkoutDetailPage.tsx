@@ -7,6 +7,7 @@ import { api } from '../lib/api'
 import {
   formatDuration,
   formatRelativeDate,
+  formatSetWeight,
   formatTime,
   formatVolume,
 } from '../lib/format'
@@ -73,6 +74,12 @@ export default function WorkoutDetailPage() {
         </div>
       </div>
 
+      {workout.notes && (
+        <p className="mt-3 rounded-xl border bg-card p-3.5 text-sm whitespace-pre-wrap text-muted-foreground">
+          {workout.notes}
+        </p>
+      )}
+
       <div className="mt-4 grid gap-3 pb-8 md:grid-cols-2 md:items-start">
         {workout.exercises.map((we) => (
           <section key={we.id} className="animate-card-appear rounded-xl border bg-card p-4">
@@ -83,10 +90,10 @@ export default function WorkoutDetailPage() {
               {we.sets.map((set) => (
                 <div key={set.id} className="flex items-center gap-3 text-sm">
                   <span className="tnum w-5 text-center font-semibold text-muted-foreground">
-                    {set.position + 1}
+                    {set.is_warmup ? <span className="text-warning">W</span> : set.position + 1}
                   </span>
                   <span className="tnum">
-                    {set.weight} {unit} × {set.reps}
+                    {formatSetWeight(set.weight, unit)} × {set.reps}
                   </span>
                   {set.is_pr && <Trophy size={14} className="text-record" />}
                 </div>

@@ -15,14 +15,15 @@ import {
 import Segmented from '../components/Segmented'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
-import { formatRelativeDate, formatShortDate, formatVolume } from '../lib/format'
+import { formatRelativeDate, formatSetWeight, formatShortDate, formatVolume } from '../lib/format'
 import type { ExerciseStats } from '../lib/types'
 
-type Metric = 'best_1rm' | 'best_weight' | 'volume'
+type Metric = 'best_1rm' | 'best_weight' | 'best_reps' | 'volume'
 
 const METRIC_LABEL: Record<Metric, string> = {
   best_1rm: 'Est. 1RM',
   best_weight: 'Best weight',
+  best_reps: 'Most reps',
   volume: 'Volume',
 }
 
@@ -46,7 +47,11 @@ export default function ExerciseDetailPage() {
 
   useEffect(() => {
     api<ExerciseStats>(`/exercises/${id}/stats`)
-      .then(setStats)
+      .then((s) => {
+        setStats(s)
+        // Unloaded bodyweight work has no meaningful 1RM — chart reps instead
+        if (s.records.best_1rm == null && s.records.best_reps != null) setMetric('best_reps')
+      })
       .catch(() => navigate('/exercises', { replace: true }))
   }, [id, navigate])
 
@@ -111,6 +116,9 @@ export default function ExerciseDetailPage() {
                   : undefined
               }
             />
+            {records.best_reps && (
+              <StatTile label="Most reps (BW)" value={`${records.best_reps.reps} reps`} />
+            )}
             <StatTile label="Workouts" value={String(records.times_performed)} />
           </div>
 
@@ -119,11 +127,19 @@ export default function ExerciseDetailPage() {
               <h2 className="text-base">{METRIC_LABEL[metric]}</h2>
             </div>
             <Segmented<Metric>
-              options={[
-                { value: 'best_1rm', label: '1RM' },
-                { value: 'best_weight', label: 'Weight' },
-                { value: 'volume', label: 'Volume' },
-              ]}
+              options={
+                exercise.equipment === 'Bodyweight'
+                  ? [
+                      { value: 'best_reps', label: 'Reps' },
+                      { value: 'best_weight', label: 'Weight' },
+                      { value: 'volume', label: 'Volume' },
+                    ]
+                  : [
+                      { value: 'best_1rm', label: '1RM' },
+                      { value: 'best_weight', label: 'Weight' },
+                      { value: 'volume', label: 'Volume' },
+                    ]
+              }
               value={metric}
               onChange={setMetric}
               className="mb-4"
@@ -176,7 +192,10 @@ export default function ExerciseDetailPage() {
                     <Tooltip
                       cursor={{ stroke: 'var(--muted-foreground)', strokeDasharray: '3 3' }}
                       contentStyle={tooltipStyle}
-                      formatter={(value) => [`${value} ${unit}`, METRIC_LABEL[metric]]}
+                      formatter={(value) => [
+                        metric === 'best_reps' ? `${value} reps` : `${value} ${unit}`,
+                        METRIC_LABEL[metric],
+                      ]}
                     />
                     <Line
                       type="monotone"
@@ -210,7 +229,7 @@ export default function ExerciseDetailPage() {
                       <div key={i} className="tnum flex items-center gap-2 text-sm text-muted-foreground">
                         <span className="w-4 text-center font-semibold">{i + 1}</span>
                         <span>
-                          {s.weight} {unit} × {s.reps}
+                          {formatSetWeight(s.weight, unit)} × {s.reps}
                         </span>
                         {s.is_pr && <Trophy size={13} className="text-record" />}
                       </div>

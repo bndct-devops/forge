@@ -95,6 +95,7 @@ class SetUpdate(BaseModel):
     weight: float | None = Field(default=None, ge=0)
     reps: int | None = Field(default=None, ge=0)
     is_completed: bool | None = None
+    is_warmup: bool | None = None
 
 
 class PastSet(BaseModel):
@@ -109,6 +110,7 @@ class SetOut(BaseModel):
     weight: float | None
     reps: int | None
     is_completed: bool
+    is_warmup: bool
     is_pr: bool
 
     model_config = {"from_attributes": True}

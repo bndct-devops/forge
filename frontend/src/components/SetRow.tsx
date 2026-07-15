@@ -1,5 +1,6 @@
 import { Check, Trophy } from 'lucide-react'
 import { useRef, useState } from 'react'
+import { formatSetWeight } from '../lib/format'
 import type { PastSet, SetEntry } from '../lib/types'
 import { cn } from '../lib/utils'
 
@@ -7,8 +8,11 @@ interface SetRowProps {
   set: SetEntry
   previous: PastSet | undefined
   unit: string
+  /** Bodyweight exercises complete on reps alone; empty weight logs as BW (0). */
+  bodyweight: boolean
   onComplete: (weight: number, reps: number) => void
   onUncomplete: () => void
+  onToggleWarmup: () => void
   onDelete: () => void
 }
 
@@ -18,15 +22,25 @@ function parseNum(value: string): number | null {
 }
 
 /** One set line: number | previous ghost | weight | reps | check.
- *  Swipe left to reveal delete (native-style), matching Strong's gesture. */
-export default function SetRow({ set, previous, unit, onComplete, onUncomplete, onDelete }: SetRowProps) {
-  const [weight, setWeight] = useState(set.weight != null ? String(set.weight) : '')
+ *  Tap the set number to mark it a warm-up (excluded from PRs and volume).
+ *  Swipe left to reveal delete, matching Strong's gesture. */
+export default function SetRow({
+  set,
+  previous,
+  unit,
+  bodyweight,
+  onComplete,
+  onUncomplete,
+  onToggleWarmup,
+  onDelete,
+}: SetRowProps) {
+  const [weight, setWeight] = useState(set.weight != null && set.weight !== 0 ? String(set.weight) : '')
   const [reps, setReps] = useState(set.reps != null ? String(set.reps) : '')
   const [offset, setOffset] = useState(0)
   const [justDone, setJustDone] = useState(false)
   const touchStart = useRef<number | null>(null)
 
-  const fallbackWeight = previous?.weight ?? null
+  const fallbackWeight = previous?.weight ?? (bodyweight ? 0 : null)
   const fallbackReps = previous?.reps ?? null
   const effectiveWeight = weight !== '' ? parseNum(weight) : fallbackWeight
   const effectiveReps = reps !== '' ? parseNum(reps) : fallbackReps
@@ -38,7 +52,9 @@ export default function SetRow({ set, previous, unit, onComplete, onUncomplete, 
       return
     }
     if (!canComplete) return
-    if (weight === '' && fallbackWeight != null) setWeight(String(fallbackWeight))
+    if (weight === '' && fallbackWeight != null && fallbackWeight !== 0) {
+      setWeight(String(fallbackWeight))
+    }
     if (reps === '' && fallbackReps != null) setReps(String(fallbackReps))
     setJustDone(true)
     setTimeout(() => setJustDone(false), 600)
@@ -75,12 +91,22 @@ export default function SetRow({ set, previous, unit, onComplete, onUncomplete, 
           touchStart.current = null
         }}
       >
-        <span className="tnum text-center text-sm font-semibold text-muted-foreground">
-          {set.is_pr ? <Trophy size={15} className="mx-auto text-record" /> : set.position + 1}
-        </span>
+        <button
+          onClick={onToggleWarmup}
+          aria-label={set.is_warmup ? 'Make working set' : 'Make warm-up set'}
+          className="touch-feedback tnum rounded-md py-1 text-center text-sm font-semibold text-muted-foreground"
+        >
+          {set.is_pr ? (
+            <Trophy size={15} className="mx-auto text-record" />
+          ) : set.is_warmup ? (
+            <span className="text-warning">W</span>
+          ) : (
+            set.position + 1
+          )}
+        </button>
         <span className="tnum truncate text-center text-sm text-muted-foreground">
-          {previous && previous.weight != null
-            ? `${previous.weight} ${unit} × ${previous.reps}`
+          {previous && previous.reps != null
+            ? `${formatSetWeight(previous.weight, unit)} × ${previous.reps}`
             : '—'}
         </span>
         <input
@@ -88,7 +114,13 @@ export default function SetRow({ set, previous, unit, onComplete, onUncomplete, 
           onChange={(e) => setWeight(e.target.value)}
           onFocus={(e) => e.target.select()}
           inputMode="decimal"
-          placeholder={fallbackWeight != null ? String(fallbackWeight) : unit}
+          placeholder={
+            fallbackWeight != null && fallbackWeight !== 0
+              ? String(fallbackWeight)
+              : bodyweight
+                ? 'BW'
+                : unit
+          }
           className="tnum h-9 rounded-md border border-input bg-background px-1 text-center text-base font-medium outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-ring"
         />
         <input

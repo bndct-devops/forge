@@ -48,6 +48,7 @@ export default function ActiveWorkoutPage() {
     workout,
     loading,
     rename,
+    updateNotes,
     addExercise,
     removeExercise,
     setExerciseRest,
@@ -171,8 +172,10 @@ export default function ActiveWorkoutPage() {
                         set={set}
                         previous={we.previous_sets[set.position]}
                         unit={user?.unit ?? 'kg'}
+                        bodyweight={we.equipment === 'Bodyweight'}
                         onComplete={(weight, reps) => completeSet(we, set.id, weight, reps)}
                         onUncomplete={() => updateSet(set.id, { is_completed: false })}
+                        onToggleWarmup={() => updateSet(set.id, { is_warmup: !set.is_warmup })}
                         onDelete={() => deleteSet(we.id, set.id)}
                       />
                     ))}
@@ -258,7 +261,17 @@ export default function ActiveWorkoutPage() {
       </Sheet>
 
       <Sheet open={workoutMenu} onClose={() => setWorkoutMenu(false)} title="Workout options">
-        <div className="flex flex-col gap-1 pt-1">
+        <div className="flex flex-col gap-3 pt-1">
+          <label className="flex flex-col gap-1.5 text-sm font-medium">
+            Notes
+            <textarea
+              defaultValue={workout?.notes ?? ''}
+              onBlur={(e) => updateNotes(e.target.value)}
+              placeholder="How did it go?"
+              rows={3}
+              className="rounded-lg border border-input bg-card px-3 py-2 text-base outline-none focus:ring-2 focus:ring-ring"
+            />
+          </label>
           <button
             onClick={() => {
               setWorkoutMenu(false)
@@ -322,9 +335,9 @@ export default function ActiveWorkoutPage() {
                       <Trophy size={16} className="shrink-0 text-record" />
                       <span className="min-w-0 flex-1 truncate font-medium">{pr.exercise_name}</span>
                       <span className="tnum text-muted-foreground">
-                        {pr.kind === 'weight'
-                          ? `${pr.value} ${user?.unit ?? 'kg'} × ${pr.reps}`
-                          : `est. 1RM ${pr.value} ${user?.unit ?? 'kg'}`}
+                        {pr.kind === 'weight' && `${pr.value} ${user?.unit ?? 'kg'} × ${pr.reps}`}
+                        {pr.kind === '1rm' && `est. 1RM ${pr.value} ${user?.unit ?? 'kg'}`}
+                        {pr.kind === 'reps' && `${pr.value} reps`}
                       </span>
                     </div>
                   ))}

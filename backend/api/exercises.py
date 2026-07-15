@@ -80,37 +80,42 @@ def exercise_stats(
     best_weight = None
     best_1rm = None
     best_volume_set = None
+    best_reps = None  # bodyweight sets (no load) — most reps
     total_reps = 0
     total_volume = 0.0
 
     # Per-workout aggregation for history + chart
     by_workout: dict[int, dict] = {}
     for set_entry, workout in rows:
-        one_rm = epley_1rm(set_entry.weight, set_entry.reps)
-        set_volume = set_entry.weight * set_entry.reps
+        weight = set_entry.weight or 0.0
+        one_rm = epley_1rm(weight, set_entry.reps) if weight > 0 else 0.0
+        set_volume = weight * set_entry.reps
         total_reps += set_entry.reps
         total_volume += set_volume
 
-        if best_weight is None or set_entry.weight > best_weight["weight"]:
-            best_weight = {
-                "weight": set_entry.weight,
-                "reps": set_entry.reps,
-                "date": workout.started_at,
-            }
-        if best_1rm is None or one_rm > best_1rm["value"]:
-            best_1rm = {
-                "value": round(one_rm, 1),
-                "weight": set_entry.weight,
-                "reps": set_entry.reps,
-                "date": workout.started_at,
-            }
-        if best_volume_set is None or set_volume > best_volume_set["value"]:
-            best_volume_set = {
-                "value": round(set_volume, 1),
-                "weight": set_entry.weight,
-                "reps": set_entry.reps,
-                "date": workout.started_at,
-            }
+        if weight > 0:
+            if best_weight is None or weight > best_weight["weight"]:
+                best_weight = {
+                    "weight": weight,
+                    "reps": set_entry.reps,
+                    "date": workout.started_at,
+                }
+            if best_1rm is None or one_rm > best_1rm["value"]:
+                best_1rm = {
+                    "value": round(one_rm, 1),
+                    "weight": weight,
+                    "reps": set_entry.reps,
+                    "date": workout.started_at,
+                }
+            if best_volume_set is None or set_volume > best_volume_set["value"]:
+                best_volume_set = {
+                    "value": round(set_volume, 1),
+                    "weight": weight,
+                    "reps": set_entry.reps,
+                    "date": workout.started_at,
+                }
+        elif best_reps is None or set_entry.reps > best_reps["reps"]:
+            best_reps = {"weight": 0, "reps": set_entry.reps, "date": workout.started_at}
 
         entry = by_workout.setdefault(
             workout.id,
@@ -121,14 +126,16 @@ def exercise_stats(
                 "sets": [],
                 "best_1rm": 0.0,
                 "best_weight": 0.0,
+                "best_reps": 0,
                 "volume": 0.0,
             },
         )
         entry["sets"].append(
-            {"weight": set_entry.weight, "reps": set_entry.reps, "is_pr": set_entry.is_pr}
+            {"weight": weight, "reps": set_entry.reps, "is_pr": set_entry.is_pr}
         )
         entry["best_1rm"] = round(max(entry["best_1rm"], one_rm), 1)
-        entry["best_weight"] = max(entry["best_weight"], set_entry.weight)
+        entry["best_weight"] = max(entry["best_weight"], weight)
+        entry["best_reps"] = max(entry["best_reps"], set_entry.reps)
         entry["volume"] = round(entry["volume"] + set_volume, 1)
 
     workouts = sorted(by_workout.values(), key=lambda w: w["date"])
@@ -137,6 +144,7 @@ def exercise_stats(
             "date": w["date"],
             "best_1rm": w["best_1rm"],
             "best_weight": w["best_weight"],
+            "best_reps": w["best_reps"],
             "volume": w["volume"],
         }
         for w in workouts
@@ -154,6 +162,7 @@ def exercise_stats(
             "best_weight": best_weight,
             "best_1rm": best_1rm,
             "best_volume_set": best_volume_set,
+            "best_reps": best_reps,
             "total_reps": total_reps,
             "total_volume": round(total_volume, 1),
             "times_performed": len(workouts),

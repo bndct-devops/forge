@@ -8,11 +8,15 @@ interface WorkoutContextValue {
   refresh: () => Promise<void>
   start: (routineId?: number) => Promise<Workout>
   rename: (name: string) => Promise<void>
+  updateNotes: (notes: string) => Promise<void>
   addExercise: (exerciseId: number) => Promise<void>
   removeExercise: (weId: number) => Promise<void>
   setExerciseRest: (weId: number, restSeconds: number | null) => Promise<void>
   addSet: (weId: number) => Promise<void>
-  updateSet: (setId: number, patch: Partial<Pick<SetEntry, 'weight' | 'reps' | 'is_completed'>>) => Promise<SetEntry>
+  updateSet: (
+    setId: number,
+    patch: Partial<Pick<SetEntry, 'weight' | 'reps' | 'is_completed' | 'is_warmup'>>,
+  ) => Promise<SetEntry>
   deleteSet: (weId: number, setId: number) => Promise<void>
   finish: () => Promise<FinishResult>
   discard: () => Promise<void>
@@ -48,6 +52,15 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     async (name: string) => {
       if (!workout) return
       const w = await api<Workout>(`/workouts/${workout.id}`, { method: 'PATCH', body: { name } })
+      setWorkout(w)
+    },
+    [workout],
+  )
+
+  const updateNotes = useCallback(
+    async (notes: string) => {
+      if (!workout) return
+      const w = await api<Workout>(`/workouts/${workout.id}`, { method: 'PATCH', body: { notes } })
       setWorkout(w)
     },
     [workout],
@@ -153,6 +166,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
         refresh,
         start,
         rename,
+        updateNotes,
         addExercise,
         removeExercise,
         setExerciseRest,

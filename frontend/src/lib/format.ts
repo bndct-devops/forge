@@ -28,6 +28,12 @@ export function formatWeight(weight: number | null | undefined, unit: string): s
   return `${rounded} ${unit}`
 }
 
+/** Set-line weight — 0 means an unloaded bodyweight set. */
+export function formatSetWeight(weight: number | null | undefined, unit: string): string {
+  if (weight == null || weight === 0) return 'BW'
+  return formatWeight(weight, unit)
+}
+
 export function formatVolume(volume: number, unit: string): string {
   if (volume >= 10000) return `${Math.round(volume / 100) / 10}k ${unit}`
   return `${Math.round(volume)} ${unit}`

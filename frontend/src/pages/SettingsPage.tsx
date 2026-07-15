@@ -1,5 +1,6 @@
-import { KeyRound, LogOut, Minus, Plus, Shield, Trash2, UserPlus } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Download, KeyRound, LogOut, Minus, Plus, Shield, Trash2, Upload, UserPlus } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { getToken } from '../lib/api'
 import Segmented from '../components/Segmented'
 import Sheet from '../components/Sheet'
 import { useAuth } from '../contexts/AuthContext'
@@ -40,6 +41,8 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [importing, setImporting] = useState(false)
+  const fileInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (user?.is_admin) {
@@ -79,6 +82,45 @@ export default function SettingsPage() {
   const removeUser = async (id: number) => {
     await api(`/users/${id}`, { method: 'DELETE' })
     setUsers((us) => us.filter((u) => u.id !== id))
+  }
+
+  const importStrong = async (file: File) => {
+    setImporting(true)
+    setMessage('')
+    setError('')
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetch('/api/import/strong', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getToken()}` },
+        body: form,
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Import failed')
+      setMessage(
+        `Imported ${data.imported_workouts} workouts (${data.imported_sets} sets, ` +
+          `${data.created_exercises} new exercises, ${data.skipped_workouts} duplicates skipped)`,
+      )
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Import failed')
+    } finally {
+      setImporting(false)
+      if (fileInput.current) fileInput.current.value = ''
+    }
+  }
+
+  const exportCsv = async () => {
+    const res = await fetch('/api/export/strong', {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'forge_export.csv'
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const changePassword = async () => {
@@ -154,6 +196,33 @@ export default function SettingsPage() {
             </button>
           </div>
         </Row>
+      </Section>
+
+      <Section title="Data">
+        <button
+          onClick={() => fileInput.current?.click()}
+          disabled={importing}
+          className="touch-feedback flex min-h-12 items-center gap-3 px-4 py-2.5 text-left font-medium hover:bg-secondary disabled:opacity-50"
+        >
+          <Upload size={18} className="text-muted-foreground" />
+          {importing ? 'Importing…' : 'Import from Strong (CSV)'}
+        </button>
+        <input
+          ref={fileInput}
+          type="file"
+          accept=".csv,text/csv"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) importStrong(file)
+          }}
+        />
+        <button
+          onClick={exportCsv}
+          className="touch-feedback flex min-h-12 items-center gap-3 border-t px-4 py-2.5 text-left font-medium hover:bg-secondary"
+        >
+          <Download size={18} className="text-muted-foreground" /> Export workouts (CSV)
+        </button>
       </Section>
 
       <Section title="Account">

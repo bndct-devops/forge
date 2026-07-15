@@ -21,7 +21,7 @@ from backend.schemas import (
     WorkoutUpdate,
 )
 from backend.serializers import (
-    epley_1rm,
+    detect_prs,
     historical_bests,
     previous_sets,
     serialize_workout,
@@ -216,37 +216,7 @@ def finish_workout(
     for we in workout.exercises:
         exercise = db.get(Exercise, we.exercise_id)
         bests = historical_bests(db, user.id, we.exercise_id, exclude_workout_id=workout.id)
-        running_weight = bests["weight"]
-        running_1rm = bests["one_rm"]
-        for s in we.sets:
-            if s.weight is None or s.reps is None or s.weight <= 0:
-                continue
-            one_rm = epley_1rm(s.weight, s.reps)
-            got_pr = False
-            if s.weight > running_weight:
-                running_weight = s.weight
-                got_pr = True
-                prs.append(
-                    {
-                        "exercise_name": exercise.name if exercise else "Unknown",
-                        "kind": "weight",
-                        "value": s.weight,
-                        "reps": s.reps,
-                    }
-                )
-            if one_rm > running_1rm:
-                running_1rm = one_rm
-                if not got_pr:
-                    prs.append(
-                        {
-                            "exercise_name": exercise.name if exercise else "Unknown",
-                            "kind": "1rm",
-                            "value": round(one_rm, 1),
-                            "reps": s.reps,
-                        }
-                    )
-                got_pr = True
-            s.is_pr = got_pr
+        prs.extend(detect_prs(exercise.name if exercise else "Unknown", we.sets, bests))
 
     workout.finished_at = utcnow()
     db.add(workout)
@@ -377,6 +347,8 @@ def update_set(
     if body.is_completed is not None:
         set_entry.is_completed = body.is_completed
         set_entry.completed_at = utcnow() if body.is_completed else None
+    if body.is_warmup is not None:
+        set_entry.is_warmup = body.is_warmup
     db.add(set_entry)
     db.commit()
     return {
@@ -385,6 +357,7 @@ def update_set(
         "weight": set_entry.weight,
         "reps": set_entry.reps,
         "is_completed": set_entry.is_completed,
+        "is_warmup": set_entry.is_warmup,
         "is_pr": set_entry.is_pr,
     }
 

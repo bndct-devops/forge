@@ -36,6 +36,7 @@ export interface SetEntry {
   weight: number | null
   reps: number | null
   is_completed: boolean
+  is_warmup: boolean
   is_pr: boolean
 }
 
@@ -84,7 +85,7 @@ export interface WorkoutSummary {
 
 export interface PR {
   exercise_name: string
-  kind: 'weight' | '1rm'
+  kind: 'weight' | '1rm' | 'reps'
   value: number
   reps: number
 }
@@ -111,11 +112,12 @@ export interface ExerciseStats {
     best_weight: RecordSet | null
     best_1rm: (RecordSet & { value: number }) | null
     best_volume_set: (RecordSet & { value: number }) | null
+    best_reps: RecordSet | null
     total_reps: number
     total_volume: number
     times_performed: number
   }
-  chart: { date: string; best_1rm: number; best_weight: number; volume: number }[]
+  chart: { date: string; best_1rm: number; best_weight: number; best_reps: number; volume: number }[]
   history: {
     workout_id: number
     workout_name: string

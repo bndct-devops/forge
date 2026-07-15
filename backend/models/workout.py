@@ -56,5 +56,6 @@ class SetEntry(Base):
     weight: Mapped[float | None] = mapped_column(Float, nullable=True)
     reps: Mapped[int | None] = mapped_column(Integer, nullable=True)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_warmup: Mapped[bool] = mapped_column(Boolean, default=False)
     is_pr: Mapped[bool] = mapped_column(Boolean, default=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
