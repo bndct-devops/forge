@@ -130,6 +130,36 @@
   animation: set-done 0.5s ease-out;
 }
 
+/* Bottom sheet enter/exit — transform is inline while open (drag + keyboard
+   offsets); these classes define the closed pose and the transitions. */
+.sheet-backdrop {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.sheet-backdrop[data-state="open"] {
+  opacity: 1;
+}
+.sheet-panel {
+  transform: translateY(105%);
+  transition: transform 0.34s var(--spring), opacity 0.25s ease;
+  will-change: transform;
+}
+@media (min-width: 768px) {
+  .sheet-panel {
+    transform: translateY(20px) scale(0.97);
+    opacity: 0;
+  }
+  .sheet-panel[data-state="open"] {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet-backdrop,
+  .sheet-panel {
+    transition: none;
+  }
+}
+
 /* Check button pop on set completion */
 @keyframes check-pop {
   0% { transform: scale(1); }
