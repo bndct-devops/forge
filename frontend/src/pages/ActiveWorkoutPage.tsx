@@ -155,7 +155,7 @@ export default function ActiveWorkoutPage() {
   }
 
   return (
-    <div className="mx-auto flex h-full max-w-lg flex-col md:max-w-2xl">
+    <div className="safe-x mx-auto flex h-full max-w-lg flex-col md:max-w-2xl">
       {workout && (
         <>
           <header className="safe-top shrink-0 border-b bg-background">

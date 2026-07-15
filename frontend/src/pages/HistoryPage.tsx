@@ -5,6 +5,7 @@ import EmptyState from '../components/EmptyState'
 import { CardListSkeleton } from '../components/Skeleton'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
+import { getPageCache, setPageCache } from '../lib/pageCache'
 import { formatDuration, formatRelativeDate, formatVolume, parseUTC } from '../lib/format'
 import type { WorkoutSummary } from '../lib/types'
 
@@ -28,15 +29,21 @@ function groupByMonth(workouts: WorkoutSummary[]): { month: string; workouts: Wo
 export default function HistoryPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const [workouts, setWorkouts] = useState<WorkoutSummary[]>([])
+  const [workouts, setWorkouts] = useState<WorkoutSummary[]>(
+    () => getPageCache<WorkoutSummary[]>('history') ?? [],
+  )
   const [done, setDone] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => getPageCache('history') == null)
 
   const load = (offset: number) => {
     setLoading(true)
     api<WorkoutSummary[]>(`/workouts?limit=${PAGE}&offset=${offset}`)
       .then((page) => {
-        setWorkouts((prev) => (offset === 0 ? page : [...prev, ...page]))
+        setWorkouts((prev) => {
+          const next = offset === 0 ? page : [...prev, ...page]
+          setPageCache('history', next)
+          return next
+        })
         if (page.length < PAGE) setDone(true)
       })
       .catch(() => {})

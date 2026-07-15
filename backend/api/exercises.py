@@ -138,6 +138,7 @@ def put_note(
 @router.get("/{exercise_id}/stats")
 def exercise_stats(
     exercise_id: int,
+    family: bool = False,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -147,8 +148,22 @@ def exercise_stats(
     if exercise is None:
         raise HTTPException(status_code=404, detail="Exercise not found")
 
+    base_for_family = exercise.variant_of_id or exercise.id
+    if family:
+        stat_ids = [
+            e.id
+            for e in db.execute(
+                select(Exercise).where(
+                    _visible(user.id),
+                    or_(Exercise.id == base_for_family, Exercise.variant_of_id == base_for_family),
+                )
+            ).scalars()
+        ]
+    else:
+        stat_ids = [exercise_id]
+
     rows = db.execute(
-        completed_sets_query(user.id, exercise_id).order_by(Workout.started_at)
+        completed_sets_query(user.id, stat_ids).order_by(Workout.started_at)
     ).all()
 
     best_weight = None

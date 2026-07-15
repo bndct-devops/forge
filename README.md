@@ -22,11 +22,14 @@ surfaces, OKLCH tokens, Onest + Bricolage Grotesque), its own ember accent.
 
 - **Workout logging** — start empty, from a template, or repeat a past workout;
   per-set weight × reps with the previous workout's numbers as tap-to-accept
-  ghosts; warm-up sets (excluded from PRs and volume); bodyweight exercises
-  complete on reps alone; swipe a set to delete; drag to reorder exercises
+  ghosts; warm-up sets (excluded from PRs and volume); **supersets** with
+  group-aware rest timing; optional **RPE** per set; bodyweight exercises
+  complete on reps alone; swipe a set to delete; drag to reorder exercises;
+  pinned per-exercise notes shown while training
 - **Rest timer** — starts automatically when you check off a set, per-exercise
   override or account default, ±15s / skip, sound (toggleable) + vibration;
-  survives reloads and follows you across tabs
+  survives reloads and follows you across tabs; **push alerts on the lock
+  screen** when hosted over HTTPS (see `docs/https.md`)
 - **Offline-tolerant** — set logging applies instantly and queues through gym
   dead zones, syncing when the connection returns
 - **Templates (routines)** — target set counts and rest times, duplicate, drag
@@ -36,10 +39,14 @@ surfaces, OKLCH tokens, Onest + Bricolage Grotesque), its own ember accent.
 - **Records & progress** — per-exercise best weight, estimated 1RM (Epley),
   best set volume, rep records, and charts over time
 - **Stats** — weekly streak, training calendar, weekly volume, muscle split
+- **Body measurements** — weight, body fat, circumferences with trend charts
+- **Training plans** — StrongLifts 5×5, PPL, Upper/Lower, Full Body, one tap
+  to adopt into your templates
 - **Plate calculator** — per-side plate breakdown for barbell work
 - **Strong import / CSV export** — bring your full history over; never locked in
-- **Exercise library** — ~90 seeded weight exercises, custom exercises, bulk
-  re-categorization for imports
+- **Exercise library** — 108 seeded weight exercises with grips and variation
+  families (Pull-Up ↔ Chin-Up ↔ wide/neutral, bench family, deadlift family,
+  ...), combined family charts, custom exercises, bulk re-categorization
 - **Multi-user** — first-run setup creates the admin; admins manage users in
   Settings; JWT auth
 - **PWA** — installable, launch splash screens, dark (default) / light /

@@ -1,6 +1,7 @@
 import { ChevronLeft, GripVertical, Link2, Minus, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import ConfirmSheet from '../components/ConfirmSheet'
 import ExercisePicker from '../components/ExercisePicker'
 import Skeleton from '../components/Skeleton'
 import { useAuth } from '../contexts/AuthContext'
@@ -30,6 +31,8 @@ export default function RoutineEditorPage() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [dirty, setDirty] = useState(false)
+  const [confirmLeave, setConfirmLeave] = useState(false)
   const { handleProps, itemProps } = useDragReorder(exercises.length, (from, to) =>
     setExercises((xs) => moveItem(xs, from, to)),
   )
@@ -71,6 +74,7 @@ export default function RoutineEditorPage() {
   }
 
   const addExercise = (exercise: Exercise) => {
+    setDirty(true)
     setExercises((xs) => [
       ...xs,
       {
@@ -85,6 +89,7 @@ export default function RoutineEditorPage() {
   }
 
   const update = (index: number, patch: Partial<DraftExercise>) => {
+    setDirty(true)
     setExercises((xs) => xs.map((x, i) => (i === index ? { ...x, ...patch } : x)))
   }
 
@@ -117,7 +122,7 @@ export default function RoutineEditorPage() {
     <div className="safe-top px-4 md:max-w-2xl">
       <header className="flex items-center gap-2 pt-4 pb-4">
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => (dirty ? setConfirmLeave(true) : navigate(-1))}
           className="touch-feedback -ml-2 rounded-full p-2 text-muted-foreground"
           aria-label="Back"
         >
@@ -128,7 +133,10 @@ export default function RoutineEditorPage() {
 
       <input
         value={name}
-        onChange={(e) => setName(e.target.value)}
+        onChange={(e) => {
+          setDirty(true)
+          setName(e.target.value)
+        }}
         placeholder="Template name (e.g. Push Day)"
         className="h-12 w-full rounded-lg border border-input bg-card px-4 text-base outline-none focus:ring-2 focus:ring-ring"
       />
@@ -146,7 +154,10 @@ export default function RoutineEditorPage() {
               </button>
               <span className="min-w-0 flex-1 truncate font-medium">{exercise.name}</span>
               <button
-                onClick={() => setExercises((xs) => xs.filter((_, j) => j !== i))}
+                onClick={() => {
+                  setDirty(true)
+                  setExercises((xs) => xs.filter((_, j) => j !== i))
+                }}
                 className="touch-feedback rounded-full p-1.5 text-muted-foreground"
                 aria-label="Remove exercise"
               >
@@ -227,6 +238,19 @@ export default function RoutineEditorPage() {
       >
         {busy ? 'Saving…' : 'Save template'}
       </button>
+
+      <ConfirmSheet
+        open={confirmLeave}
+        onClose={() => setConfirmLeave(false)}
+        title="Discard changes?"
+        message="Your edits to this template haven't been saved."
+        actionLabel="Discard changes"
+        destructive
+        onConfirm={() => {
+          setConfirmLeave(false)
+          navigate(-1)
+        }}
+      />
 
       <ExercisePicker open={pickerOpen} onClose={() => setPickerOpen(false)} onPick={addExercise} />
     </div>

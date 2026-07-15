@@ -81,7 +81,7 @@ export default function AppShell() {
   }
 
   return (
-    <div className="flex h-full">
+    <div className="safe-x flex h-full">
       {/* Desktop sidebar */}
       <aside className="hidden w-60 shrink-0 flex-col border-r bg-card px-3 py-5 md:flex">
         <div className="mb-6 flex items-center gap-2.5 px-2">

@@ -13,9 +13,12 @@ def epley_1rm(weight: float, reps: int) -> float:
     return weight * (1 + reps / 30)
 
 
-def completed_sets_query(user_id: int, exercise_id: int, before_workout_id: int | None = None):
-    """Completed working sets (warm-ups excluded) for one exercise across the
-    user's *finished* workouts."""
+def completed_sets_query(
+    user_id: int, exercise_id: int | list[int], before_workout_id: int | None = None
+):
+    """Completed working sets (warm-ups excluded) for one or more exercises
+    across the user's *finished* workouts."""
+    ids = exercise_id if isinstance(exercise_id, list) else [exercise_id]
     q = (
         select(SetEntry, Workout)
         .join(WorkoutExercise, SetEntry.workout_exercise_id == WorkoutExercise.id)
@@ -23,7 +26,7 @@ def completed_sets_query(user_id: int, exercise_id: int, before_workout_id: int 
         .where(
             Workout.owner_id == user_id,
             Workout.finished_at.is_not(None),
-            WorkoutExercise.exercise_id == exercise_id,
+            WorkoutExercise.exercise_id.in_(ids),
             SetEntry.is_completed.is_(True),
             SetEntry.is_warmup.is_(False),
             SetEntry.reps.is_not(None),

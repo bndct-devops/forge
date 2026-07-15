@@ -48,18 +48,19 @@ export default function ExerciseDetailPage() {
   const [stats, setStats] = useState<ExerciseStats | null>(null)
   const [metric, setMetric] = useState<Metric>('best_1rm')
   const [editing, setEditing] = useState(false)
+  const [includeFamily, setIncludeFamily] = useState(false)
   const [error, setError] = useState('')
   const unit = user?.unit ?? 'kg'
 
   useEffect(() => {
-    api<ExerciseStats>(`/exercises/${id}/stats`)
+    api<ExerciseStats>(`/exercises/${id}/stats${includeFamily ? '?family=true' : ''}`)
       .then((s) => {
         setStats(s)
         // Unloaded bodyweight work has no meaningful 1RM — chart reps instead
         if (s.records.best_1rm == null && s.records.best_reps != null) setMetric('best_reps')
       })
       .catch(() => navigate('/exercises', { replace: true }))
-  }, [id, navigate])
+  }, [id, includeFamily, navigate])
 
   if (!stats) {
     return (
@@ -153,6 +154,16 @@ export default function ExerciseDetailPage() {
 
       {variations.length > 0 && (
         <div className="scrollbar-none -mx-1 flex gap-1.5 overflow-x-auto px-1 pt-1 pb-2">
+          <button
+            onClick={() => setIncludeFamily((f) => !f)}
+            className={
+              includeFamily
+                ? 'touch-feedback shrink-0 rounded-full bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground'
+                : 'touch-feedback shrink-0 rounded-full bg-accent-soft px-3 py-1.5 text-sm font-medium text-primary'
+            }
+          >
+            {includeFamily ? 'All variations' : '+ All variations'}
+          </button>
           {variations.map((v) => (
             <button
               key={v.id}
