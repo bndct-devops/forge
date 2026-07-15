@@ -51,12 +51,34 @@ function ResumeBar({ className }: { className?: string }) {
 
 export default function AppShell() {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const scrollRef = useRef<HTMLElement>(null)
+  const edgeSwipe = useRef<{ x: number; y: number } | null>(null)
 
   // The document never scrolls, so reset the inner scroller on navigation
   useEffect(() => {
     scrollRef.current?.scrollTo(0, 0)
   }, [pathname])
+
+  // iOS-style back gesture: swipe right from the left screen edge
+  const onEdgeDown = (e: React.PointerEvent) => {
+    if (e.clientX < 28) edgeSwipe.current = { x: e.clientX, y: e.clientY }
+  }
+  const onEdgeMove = (e: React.PointerEvent) => {
+    const start = edgeSwipe.current
+    if (!start) return
+    const dx = e.clientX - start.x
+    const dy = Math.abs(e.clientY - start.y)
+    if (dy > 60) {
+      edgeSwipe.current = null // vertical scroll, not a back gesture
+    } else if (dx > 70) {
+      edgeSwipe.current = null
+      if (window.history.length > 1) navigate(-1)
+    }
+  }
+  const onEdgeEnd = () => {
+    edgeSwipe.current = null
+  }
 
   return (
     <div className="flex h-full">
@@ -95,7 +117,13 @@ export default function AppShell() {
       </aside>
 
       {/* Content column: scrollable main + in-flow mobile tab bar */}
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div
+        className="flex min-w-0 flex-1 flex-col"
+        onPointerDown={onEdgeDown}
+        onPointerMove={onEdgeMove}
+        onPointerUp={onEdgeEnd}
+        onPointerCancel={onEdgeEnd}
+      >
         <main ref={scrollRef} className="overscroll-contain flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-lg pb-8 md:max-w-4xl md:px-6">
             <Outlet />

@@ -17,6 +17,7 @@ import {
 } from '../lib/format'
 import type { SetEntry, Workout, WorkoutExercise } from '../lib/types'
 import { cn } from '../lib/utils'
+import Skeleton, { CardListSkeleton } from '../components/Skeleton'
 
 function parseNum(value: string): number | null {
   const n = parseFloat(value.replace(',', '.'))
@@ -102,7 +103,21 @@ export default function WorkoutDetailPage() {
       .catch(() => navigate('/history', { replace: true }))
   }, [id, navigate])
 
-  if (!workout) return null
+  if (!workout) {
+    return (
+      <div className="safe-top px-4">
+        <div className="flex items-center gap-2 pt-4 pb-3">
+          <Skeleton className="h-8 w-56" />
+        </div>
+        <div className="mt-2 grid grid-cols-3 gap-2 md:max-w-md">
+          {Array.from({ length: 3 }, (_, i) => (
+            <Skeleton key={i} className="h-20 rounded-xl" />
+          ))}
+        </div>
+        <CardListSkeleton count={2} className="mt-4 md:grid-cols-2" />
+      </div>
+    )
+  }
 
   const remove = async () => {
     await api(`/workouts/${workout.id}`, { method: 'DELETE' })

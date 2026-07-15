@@ -56,6 +56,7 @@ class ExerciseOut(BaseModel):
     muscle_group: str
     equipment: str
     is_custom: bool
+    last_used: datetime | None = None
 
 
 # ── Routines ─────────────────────────────────────────────────────────────────

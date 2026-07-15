@@ -12,6 +12,7 @@ export interface Exercise {
   muscle_group: string
   equipment: string
   is_custom: boolean
+  last_used?: string | null
 }
 
 export interface RoutineExercise {

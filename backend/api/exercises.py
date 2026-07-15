@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from backend.core.database import get_db
 from backend.core.security import get_current_user
-from backend.models import Exercise, User, Workout
+from backend.models import Exercise, User, Workout, WorkoutExercise
 from backend.schemas import ExerciseCreate, ExerciseOut, RecategorizeIn
 from backend.serializers import completed_sets_query, epley_1rm
 
@@ -17,9 +17,22 @@ def _visible(user_id: int):
 
 @router.get("", response_model=list[ExerciseOut])
 def list_exercises(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    last_used_sq = (
+        select(
+            WorkoutExercise.exercise_id.label("exercise_id"),
+            func.max(Workout.started_at).label("last_used"),
+        )
+        .join(Workout, WorkoutExercise.workout_id == Workout.id)
+        .where(Workout.owner_id == user.id, Workout.finished_at.is_not(None))
+        .group_by(WorkoutExercise.exercise_id)
+        .subquery()
+    )
     rows = db.execute(
-        select(Exercise).where(_visible(user.id)).order_by(Exercise.name)
-    ).scalars()
+        select(Exercise, last_used_sq.c.last_used)
+        .outerjoin(last_used_sq, Exercise.id == last_used_sq.c.exercise_id)
+        .where(_visible(user.id))
+        .order_by(Exercise.name)
+    ).all()
     return [
         ExerciseOut(
             id=e.id,
@@ -27,8 +40,9 @@ def list_exercises(user: User = Depends(get_current_user), db: Session = Depends
             muscle_group=e.muscle_group,
             equipment=e.equipment,
             is_custom=e.owner_id is not None,
+            last_used=last_used,
         )
-        for e in rows
+        for e, last_used in rows
     ]
 
 

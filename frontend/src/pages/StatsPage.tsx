@@ -10,6 +10,7 @@ import {
   YAxis,
 } from 'recharts'
 import EmptyState from '../components/EmptyState'
+import Skeleton from '../components/Skeleton'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
 import { formatShortDate, formatVolume } from '../lib/format'
@@ -78,7 +79,25 @@ export default function StatsPage() {
     api<StatsData>('/stats').then(setStats).catch(() => {})
   }, [])
 
-  if (!stats) return null
+  if (!stats) {
+    return (
+      <div className="safe-top px-4 pb-8">
+        <header className="pt-6 pb-4">
+          <h1 className="text-3xl">Stats</h1>
+        </header>
+        <div className="flex flex-col gap-4">
+          <Skeleton className="h-20 rounded-xl" />
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            {Array.from({ length: 4 }, (_, i) => (
+              <Skeleton key={i} className="h-16 rounded-xl" />
+            ))}
+          </div>
+          <Skeleton className="h-44 rounded-xl" />
+          <Skeleton className="h-56 rounded-xl" />
+        </div>
+      </div>
+    )
+  }
 
   const trend = stats.weeks.map((w) => ({
     ...w,

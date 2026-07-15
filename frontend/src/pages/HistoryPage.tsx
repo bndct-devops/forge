@@ -2,6 +2,7 @@ import { CalendarDays, Clock, Trophy, Weight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import EmptyState from '../components/EmptyState'
+import { CardListSkeleton } from '../components/Skeleton'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
 import { formatDuration, formatRelativeDate, formatVolume, parseUTC } from '../lib/format'
@@ -50,7 +51,9 @@ export default function HistoryPage() {
         <h1 className="text-3xl">History</h1>
       </header>
 
-      {workouts.length === 0 && !loading ? (
+      {loading && workouts.length === 0 ? (
+        <CardListSkeleton count={4} className="md:grid-cols-2" />
+      ) : workouts.length === 0 ? (
         <EmptyState title="No workouts yet">
           Your finished workouts will show up here.
         </EmptyState>

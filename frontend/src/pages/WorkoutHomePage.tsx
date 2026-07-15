@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import EmptyState from '../components/EmptyState'
 import Sheet from '../components/Sheet'
+import { CardListSkeleton } from '../components/Skeleton'
 import { useWorkout } from '../contexts/WorkoutContext'
 import { api } from '../lib/api'
 import type { Routine } from '../lib/types'
@@ -13,10 +14,14 @@ export default function WorkoutHomePage() {
   const { workout, start } = useWorkout()
   const [routines, setRoutines] = useState<Routine[]>([])
   const [menuRoutine, setMenuRoutine] = useState<Routine | null>(null)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    api<Routine[]>('/routines').then(setRoutines).catch(() => {})
+    api<Routine[]>('/routines')
+      .then(setRoutines)
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [])
 
   const begin = async (routineId?: number) => {
@@ -80,7 +85,9 @@ export default function WorkoutHomePage() {
         </button>
       </div>
 
-      {routines.length === 0 ? (
+      {loading ? (
+        <CardListSkeleton count={2} className="md:grid-cols-2 xl:grid-cols-3" />
+      ) : routines.length === 0 ? (
         <EmptyState title="No templates yet">
           Create one to start workouts with a single tap.
         </EmptyState>

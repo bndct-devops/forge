@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import EmptyState from '../components/EmptyState'
 import ExerciseForm, { type ExerciseFields } from '../components/ExerciseForm'
+import Skeleton from '../components/Skeleton'
 import Sheet from '../components/Sheet'
 import {
   Bar,
@@ -60,7 +61,21 @@ export default function ExerciseDetailPage() {
       .catch(() => navigate('/exercises', { replace: true }))
   }, [id, navigate])
 
-  if (!stats) return null
+  if (!stats) {
+    return (
+      <div className="safe-top px-4">
+        <div className="flex items-center gap-2 pt-4 pb-2">
+          <Skeleton className="h-8 w-48" />
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+          {Array.from({ length: 4 }, (_, i) => (
+            <Skeleton key={i} className="h-20 rounded-xl" />
+          ))}
+        </div>
+        <Skeleton className="mt-4 h-72 rounded-xl" />
+      </div>
+    )
+  }
 
   const { exercise, records, chart, history } = stats
 

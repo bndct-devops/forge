@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ExerciseForm, { MUSCLE_GROUPS, type ExerciseFields } from '../components/ExerciseForm'
 import Sheet from '../components/Sheet'
+import Skeleton from '../components/Skeleton'
 import { api } from '../lib/api'
 import type { Exercise } from '../lib/types'
 import { cn } from '../lib/utils'
@@ -13,10 +14,14 @@ export default function ExercisesPage() {
   const [query, setQuery] = useState('')
   const [group, setGroup] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    api<Exercise[]>('/exercises').then(setExercises).catch(() => {})
+    api<Exercise[]>('/exercises')
+      .then(setExercises)
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [])
 
   const filtered = useMemo(() => {
@@ -73,8 +78,15 @@ export default function ExercisesPage() {
         ))}
       </div>
 
+      {loading && (
+        <div className="mt-3 flex flex-col gap-2">
+          {Array.from({ length: 8 }, (_, i) => (
+            <Skeleton key={i} className="h-12" />
+          ))}
+        </div>
+      )}
       <ul className="mt-2 divide-y divide-border">
-        {filtered.map((e) => (
+        {!loading && filtered.map((e) => (
           <li key={e.id}>
             <button
               onClick={() => navigate(`/exercises/${e.id}`, { viewTransition: true })}
@@ -91,7 +103,7 @@ export default function ExercisesPage() {
             </button>
           </li>
         ))}
-        {filtered.length === 0 && (
+        {!loading && filtered.length === 0 && (
           <li className="py-8 text-center text-sm text-muted-foreground">No exercises found</li>
         )}
       </ul>

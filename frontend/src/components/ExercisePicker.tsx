@@ -1,4 +1,4 @@
-import { Plus, Search } from 'lucide-react'
+import { History, Plus, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../lib/api'
 import type { Exercise } from '../lib/types'
@@ -37,6 +37,18 @@ export default function ExercisePicker({ open, onClose, onPick }: ExercisePicker
         (!q || e.name.toLowerCase().includes(q)),
     )
   }, [exercises, query, group])
+
+  // Most recently trained, shown only on the unfiltered view
+  const recent = useMemo(
+    () =>
+      query.trim() || group
+        ? []
+        : exercises
+            .filter((e) => e.last_used != null)
+            .sort((a, b) => (b.last_used! > a.last_used! ? 1 : -1))
+            .slice(0, 5),
+    [exercises, query, group],
+  )
 
   const createExercise = async (fields: ExerciseFields) => {
     setError('')
@@ -99,6 +111,32 @@ export default function ExercisePicker({ open, onClose, onPick }: ExercisePicker
           >
             <Plus size={18} /> Create custom exercise
           </button>
+          {recent.length > 0 && (
+            <>
+              <h3 className="mt-1 mb-1 px-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Recent
+              </h3>
+              <ul className="mb-2 divide-y divide-border/60">
+                {recent.map((e) => (
+                  <li key={`recent-${e.id}`}>
+                    <button
+                      onClick={() => onPick(e)}
+                      className="touch-feedback flex w-full items-center gap-2.5 px-2 py-2.5 text-left"
+                    >
+                      <History size={15} className="shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 truncate font-medium">{e.name}</span>
+                      <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                        {e.muscle_group}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <h3 className="mb-1 px-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                All exercises
+              </h3>
+            </>
+          )}
           <ul className="divide-y divide-border">
             {filtered.map((e) => (
               <li key={e.id}>
