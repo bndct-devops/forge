@@ -44,6 +44,7 @@ export default function SetRow({
   const [justDone, setJustDone] = useState(false)
   const [removing, setRemoving] = useState(false)
   const touchStart = useRef<number | null>(null)
+  const repsRef = useRef<HTMLInputElement>(null)
 
   const requestDelete = () => {
     setRemoving(true) // collapse first, remove from the list once it's gone
@@ -128,7 +129,7 @@ export default function SetRow({
           value={weight}
           onChange={(e) => setWeight(e.target.value)}
           onFocus={(e) => e.target.select()}
-          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+          onKeyDown={(e) => e.key === 'Enter' && repsRef.current?.focus()}
           inputMode="decimal"
           enterKeyHint="next"
           placeholder={
@@ -141,6 +142,7 @@ export default function SetRow({
           className="tnum h-9 rounded-md border border-input bg-background px-1 text-center text-base font-medium outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-ring"
         />
         <input
+          ref={repsRef}
           value={reps}
           onChange={(e) => setReps(e.target.value)}
           onFocus={(e) => e.target.select()}

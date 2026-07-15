@@ -4,13 +4,13 @@ from sqlalchemy.orm import Session
 
 from backend.core.database import get_db
 from backend.core.security import get_current_user
-from backend.models import Exercise, Routine, RoutineExercise, User
+from backend.models import Exercise, Routine, RoutineExercise, User, Workout
 from backend.schemas import RoutineIn
 
 router = APIRouter(prefix="/routines", tags=["routines"])
 
 
-def _serialize(db: Session, routine: Routine) -> dict:
+def _serialize(db: Session, routine: Routine, last_performed=None) -> dict:
     exercises = []
     for re_ in routine.exercises:
         exercise = db.get(Exercise, re_.exercise_id)
@@ -27,7 +27,12 @@ def _serialize(db: Session, routine: Routine) -> dict:
                 "rest_seconds": re_.rest_seconds,
             }
         )
-    return {"id": routine.id, "name": routine.name, "exercises": exercises}
+    return {
+        "id": routine.id,
+        "name": routine.name,
+        "last_performed": last_performed,
+        "exercises": exercises,
+    }
 
 
 def _get_own(db: Session, user: User, routine_id: int) -> Routine:
@@ -44,7 +49,16 @@ def list_routines(user: User = Depends(get_current_user), db: Session = Depends(
         .where(Routine.owner_id == user.id)
         .order_by(Routine.position, Routine.created_at)
     ).scalars()
-    return [_serialize(db, r) for r in routines]
+    # "Last performed" matches finished workouts by name — workouts started
+    # from a template inherit its name unless renamed
+    last_by_name = dict(
+        db.execute(
+            select(Workout.name, func.max(Workout.started_at))
+            .where(Workout.owner_id == user.id, Workout.finished_at.is_not(None))
+            .group_by(Workout.name)
+        ).all()
+    )
+    return [_serialize(db, r, last_by_name.get(r.name)) for r in routines]
 
 
 @router.post("")

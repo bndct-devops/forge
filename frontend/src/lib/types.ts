@@ -37,6 +37,7 @@ export interface RoutineExercise {
 export interface Routine {
   id: number
   name: string
+  last_performed?: string | null
   exercises: RoutineExercise[]
 }
 

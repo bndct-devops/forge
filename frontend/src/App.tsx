@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import ErrorBoundary from './components/ErrorBoundary'
 import Toaster from './components/Toaster'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { WorkoutProvider } from './contexts/WorkoutContext'
@@ -48,7 +49,8 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <Toaster />
-        <Routes>
+        <ErrorBoundary>
+          <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/setup" element={<SetupPage />} />
           <Route
@@ -78,6 +80,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
+        </ErrorBoundary>
       </AuthProvider>
     </BrowserRouter>
   )

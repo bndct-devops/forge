@@ -1,6 +1,7 @@
 import { Calculator, ChevronDown, CloudOff, Flag, GripVertical, MoreHorizontal, Plus, StickyNote, Timer, Trash2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import ConfirmSheet from '../components/ConfirmSheet'
 import ExercisePicker from '../components/ExercisePicker'
 import FinishScreen from '../components/FinishScreen'
 import PlateCalculator from '../components/PlateCalculator'
@@ -80,6 +81,7 @@ export default function ActiveWorkoutPage() {
   const [plateExercise, setPlateExercise] = useState<WorkoutExercise | null>(null)
   const [workoutMenu, setWorkoutMenu] = useState(false)
   const [confirmFinish, setConfirmFinish] = useState(false)
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
   const [summary, setSummary] = useState<FinishResult | null>(null)
   const [error, setError] = useState('')
   const pendingSync = useOutboxSize()
@@ -281,7 +283,7 @@ export default function ActiveWorkoutPage() {
             </button>
 
             <button
-              onClick={doDiscard}
+              onClick={() => setConfirmDiscard(true)}
               className="touch-feedback mx-auto mt-6 flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-destructive"
             >
               <X size={16} /> Cancel workout
@@ -391,7 +393,7 @@ export default function ActiveWorkoutPage() {
           <button
             onClick={() => {
               setWorkoutMenu(false)
-              doDiscard()
+              setConfirmDiscard(true)
             }}
             className="touch-feedback flex items-center gap-3 rounded-lg px-3 py-3 text-left font-medium text-destructive hover:bg-secondary"
           >
@@ -399,6 +401,23 @@ export default function ActiveWorkoutPage() {
           </button>
         </div>
       </Sheet>
+
+      <ConfirmSheet
+        open={confirmDiscard}
+        onClose={() => setConfirmDiscard(false)}
+        title="Discard workout?"
+        message={
+          completedCount > 0
+            ? `This throws away ${completedCount} completed ${completedCount === 1 ? 'set' : 'sets'} — it won't appear in your history.`
+            : 'This workout will be thrown away.'
+        }
+        actionLabel="Discard workout"
+        destructive
+        onConfirm={() => {
+          setConfirmDiscard(false)
+          doDiscard()
+        }}
+      />
 
       <Sheet open={confirmFinish} onClose={() => setConfirmFinish(false)} title="Finish workout?">
         <div className="flex flex-col gap-3 pt-1">

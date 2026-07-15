@@ -1,13 +1,14 @@
 import { Copy, LibraryBig, MoreVertical, Pencil, Play, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import ConfirmSheet from '../components/ConfirmSheet'
 import EmptyState from '../components/EmptyState'
 import Sheet from '../components/Sheet'
 import { CardListSkeleton } from '../components/Skeleton'
 import { useWorkout } from '../contexts/WorkoutContext'
 import { api } from '../lib/api'
 import type { Plan, Routine } from '../lib/types'
-import { restLabel } from '../lib/format'
+import { formatRelativeDate, restLabel } from '../lib/format'
 
 function PlansSheet({
   open,
@@ -79,6 +80,7 @@ export default function WorkoutHomePage() {
   const { workout, start } = useWorkout()
   const [routines, setRoutines] = useState<Routine[]>([])
   const [menuRoutine, setMenuRoutine] = useState<Routine | null>(null)
+  const [deleteRoutineTarget, setDeleteRoutineTarget] = useState<Routine | null>(null)
   const [plansOpen, setPlansOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -187,6 +189,11 @@ export default function WorkoutHomePage() {
                 {routine.exercises.map((e) => `${e.set_count} × ${e.name}`).join(', ') ||
                   'No exercises'}
               </p>
+              {routine.last_performed && (
+                <p className="mt-1.5 text-xs text-muted-foreground/70">
+                  Last performed {formatRelativeDate(routine.last_performed)}
+                </p>
+              )}
               <button
                 onClick={() => begin(routine.id)}
                 className="touch-feedback mt-3 w-full rounded-lg bg-accent-soft py-2.5 font-semibold text-primary"
@@ -197,6 +204,19 @@ export default function WorkoutHomePage() {
           ))}
         </div>
       )}
+
+      <ConfirmSheet
+        open={deleteRoutineTarget != null}
+        onClose={() => setDeleteRoutineTarget(null)}
+        title={`Delete “${deleteRoutineTarget?.name}”?`}
+        message="The template goes away — workouts you logged with it stay in your history."
+        actionLabel="Delete template"
+        destructive
+        onConfirm={() => {
+          if (deleteRoutineTarget) deleteRoutine(deleteRoutineTarget)
+          setDeleteRoutineTarget(null)
+        }}
+      />
 
       <PlansSheet
         open={plansOpen}
@@ -230,7 +250,10 @@ export default function WorkoutHomePage() {
               <Copy size={18} /> Duplicate template
             </button>
             <button
-              onClick={() => deleteRoutine(menuRoutine)}
+              onClick={() => {
+                setDeleteRoutineTarget(menuRoutine)
+                setMenuRoutine(null)
+              }}
               className="touch-feedback flex items-center gap-3 rounded-lg px-3 py-3 text-left font-medium text-destructive hover:bg-secondary"
             >
               <Trash2 size={18} /> Delete template

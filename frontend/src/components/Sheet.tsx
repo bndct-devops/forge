@@ -73,7 +73,14 @@ export default function Sheet({ open, onClose, title, children, full }: SheetPro
   if (!mounted) return null
 
   const onDragStart = (e: ReactPointerEvent) => {
-    e.currentTarget.setPointerCapture(e.pointerId)
+    // preventDefault stops iOS from starting its own gesture (text selection,
+    // magnifier) which can swallow the pointer stream mid-drag
+    e.preventDefault()
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId)
+    } catch {
+      // capture can fail if the pointer is already gone — drag still works
+    }
     dragStart.current = e.clientY
     lastMove.current = { y: e.clientY, t: performance.now(), v: 0 }
     setDragging(true)

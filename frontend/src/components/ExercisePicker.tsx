@@ -85,6 +85,7 @@ export default function ExercisePicker({ open, onClose, onPick }: ExercisePicker
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search exercises"
+                enterKeyHint="search"
                 className="h-11 w-full rounded-lg border border-input bg-card pr-3 pl-10 text-base outline-none focus:ring-2 focus:ring-ring"
               />
             </div>

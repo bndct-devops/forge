@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api, getToken } from '../lib/api'
 import { MUSCLE_GROUPS } from '../components/ExerciseForm'
 import type { Exercise } from '../lib/types'
+import ConfirmSheet from '../components/ConfirmSheet'
 import Segmented from '../components/Segmented'
 import Sheet from '../components/Sheet'
 import { useAuth } from '../contexts/AuthContext'
@@ -155,6 +156,7 @@ export default function SettingsPage() {
   const [error, setError] = useState('')
   const [importing, setImporting] = useState(false)
   const [recategorizing, setRecategorizing] = useState(false)
+  const [deleteUserTarget, setDeleteUserTarget] = useState<User | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -385,7 +387,7 @@ export default function SettingsPage() {
               </span>
               {u.id !== user.id && (
                 <button
-                  onClick={() => removeUser(u.id)}
+                  onClick={() => setDeleteUserTarget(u)}
                   className="touch-feedback rounded-full p-2 text-muted-foreground"
                   aria-label={`Delete ${u.username}`}
                 >
@@ -407,6 +409,19 @@ export default function SettingsPage() {
         Forge · self-hosted iron tracking · build {__BUILD__}
       </p>
       <ViewportDebug />
+
+      <ConfirmSheet
+        open={deleteUserTarget != null}
+        onClose={() => setDeleteUserTarget(null)}
+        title={`Delete ${deleteUserTarget?.username}?`}
+        message="This permanently deletes the account with all of its workouts, templates, and history."
+        actionLabel="Delete user"
+        destructive
+        onConfirm={() => {
+          if (deleteUserTarget) removeUser(deleteUserTarget.id)
+          setDeleteUserTarget(null)
+        }}
+      />
 
       <RecategorizeSheet open={recategorizing} onClose={() => setRecategorizing(false)} />
 
