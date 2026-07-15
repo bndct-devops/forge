@@ -1,0 +1,13 @@
+services:
+  forge:
+    build: .
+    container_name: forge
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./data:/data
+    environment:
+      # Optional — auto-generated and persisted in /data when unset
+      # FORGE_SECRET_KEY: change-me
+      FORGE_DATA_DIR: /data
+    restart: unless-stopped

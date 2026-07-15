@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+data/
+node_modules/
+dist/
+dev-dist/
+.DS_Store
+*.tsbuildinfo
