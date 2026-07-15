@@ -1,4 +1,4 @@
-import { ChevronDown, Flag, GripVertical, MoreHorizontal, Plus, Timer, Trash2, Trophy, X } from 'lucide-react'
+import { ChevronDown, CloudOff, Flag, GripVertical, MoreHorizontal, Plus, Timer, Trash2, Trophy, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ExercisePicker from '../components/ExercisePicker'
@@ -8,6 +8,7 @@ import Sheet from '../components/Sheet'
 import { useAuth } from '../contexts/AuthContext'
 import { useWorkout } from '../contexts/WorkoutContext'
 import { formatClock, formatVolume, formatDuration, parseUTC, restLabel } from '../lib/format'
+import { useOutboxSize } from '../lib/outbox'
 import { restTimer } from '../lib/timer'
 import { moveItem, useDragReorder } from '../lib/useDragReorder'
 import type { FinishResult, WorkoutExercise } from '../lib/types'
@@ -66,6 +67,7 @@ export default function ActiveWorkoutPage() {
   const [confirmFinish, setConfirmFinish] = useState(false)
   const [summary, setSummary] = useState<FinishResult | null>(null)
   const [error, setError] = useState('')
+  const pendingSync = useOutboxSize()
   const exerciseCount = workout?.exercises.length ?? 0
   const { handleProps, itemProps } = useDragReorder(exerciseCount, (from, to) => {
     if (!workout) return
@@ -122,7 +124,14 @@ export default function ActiveWorkoutPage() {
               </button>
               <div className="min-w-0 flex-1">
                 <NameInput name={workout.name} onCommit={rename} />
-                <ElapsedClock startedAt={workout.started_at} />
+                <span className="flex items-center gap-2">
+                  <ElapsedClock startedAt={workout.started_at} />
+                  {pendingSync > 0 && (
+                    <span className="flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning">
+                      <CloudOff size={12} /> {pendingSync} to sync
+                    </span>
+                  )}
+                </span>
               </div>
               <button
                 onClick={() => setWorkoutMenu(true)}

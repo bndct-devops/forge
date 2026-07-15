@@ -12,6 +12,7 @@ import LoginPage from './pages/LoginPage'
 import RoutineEditorPage from './pages/RoutineEditorPage'
 import SettingsPage from './pages/SettingsPage'
 import SetupPage from './pages/SetupPage'
+import StatsPage from './pages/StatsPage'
 import WorkoutDetailPage from './pages/WorkoutDetailPage'
 import WorkoutHomePage from './pages/WorkoutHomePage'
 
@@ -70,6 +71,7 @@ export default function App() {
             <Route path="/history/:id" element={<WorkoutDetailPage />} />
             <Route path="/exercises" element={<ExercisesPage />} />
             <Route path="/exercises/:id" element={<ExerciseDetailPage />} />
+            <Route path="/stats" element={<StatsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { api } from '../lib/api'
+import { isNetworkError, outbox } from '../lib/outbox'
 import type { FinishResult, SetEntry, Workout } from '../lib/types'
 
 interface WorkoutContextValue {
@@ -38,6 +39,23 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     refresh()
       .catch(() => {})
       .finally(() => setLoading(false))
+  }, [refresh])
+
+  // Replay offline-queued set updates whenever connectivity may have returned
+  useEffect(() => {
+    const tryFlush = () => {
+      if (outbox.size() === 0) return
+      outbox.flush().then((done) => {
+        if (done) refresh().catch(() => {})
+      })
+    }
+    window.addEventListener('online', tryFlush)
+    const interval = setInterval(tryFlush, 15000)
+    tryFlush()
+    return () => {
+      window.removeEventListener('online', tryFlush)
+      clearInterval(interval)
+    }
   }, [refresh])
 
   const start = useCallback(async (routineId?: number) => {
@@ -133,21 +151,43 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     [workout],
   )
 
-  const updateSet = useCallback<WorkoutContextValue['updateSet']>(async (setId, patch) => {
-    const updated = await api<SetEntry>(`/sets/${setId}`, { method: 'PATCH', body: patch })
+  const applySet = useCallback((setId: number, apply: (s: SetEntry) => SetEntry) => {
     setWorkout((prev) =>
       prev
         ? {
             ...prev,
             exercises: prev.exercises.map((we) => ({
               ...we,
-              sets: we.sets.map((s) => (s.id === setId ? updated : s)),
+              sets: we.sets.map((s) => (s.id === setId ? apply(s) : s)),
             })),
           }
         : prev,
     )
-    return updated
   }, [])
+
+  const updateSet = useCallback<WorkoutContextValue['updateSet']>(
+    async (setId, patch) => {
+      // Optimistic first — logging a set must feel instant, connection or not
+      let optimistic: SetEntry | null = null
+      applySet(setId, (s) => {
+        optimistic = { ...s, ...patch }
+        return optimistic
+      })
+      try {
+        const updated = await api<SetEntry>(`/sets/${setId}`, { method: 'PATCH', body: patch })
+        applySet(setId, () => updated)
+        return updated
+      } catch (e) {
+        if (isNetworkError(e) && optimistic) {
+          // Gym dead zone: keep the optimistic state, sync when back online
+          outbox.add(setId, patch)
+          return optimistic
+        }
+        throw e
+      }
+    },
+    [applySet],
+  )
 
   const deleteSet = useCallback(async (weId: number, setId: number) => {
     await api(`/sets/${setId}`, { method: 'DELETE' })
@@ -172,6 +212,11 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
 
   const finish = useCallback(async () => {
     if (!workout) throw new Error('No active workout')
+    // Finish computes PRs server-side — every queued set must land first
+    const flushed = await outbox.flush()
+    if (!flushed) {
+      throw new Error('You appear to be offline — your sets are saved; finish once you reconnect.')
+    }
     const result = await api<FinishResult>(`/workouts/${workout.id}/finish`, { method: 'POST' })
     setWorkout(null)
     return result

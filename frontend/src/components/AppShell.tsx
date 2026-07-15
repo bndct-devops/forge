@@ -1,4 +1,4 @@
-import { Dumbbell, Flame, History, Settings, BicepsFlexed, Play } from 'lucide-react'
+import { Dumbbell, Flame, History, Settings, BicepsFlexed, Play, TrendingUp } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useWorkout } from '../contexts/WorkoutContext'
 import { formatClock, parseUTC } from '../lib/format'
@@ -9,6 +9,7 @@ const TABS = [
   { to: '/', label: 'Workout', icon: Dumbbell },
   { to: '/history', label: 'History', icon: History },
   { to: '/exercises', label: 'Exercises', icon: BicepsFlexed },
+  { to: '/stats', label: 'Stats', icon: TrendingUp },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
@@ -95,7 +96,7 @@ export default function AppShell() {
         <div className="shrink-0 md:hidden">
           <ResumeBar className="mx-3 mb-2 flex w-[calc(100%-1.5rem)]" />
           <nav className="safe-bottom border-t bg-card">
-            <div className="grid grid-cols-4">
+            <div className="grid grid-cols-5">
               {TABS.map(({ to, label, icon: Icon }) => (
                 <NavLink
                   key={to}
