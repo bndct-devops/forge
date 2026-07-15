@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { cn } from '../lib/utils'
+import { getAppHeight } from '../lib/viewport'
 
 interface SheetProps {
   open: boolean
@@ -19,7 +20,7 @@ function useKeyboardInset(active: boolean): number {
     const vv = window.visualViewport
     if (!vv) return
     const update = () =>
-      setInset(Math.max(0, window.innerHeight - vv.height - vv.offsetTop))
+      setInset(Math.max(0, getAppHeight() - vv.height - vv.offsetTop))
     update()
     vv.addEventListener('resize', update)
     vv.addEventListener('scroll', update)
@@ -46,7 +47,12 @@ export default function Sheet({ open, onClose, title, children, full }: SheetPro
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-6">
+    // Height comes from --app-h, not inset-0 — fixed positioning trusts the
+    // layout viewport, which iOS standalone webviews get wrong (see viewport.ts)
+    <div
+      className="fixed inset-x-0 top-0 z-50 flex items-end justify-center md:items-center md:p-6"
+      style={{ height: 'var(--app-h, 100dvh)' }}
+    >
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div
         className={cn(
