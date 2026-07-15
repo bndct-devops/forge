@@ -252,6 +252,13 @@ html {
   overscroll-behavior: contain;
 }
 
+/* Long lists: skip rendering offscreen rows (cheaper view-transition
+   snapshots and smoother scrolling on large catalogues) */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 64px;
+}
+
 * {
   box-sizing: border-box;
   border-color: var(--border);

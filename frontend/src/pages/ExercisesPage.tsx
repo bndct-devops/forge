@@ -5,20 +5,21 @@ import ExerciseForm, { MUSCLE_GROUPS, type ExerciseFields } from '../components/
 import Sheet from '../components/Sheet'
 import Skeleton from '../components/Skeleton'
 import { api } from '../lib/api'
+import { fetchExercises, getCachedExercises } from '../lib/exerciseCache'
 import type { Exercise } from '../lib/types'
 import { cn } from '../lib/utils'
 
 export default function ExercisesPage() {
   const navigate = useNavigate()
-  const [exercises, setExercises] = useState<Exercise[]>([])
+  const [exercises, setExercises] = useState<Exercise[]>(() => getCachedExercises() ?? [])
   const [query, setQuery] = useState('')
   const [group, setGroup] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => getCachedExercises() == null)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    api<Exercise[]>('/exercises')
+    fetchExercises()
       .then(setExercises)
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -88,7 +89,7 @@ export default function ExercisesPage() {
       )}
       <ul className="mt-2 divide-y divide-border">
         {!loading && filtered.map((e) => (
-          <li key={e.id}>
+          <li key={e.id} className="cv-auto">
             <button
               onClick={() => navigate(`/exercises/${e.id}`, { viewTransition: true })}
               className="touch-feedback flex w-full items-center justify-between px-1 py-3 text-left"

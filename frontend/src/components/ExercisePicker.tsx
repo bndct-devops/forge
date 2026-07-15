@@ -1,6 +1,7 @@
 import { History, Plus, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../lib/api'
+import { fetchExercises, getCachedExercises } from '../lib/exerciseCache'
 import type { Exercise } from '../lib/types'
 import { cn } from '../lib/utils'
 import ExerciseForm, { MUSCLE_GROUPS, type ExerciseFields } from './ExerciseForm'
@@ -13,7 +14,7 @@ interface ExercisePickerProps {
 }
 
 export default function ExercisePicker({ open, onClose, onPick }: ExercisePickerProps) {
-  const [exercises, setExercises] = useState<Exercise[]>([])
+  const [exercises, setExercises] = useState<Exercise[]>(() => getCachedExercises() ?? [])
   const [query, setQuery] = useState('')
   const [group, setGroup] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
@@ -21,7 +22,10 @@ export default function ExercisePicker({ open, onClose, onPick }: ExercisePicker
 
   useEffect(() => {
     if (open) {
-      api<Exercise[]>('/exercises').then(setExercises).catch(() => {})
+      // Instant from cache, then revalidate (last_used ordering shifts often)
+      const cached = getCachedExercises()
+      if (cached) setExercises(cached)
+      fetchExercises().then(setExercises).catch(() => {})
       setQuery('')
       setGroup(null)
       setCreating(false)
@@ -140,7 +144,7 @@ export default function ExercisePicker({ open, onClose, onPick }: ExercisePicker
           )}
           <ul className="divide-y divide-border">
             {filtered.map((e) => (
-              <li key={e.id}>
+              <li key={e.id} className="cv-auto">
                 <button
                   onClick={() => onPick(e)}
                   className="touch-feedback flex w-full items-center justify-between px-2 py-3 text-left"
