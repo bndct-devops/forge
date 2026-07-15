@@ -111,13 +111,17 @@
   --input: oklch(1 0 0 / 21%);
 }
 
-/* Card stagger entrance animation */
+/* Card stagger entrance animation.
+   fill: backwards, NOT both — 'both' keeps the final keyframe's transform
+   applied forever, silently killing every later transform on the element
+   (touch-feedback :active scale, drag-reorder shifts). backwards still covers
+   the staggered delay window. */
 @keyframes card-appear {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 .animate-card-appear {
-  animation: card-appear 0.25s ease-out both;
+  animation: card-appear 0.25s ease-out backwards;
 }
 
 /* Completed-set flash — an overlay that fades out ON TOP of the row, so the

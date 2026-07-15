@@ -15,3 +15,7 @@ def _ensure_column(table: str, column: str, ddl: str) -> None:
 
 def run_migrations() -> None:
     _ensure_column("set_entries", "is_warmup", "is_warmup BOOLEAN NOT NULL DEFAULT 0")
+    _ensure_column("exercises", "grip", "grip VARCHAR(24)")
+    _ensure_column(
+        "exercises", "variant_of_id", "variant_of_id INTEGER REFERENCES exercises(id)"
+    )

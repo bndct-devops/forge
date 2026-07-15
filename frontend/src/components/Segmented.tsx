@@ -20,7 +20,7 @@ export default function Segmented<T extends string>({
           key={opt.value}
           onClick={() => onChange(opt.value)}
           className={cn(
-            'touch-feedback flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+            'touch-feedback flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-200',
             value === opt.value
               ? 'bg-card text-foreground shadow-sm'
               : 'text-muted-foreground',

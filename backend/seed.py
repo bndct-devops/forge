@@ -112,6 +112,48 @@ EXERCISES = [
 ]
 
 
+# Grip metadata + variation grouping applied to the base catalogue above.
+# variant_of groups an exercise under its base movement; grip NULL = standard.
+ENRICHMENT: dict[str, dict] = {
+    "Pull-Up": {"grip": "Overhand"},
+    "Chin-Up": {"grip": "Underhand", "variant_of": "Pull-Up"},
+    "Barbell Row": {"grip": "Overhand"},
+    "Pendlay Row": {"grip": "Overhand", "variant_of": "Barbell Row"},
+    "T-Bar Row": {"grip": "Neutral"},
+    "Seated Cable Row": {"grip": "Neutral"},
+    "Hammer Curl": {"grip": "Neutral", "variant_of": "Bicep Curl"},
+    "Close-Grip Bench Press": {"grip": "Close", "variant_of": "Bench Press"},
+    "Incline Bench Press": {"variant_of": "Bench Press"},
+    "Decline Bench Press": {"variant_of": "Bench Press"},
+    "Incline Dumbbell Press": {"variant_of": "Dumbbell Bench Press"},
+    "Decline Dumbbell Press": {"variant_of": "Dumbbell Bench Press"},
+    "Front Squat": {"variant_of": "Back Squat"},
+    "Goblet Squat": {"variant_of": "Back Squat"},
+    "Sumo Deadlift": {"variant_of": "Deadlift"},
+    "Trap Bar Deadlift": {"grip": "Neutral", "variant_of": "Deadlift"},
+    "Push Press": {"variant_of": "Overhead Press"},
+    "Arnold Press": {"variant_of": "Seated Dumbbell Press"},
+    "EZ Bar Curl": {"variant_of": "Barbell Curl"},
+    "Seated Calf Raise": {"variant_of": "Calf Raise"},
+}
+
+# New grip variations added to the catalogue.
+# (name, muscle group, equipment, grip, variant_of)
+VARIATIONS = [
+    ("Lat Pulldown (Wide Grip)", "Back", "Cable", "Wide", "Lat Pulldown"),
+    ("Lat Pulldown (Close Grip)", "Back", "Cable", "Close", "Lat Pulldown"),
+    ("Lat Pulldown (Underhand)", "Back", "Cable", "Underhand", "Lat Pulldown"),
+    ("Barbell Row (Underhand)", "Back", "Barbell", "Underhand", "Barbell Row"),
+    ("Pull-Up (Wide Grip)", "Back", "Bodyweight", "Wide", "Pull-Up"),
+    ("Pull-Up (Neutral Grip)", "Back", "Bodyweight", "Neutral", "Pull-Up"),
+    ("Seated Cable Row (Wide Grip)", "Back", "Cable", "Wide", "Seated Cable Row"),
+    ("Bench Press (Wide Grip)", "Chest", "Barbell", "Wide", "Bench Press"),
+    ("Deadlift (Mixed Grip)", "Back", "Barbell", "Mixed", "Deadlift"),
+    ("Snatch-Grip Deadlift", "Back", "Barbell", "Wide", "Deadlift"),
+    ("Reverse Curl", "Arms", "Barbell", "Overhand", "Barbell Curl"),
+]
+
+
 def seed_exercises(db: Session) -> None:
     existing = set(
         db.execute(select(Exercise.name).where(Exercise.owner_id.is_(None))).scalars()
@@ -119,4 +161,33 @@ def seed_exercises(db: Session) -> None:
     for name, muscle_group, equipment in EXERCISES:
         if name not in existing:
             db.add(Exercise(name=name, muscle_group=muscle_group, equipment=equipment))
+    db.commit()
+
+    by_name = {
+        e.name: e
+        for e in db.execute(select(Exercise).where(Exercise.owner_id.is_(None))).scalars()
+    }
+
+    for name, muscle_group, equipment, grip, variant_of in VARIATIONS:
+        if name not in by_name:
+            exercise = Exercise(
+                name=name,
+                muscle_group=muscle_group,
+                equipment=equipment,
+                grip=grip,
+                variant_of_id=by_name[variant_of].id if variant_of in by_name else None,
+            )
+            db.add(exercise)
+            by_name[name] = exercise
+
+    for name, meta in ENRICHMENT.items():
+        exercise = by_name.get(name)
+        if exercise is None:
+            continue
+        grip = meta.get("grip")
+        if grip and exercise.grip != grip:
+            exercise.grip = grip
+        base = by_name.get(meta.get("variant_of", ""))
+        if base is not None and exercise.variant_of_id != base.id:
+            exercise.variant_of_id = base.id
     db.commit()

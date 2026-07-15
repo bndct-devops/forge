@@ -2,11 +2,13 @@ import { useState, type ReactNode } from 'react'
 
 export const MUSCLE_GROUPS = ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Full Body', 'Other']
 export const EQUIPMENT = ['Barbell', 'Dumbbell', 'Machine', 'Cable', 'Bodyweight', 'EZ Bar', 'Trap Bar', 'Kettlebell', 'Other']
+export const GRIPS = ['Overhand', 'Underhand', 'Neutral', 'Mixed', 'Wide', 'Close']
 
 export interface ExerciseFields {
   name: string
   muscle_group: string
   equipment: string
+  grip: string | null
 }
 
 interface ExerciseFormProps {
@@ -27,6 +29,7 @@ export default function ExerciseForm({
   const [name, setName] = useState(initial?.name ?? '')
   const [muscleGroup, setMuscleGroup] = useState(initial?.muscle_group ?? MUSCLE_GROUPS[0])
   const [equipment, setEquipment] = useState(initial?.equipment ?? EQUIPMENT[0])
+  const [grip, setGrip] = useState(initial?.grip ?? '')
 
   return (
     <div className="flex flex-col gap-4 pt-2">
@@ -64,6 +67,19 @@ export default function ExerciseForm({
           ))}
         </select>
       </label>
+      <label className="flex flex-col gap-1.5 text-sm font-medium">
+        Grip
+        <select
+          value={grip}
+          onChange={(e) => setGrip(e.target.value)}
+          className="h-11 rounded-lg border border-input bg-card px-3 text-base outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="">Standard</option>
+          {GRIPS.map((g) => (
+            <option key={g}>{g}</option>
+          ))}
+        </select>
+      </label>
       <p className="text-xs text-muted-foreground">
         Bodyweight equipment makes sets complete on reps alone — added weight stays optional.
       </p>
@@ -71,7 +87,9 @@ export default function ExerciseForm({
       <div className="flex gap-2 pt-1">
         {secondaryAction}
         <button
-          onClick={() => onSubmit({ name: name.trim(), muscle_group: muscleGroup, equipment })}
+          onClick={() =>
+            onSubmit({ name: name.trim(), muscle_group: muscleGroup, equipment, grip: grip || null })
+          }
           disabled={!name.trim()}
           className="touch-feedback h-11 flex-1 rounded-lg bg-primary font-semibold text-primary-foreground disabled:opacity-50"
         >

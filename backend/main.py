@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 
 from backend.core.database import Base, SessionLocal, engine
-from backend.api import auth, exercises, import_export, routines, stats, users, workouts
+from backend.api import auth, exercises, import_export, plans, routines, stats, users, workouts
 from backend.migrations import run_migrations
 from backend.seed import seed_exercises
 
@@ -35,6 +35,7 @@ app.include_router(workouts.router, prefix="/api")
 app.include_router(workouts.sets_router, prefix="/api")
 app.include_router(import_export.router, prefix="/api")
 app.include_router(stats.router, prefix="/api")
+app.include_router(plans.router, prefix="/api")
 
 # Serve the built frontend (production / Docker). In dev, Vite serves it instead.
 _dist = Path(__file__).resolve().parent.parent / "frontend" / "dist"

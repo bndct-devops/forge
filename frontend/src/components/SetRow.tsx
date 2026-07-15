@@ -42,7 +42,13 @@ export default function SetRow({
   const [reps, setReps] = useState(set.reps != null ? String(set.reps) : '')
   const [offset, setOffset] = useState(0)
   const [justDone, setJustDone] = useState(false)
+  const [removing, setRemoving] = useState(false)
   const touchStart = useRef<number | null>(null)
+
+  const requestDelete = () => {
+    setRemoving(true) // collapse first, remove from the list once it's gone
+    setTimeout(onDelete, 200)
+  }
 
   const fallbackWeight = previous?.weight ?? suggested?.weight ?? (bodyweight ? 0 : null)
   const fallbackReps = previous?.reps ?? suggested?.reps ?? null
@@ -66,10 +72,13 @@ export default function SetRow({
   }
 
   return (
-    <div className="animate-card-appear relative overflow-hidden">
+    <div
+      className="animate-card-appear relative overflow-hidden transition-[max-height,opacity] duration-200 ease-out"
+      style={{ maxHeight: removing ? 0 : 64, opacity: removing ? 0 : 1 }}
+    >
       {offset < 0 && (
         <button
-          onClick={onDelete}
+          onClick={requestDelete}
           className="absolute inset-y-0 right-0 flex w-20 items-center justify-center bg-destructive text-sm font-semibold text-white"
         >
           Delete

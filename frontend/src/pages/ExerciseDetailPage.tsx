@@ -77,7 +77,7 @@ export default function ExerciseDetailPage() {
     )
   }
 
-  const { exercise, records, chart, history } = stats
+  const { exercise, variations, records, chart, history } = stats
 
   const saveExercise = async (fields: ExerciseFields) => {
     setError('')
@@ -121,6 +121,7 @@ export default function ExerciseDetailPage() {
           <h1 className="truncate text-2xl">{exercise.name}</h1>
           <p className="text-sm text-muted-foreground">
             {exercise.muscle_group} · {exercise.equipment}
+            {exercise.grip && ` · ${exercise.grip} grip`}
             {exercise.is_custom && ' · Custom'}
           </p>
         </div>
@@ -134,6 +135,20 @@ export default function ExerciseDetailPage() {
           </button>
         )}
       </header>
+
+      {variations.length > 0 && (
+        <div className="scrollbar-none -mx-1 flex gap-1.5 overflow-x-auto px-1 pt-1 pb-2">
+          {variations.map((v) => (
+            <button
+              key={v.id}
+              onClick={() => navigate(`/exercises/${v.id}`, { viewTransition: true })}
+              className="touch-feedback shrink-0 rounded-full bg-secondary px-3 py-1.5 text-sm font-medium text-secondary-foreground"
+            >
+              {v.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {records.times_performed === 0 ? (
         <div className="mt-4">
@@ -300,6 +315,7 @@ export default function ExerciseDetailPage() {
             name: exercise.name,
             muscle_group: exercise.muscle_group,
             equipment: exercise.equipment,
+            grip: exercise.grip ?? null,
           }}
           submitLabel="Save"
           onSubmit={saveExercise}

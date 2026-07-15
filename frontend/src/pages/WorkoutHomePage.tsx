@@ -1,4 +1,4 @@
-import { Copy, MoreVertical, Pencil, Play, Plus, Trash2 } from 'lucide-react'
+import { Copy, LibraryBig, MoreVertical, Pencil, Play, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import EmptyState from '../components/EmptyState'
@@ -6,14 +6,80 @@ import Sheet from '../components/Sheet'
 import { CardListSkeleton } from '../components/Skeleton'
 import { useWorkout } from '../contexts/WorkoutContext'
 import { api } from '../lib/api'
-import type { Routine } from '../lib/types'
+import type { Plan, Routine } from '../lib/types'
 import { restLabel } from '../lib/format'
+
+function PlansSheet({
+  open,
+  onClose,
+  onAdopted,
+}: {
+  open: boolean
+  onClose: () => void
+  onAdopted: (routines: Routine[]) => void
+}) {
+  const [plans, setPlans] = useState<Plan[]>([])
+  const [adopting, setAdopting] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (open && plans.length === 0) {
+      api<Plan[]>('/plans').then(setPlans).catch(() => {})
+    }
+  }, [open, plans.length])
+
+  const adopt = async (plan: Plan) => {
+    setAdopting(plan.key)
+    try {
+      const created = await api<Routine[]>(`/plans/${plan.key}/adopt`, { method: 'POST' })
+      onAdopted(created)
+      onClose()
+    } finally {
+      setAdopting(null)
+    }
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title="Training plans" full>
+      <p className="mb-3 text-sm text-muted-foreground">
+        Proven starting points — adding a plan copies its templates into yours, ready to edit.
+      </p>
+      <div className="flex flex-col gap-3 pb-2">
+        {plans.map((plan) => (
+          <div key={plan.key} className="rounded-xl border bg-card p-4">
+            <h3 className="text-lg">{plan.name}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{plan.description}</p>
+            <div className="mt-2.5 flex flex-col gap-1">
+              {plan.routines.map((r) => (
+                <p key={r.name} className="text-sm">
+                  <span className="font-medium">{r.name}</span>{' '}
+                  <span className="text-muted-foreground">
+                    — {r.exercises.map((e) => `${e.set_count}×${e.name}`).join(', ')}
+                  </span>
+                </p>
+              ))}
+            </div>
+            <button
+              onClick={() => adopt(plan)}
+              disabled={adopting != null}
+              className="touch-feedback mt-3 w-full rounded-lg bg-accent-soft py-2.5 font-semibold text-primary disabled:opacity-50"
+            >
+              {adopting === plan.key
+                ? 'Adding…'
+                : `Add ${plan.routines.length} template${plan.routines.length > 1 ? 's' : ''}`}
+            </button>
+          </div>
+        ))}
+      </div>
+    </Sheet>
+  )
+}
 
 export default function WorkoutHomePage() {
   const navigate = useNavigate()
   const { workout, start } = useWorkout()
   const [routines, setRoutines] = useState<Routine[]>([])
   const [menuRoutine, setMenuRoutine] = useState<Routine | null>(null)
+  const [plansOpen, setPlansOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -77,19 +143,27 @@ export default function WorkoutHomePage() {
 
       <div className="mt-8 mb-3 flex items-center justify-between">
         <h2 className="text-xl">Templates</h2>
-        <button
-          onClick={() => navigate('/routines/new')}
-          className="touch-feedback flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-primary"
-        >
-          <Plus size={16} /> New
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setPlansOpen(true)}
+            className="touch-feedback flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-primary"
+          >
+            <LibraryBig size={16} /> Plans
+          </button>
+          <button
+            onClick={() => navigate('/routines/new')}
+            className="touch-feedback flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-primary"
+          >
+            <Plus size={16} /> New
+          </button>
+        </div>
       </div>
 
       {loading ? (
         <CardListSkeleton count={2} className="md:grid-cols-2 xl:grid-cols-3" />
       ) : routines.length === 0 ? (
         <EmptyState title="No templates yet">
-          Create one to start workouts with a single tap.
+          Create one, or add a proven plan from the Plans library above.
         </EmptyState>
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -123,6 +197,12 @@ export default function WorkoutHomePage() {
           ))}
         </div>
       )}
+
+      <PlansSheet
+        open={plansOpen}
+        onClose={() => setPlansOpen(false)}
+        onAdopted={(created) => setRoutines((rs) => [...rs, ...created])}
+      />
 
       <Sheet open={menuRoutine != null} onClose={() => setMenuRoutine(null)} title={menuRoutine?.name}>
         {menuRoutine && (

@@ -11,8 +11,17 @@ export interface Exercise {
   name: string
   muscle_group: string
   equipment: string
+  grip?: string | null
+  variant_of_id?: number | null
   is_custom: boolean
   last_used?: string | null
+}
+
+export interface Plan {
+  key: string
+  name: string
+  description: string
+  routines: { name: string; exercises: { name: string; set_count: number }[] }[]
 }
 
 export interface RoutineExercise {
@@ -109,6 +118,7 @@ export interface RecordSet {
 
 export interface ExerciseStats {
   exercise: Exercise
+  variations: { id: number; name: string; grip: string | null }[]
   records: {
     best_weight: RecordSet | null
     best_1rm: (RecordSet & { value: number }) | null

@@ -96,6 +96,7 @@ export default function ExercisesPage() {
                 <span className="block font-medium">{e.name}</span>
                 <span className="block text-sm text-muted-foreground">
                   {e.muscle_group} · {e.equipment}
+                  {e.grip && ` · ${e.grip} grip`}
                   {e.is_custom && ' · Custom'}
                 </span>
               </span>

@@ -39,6 +39,8 @@ def list_exercises(user: User = Depends(get_current_user), db: Session = Depends
             name=e.name,
             muscle_group=e.muscle_group,
             equipment=e.equipment,
+            grip=e.grip,
+            variant_of_id=e.variant_of_id,
             is_custom=e.owner_id is not None,
             last_used=last_used,
         )
@@ -62,6 +64,7 @@ def create_exercise(
         name=name,
         muscle_group=body.muscle_group,
         equipment=body.equipment,
+        grip=body.grip,
         owner_id=user.id,
     )
     db.add(exercise)
@@ -71,6 +74,7 @@ def create_exercise(
         name=exercise.name,
         muscle_group=exercise.muscle_group,
         equipment=exercise.equipment,
+        grip=exercise.grip,
         is_custom=True,
     )
 
@@ -184,14 +188,30 @@ def exercise_stats(
         for w in workouts
     ]
 
+    base_id = exercise.variant_of_id or exercise.id
+    variations = [
+        {"id": v.id, "name": v.name, "grip": v.grip}
+        for v in db.execute(
+            select(Exercise).where(
+                _visible(user.id),
+                or_(Exercise.id == base_id, Exercise.variant_of_id == base_id),
+                Exercise.id != exercise.id,
+            )
+            .order_by(Exercise.name)
+        ).scalars()
+    ]
+
     return {
         "exercise": {
             "id": exercise.id,
             "name": exercise.name,
             "muscle_group": exercise.muscle_group,
             "equipment": exercise.equipment,
+            "grip": exercise.grip,
+            "variant_of_id": exercise.variant_of_id,
             "is_custom": exercise.owner_id is not None,
         },
+        "variations": variations,
         "records": {
             "best_weight": best_weight,
             "best_1rm": best_1rm,
@@ -227,6 +247,7 @@ def update_exercise(
     exercise.name = name
     exercise.muscle_group = body.muscle_group
     exercise.equipment = body.equipment
+    exercise.grip = body.grip
     db.add(exercise)
     db.commit()
     return ExerciseOut(
@@ -234,6 +255,8 @@ def update_exercise(
         name=exercise.name,
         muscle_group=exercise.muscle_group,
         equipment=exercise.equipment,
+        grip=exercise.grip,
+        variant_of_id=exercise.variant_of_id,
         is_custom=True,
     )
 
