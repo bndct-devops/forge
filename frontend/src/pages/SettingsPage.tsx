@@ -1,13 +1,98 @@
-import { Download, KeyRound, LogOut, Minus, Plus, Shield, Trash2, Upload, UserPlus } from 'lucide-react'
+import { Download, KeyRound, LogOut, Minus, Plus, Shield, Tags, Trash2, Upload, UserPlus } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { getToken } from '../lib/api'
+import { api, getToken } from '../lib/api'
+import { MUSCLE_GROUPS } from '../components/ExerciseForm'
+import type { Exercise } from '../lib/types'
 import Segmented from '../components/Segmented'
 import Sheet from '../components/Sheet'
 import { useAuth } from '../contexts/AuthContext'
-import { api } from '../lib/api'
 import { restLabel } from '../lib/format'
 import { applyTheme, getStoredTheme, THEMES, type ThemeId } from '../lib/theme'
 import type { User } from '../lib/types'
+
+/** Bulk muscle-group fixer — imported exercises mostly land in 'Other'. */
+function RecategorizeSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [exercises, setExercises] = useState<Exercise[]>([])
+  const [changes, setChanges] = useState<Record<number, string>>({})
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setChanges({})
+      api<Exercise[]>('/exercises')
+        .then((all) =>
+          setExercises(
+            all
+              .filter((e) => e.is_custom)
+              .sort((a, b) =>
+                a.muscle_group === b.muscle_group
+                  ? a.name.localeCompare(b.name)
+                  : a.muscle_group === 'Other'
+                    ? -1
+                    : b.muscle_group === 'Other'
+                      ? 1
+                      : a.muscle_group.localeCompare(b.muscle_group),
+              ),
+          ),
+        )
+        .catch(() => {})
+    }
+  }, [open])
+
+  const changed = Object.keys(changes).length
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      await api('/exercises/recategorize', {
+        method: 'POST',
+        body: { items: Object.entries(changes).map(([id, muscle_group]) => ({ id: Number(id), muscle_group })) },
+      })
+      onClose()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title="Re-categorize exercises" full>
+      {exercises.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          No custom exercises yet — imported and self-created exercises show up here.
+        </p>
+      ) : (
+        <>
+          <p className="mb-2 text-sm text-muted-foreground">
+            Fix muscle groups in one pass — imports land in “Other”.
+          </p>
+          <div className="divide-y divide-border">
+            {exercises.map((e) => (
+              <div key={e.id} className="flex items-center justify-between gap-3 py-2.5">
+                <span className="min-w-0 truncate font-medium">{e.name}</span>
+                <select
+                  value={changes[e.id] ?? e.muscle_group}
+                  onChange={(ev) => setChanges((c) => ({ ...c, [e.id]: ev.target.value }))}
+                  className="h-9 shrink-0 rounded-lg border border-input bg-card px-2 text-sm outline-none"
+                >
+                  {MUSCLE_GROUPS.map((g) => (
+                    <option key={g}>{g}</option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={save}
+            disabled={changed === 0 || saving}
+            className="touch-feedback sticky bottom-0 mt-3 h-12 w-full rounded-xl bg-primary font-semibold text-primary-foreground disabled:opacity-50"
+          >
+            {saving ? 'Saving…' : changed ? `Save ${changed} change${changed > 1 ? 's' : ''}` : 'No changes'}
+          </button>
+        </>
+      )}
+    </Sheet>
+  )
+}
 
 /** Live viewport readout — diagnoses iOS webview sizing issues on-device. */
 function ViewportDebug() {
@@ -67,6 +152,7 @@ export default function SettingsPage() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [importing, setImporting] = useState(false)
+  const [recategorizing, setRecategorizing] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -248,6 +334,12 @@ export default function SettingsPage() {
         >
           <Download size={18} className="text-muted-foreground" /> Export workouts (CSV)
         </button>
+        <button
+          onClick={() => setRecategorizing(true)}
+          className="touch-feedback flex min-h-12 items-center gap-3 border-t px-4 py-2.5 text-left font-medium hover:bg-secondary"
+        >
+          <Tags size={18} className="text-muted-foreground" /> Re-categorize exercises
+        </button>
       </Section>
 
       <Section title="Account">
@@ -299,6 +391,8 @@ export default function SettingsPage() {
         Forge · self-hosted iron tracking · build {__BUILD__}
       </p>
       <ViewportDebug />
+
+      <RecategorizeSheet open={recategorizing} onClose={() => setRecategorizing(false)} />
 
       <Sheet open={addUserOpen} onClose={() => setAddUserOpen(false)} title="Add user">
         <div className="flex flex-col gap-3 pt-1">

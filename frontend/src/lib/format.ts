@@ -62,6 +62,13 @@ export function formatShortDate(value: string): string {
   return parseUTC(value).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
 }
 
+/** Value for <input type="datetime-local"> — local time, minute precision. */
+export function toDatetimeLocal(value: string): string {
+  const d = parseUTC(value)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 export function epley1RM(weight: number, reps: number): number {
   if (reps <= 0) return 0
   if (reps === 1) return weight

@@ -11,6 +11,8 @@ import {
   formatSetWeight,
   formatTime,
   formatVolume,
+  parseUTC,
+  toDatetimeLocal,
 } from '../lib/format'
 import type { SetEntry, Workout, WorkoutExercise } from '../lib/types'
 import { cn } from '../lib/utils'
@@ -228,9 +230,27 @@ export default function WorkoutDetailPage() {
           ) : (
             <h1 className="truncate text-2xl">{workout.name}</h1>
           )}
-          <p className="text-sm text-muted-foreground">
-            {formatRelativeDate(workout.started_at)} at {formatTime(workout.started_at)}
-          </p>
+          {editing ? (
+            <input
+              type="datetime-local"
+              defaultValue={toDatetimeLocal(workout.started_at)}
+              onBlur={(e) => {
+                if (!e.target.value) return
+                const iso = new Date(e.target.value).toISOString()
+                if (iso !== parseUTC(workout.started_at).toISOString()) {
+                  api<Workout>(`/workouts/${workout.id}`, {
+                    method: 'PATCH',
+                    body: { started_at: iso },
+                  }).then(replaceWorkout)
+                }
+              }}
+              className="rounded-md border border-input bg-card px-2 py-0.5 text-sm text-muted-foreground outline-none focus:ring-2 focus:ring-ring"
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {formatRelativeDate(workout.started_at)} at {formatTime(workout.started_at)}
+            </p>
+          )}
         </div>
         {editing ? (
           <button

@@ -13,9 +13,12 @@ from backend.models import (
     Workout,
     WorkoutExercise,
 )
+from datetime import timezone
+
 from backend.schemas import (
     SetUpdate,
     WorkoutExerciseAdd,
+    WorkoutExerciseOrder,
     WorkoutExerciseUpdate,
     WorkoutStart,
     WorkoutUpdate,
@@ -173,8 +176,22 @@ def update_workout(
         workout.name = body.name.strip()
     if body.notes is not None:
         workout.notes = body.notes
+    date_changed = False
+    if body.started_at is not None:
+        started = body.started_at
+        if started.tzinfo is not None:
+            started = started.astimezone(timezone.utc).replace(tzinfo=None)
+        if workout.finished_at is not None:
+            duration = workout.finished_at - workout.started_at
+            workout.finished_at = started + duration
+        workout.started_at = started
+        date_changed = True
     db.add(workout)
     db.commit()
+    # Moving a workout in time reorders history — PR flags must follow
+    if date_changed and workout.finished_at is not None:
+        recompute_prs(db, user.id)
+        db.refresh(workout)
     return serialize_workout(db, workout, with_previous=workout.finished_at is None)
 
 
@@ -233,6 +250,26 @@ def finish_workout(
         "total_sets": totals["total_sets"],
         "prs": prs,
     }
+
+
+@router.put("/{workout_id}/exercise-order")
+def reorder_exercises(
+    workout_id: int,
+    body: WorkoutExerciseOrder,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    workout = _get_own_workout(db, user, workout_id)
+    current_ids = {we.id for we in workout.exercises}
+    if set(body.exercise_ids) != current_ids or len(body.exercise_ids) != len(current_ids):
+        raise HTTPException(status_code=400, detail="Order must contain each exercise exactly once")
+    position_by_id = {we_id: i for i, we_id in enumerate(body.exercise_ids)}
+    for we in workout.exercises:
+        we.position = position_by_id[we.id]
+    db.add(workout)
+    db.commit()
+    db.refresh(workout)
+    return serialize_workout(db, workout, with_previous=workout.finished_at is None)
 
 
 @router.post("/{workout_id}/recompute")

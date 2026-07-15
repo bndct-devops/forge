@@ -81,6 +81,20 @@ class WorkoutStart(BaseModel):
 class WorkoutUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
     notes: str | None = None
+    started_at: datetime | None = None
+
+
+class WorkoutExerciseOrder(BaseModel):
+    exercise_ids: list[int]  # workout-exercise ids, in the desired order
+
+
+class RecategorizeItem(BaseModel):
+    id: int
+    muscle_group: str = Field(min_length=1, max_length=32)
+
+
+class RecategorizeIn(BaseModel):
+    items: list[RecategorizeItem]
 
 
 class WorkoutExerciseAdd(BaseModel):

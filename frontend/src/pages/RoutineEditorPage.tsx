@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
 import type { Exercise, Routine } from '../lib/types'
 import { restLabel } from '../lib/format'
+import { moveItem, useDragReorder } from '../lib/useDragReorder'
 
 interface DraftExercise {
   exercise_id: number
@@ -26,6 +27,9 @@ export default function RoutineEditorPage() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const { handleProps, itemProps } = useDragReorder(exercises.length, (from, to) =>
+    setExercises((xs) => moveItem(xs, from, to)),
+  )
 
   useEffect(() => {
     if (editing) {
@@ -103,9 +107,15 @@ export default function RoutineEditorPage() {
 
       <div className="mt-5 flex flex-col gap-3">
         {exercises.map((exercise, i) => (
-          <div key={`${exercise.exercise_id}-${i}`} className="rounded-xl border bg-card p-3.5">
+          <div key={`${exercise.exercise_id}-${i}`} {...itemProps(i)} className="rounded-xl border bg-card p-3.5">
             <div className="flex items-center gap-2">
-              <GripVertical size={16} className="shrink-0 text-muted-foreground/50" />
+              <button
+                {...handleProps(i)}
+                aria-label={`Reorder ${exercise.name}`}
+                className="-m-1 shrink-0 rounded p-1 text-muted-foreground/50"
+              >
+                <GripVertical size={16} />
+              </button>
               <span className="min-w-0 flex-1 truncate font-medium">{exercise.name}</span>
               <button
                 onClick={() => setExercises((xs) => xs.filter((_, j) => j !== i))}

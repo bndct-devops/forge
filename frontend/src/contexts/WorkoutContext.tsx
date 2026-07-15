@@ -12,6 +12,7 @@ interface WorkoutContextValue {
   addExercise: (exerciseId: number) => Promise<void>
   removeExercise: (weId: number) => Promise<void>
   setExerciseRest: (weId: number, restSeconds: number | null) => Promise<void>
+  reorderExercises: (weIds: number[]) => Promise<void>
   addSet: (weId: number) => Promise<void>
   updateSet: (
     setId: number,
@@ -99,6 +100,30 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     [workout],
   )
 
+  const reorderExercises = useCallback(
+    async (weIds: number[]) => {
+      if (!workout) return
+      // Optimistic — the drag already showed the new order
+      setWorkout((prev) =>
+        prev
+          ? {
+              ...prev,
+              exercises: weIds
+                .map((id) => prev.exercises.find((we) => we.id === id))
+                .filter((we): we is NonNullable<typeof we> => we != null)
+                .map((we, i) => ({ ...we, position: i })),
+            }
+          : prev,
+      )
+      const w = await api<Workout>(`/workouts/${workout.id}/exercise-order`, {
+        method: 'PUT',
+        body: { exercise_ids: weIds },
+      })
+      setWorkout(w)
+    },
+    [workout],
+  )
+
   const addSet = useCallback(
     async (weId: number) => {
       if (!workout) return
@@ -170,6 +195,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
         addExercise,
         removeExercise,
         setExerciseRest,
+        reorderExercises,
         addSet,
         updateSet,
         deleteSet,

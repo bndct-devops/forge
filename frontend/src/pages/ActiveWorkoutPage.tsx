@@ -1,4 +1,4 @@
-import { ChevronDown, Flag, MoreHorizontal, Plus, Timer, Trash2, Trophy, X } from 'lucide-react'
+import { ChevronDown, Flag, GripVertical, MoreHorizontal, Plus, Timer, Trash2, Trophy, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ExercisePicker from '../components/ExercisePicker'
@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useWorkout } from '../contexts/WorkoutContext'
 import { formatClock, formatVolume, formatDuration, parseUTC, restLabel } from '../lib/format'
 import { restTimer } from '../lib/timer'
+import { moveItem, useDragReorder } from '../lib/useDragReorder'
 import type { FinishResult, WorkoutExercise } from '../lib/types'
 
 const REST_OPTIONS = [0, 30, 45, 60, 90, 120, 150, 180, 240, 300]
@@ -55,6 +56,7 @@ export default function ActiveWorkoutPage() {
     addSet,
     updateSet,
     deleteSet,
+    reorderExercises,
     finish,
     discard,
   } = useWorkout()
@@ -64,6 +66,11 @@ export default function ActiveWorkoutPage() {
   const [confirmFinish, setConfirmFinish] = useState(false)
   const [summary, setSummary] = useState<FinishResult | null>(null)
   const [error, setError] = useState('')
+  const exerciseCount = workout?.exercises.length ?? 0
+  const { handleProps, itemProps } = useDragReorder(exerciseCount, (from, to) => {
+    if (!workout) return
+    reorderExercises(moveItem(workout.exercises, from, to).map((we) => we.id))
+  })
 
   useEffect(() => {
     if (!loading && !workout && !summary) navigate('/', { replace: true })
@@ -136,10 +143,21 @@ export default function ActiveWorkoutPage() {
           <main className="overscroll-contain flex-1 overflow-y-auto px-4 pt-4 pb-8">
             {error && <p className="mb-3 text-sm text-destructive">{error}</p>}
             <div className="flex flex-col gap-4">
-              {workout.exercises.map((we) => (
-                <section key={we.id} className="animate-card-appear rounded-xl border bg-card p-3.5">
+              {workout.exercises.map((we, i) => (
+                <section
+                  key={we.id}
+                  {...itemProps(i)}
+                  className="animate-card-appear rounded-xl border bg-card p-3.5"
+                >
                   <div className="flex items-center justify-between gap-2">
-                    <h3 className="min-w-0 truncate text-base font-semibold text-primary">
+                    <button
+                      {...handleProps(i)}
+                      aria-label={`Reorder ${we.name}`}
+                      className="-m-1 shrink-0 rounded p-1 text-muted-foreground/50"
+                    >
+                      <GripVertical size={16} />
+                    </button>
+                    <h3 className="min-w-0 flex-1 truncate text-base font-semibold text-primary">
                       {we.name}
                     </h3>
                     <div className="flex items-center gap-1">

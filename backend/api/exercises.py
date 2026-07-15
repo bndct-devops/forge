@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from backend.core.database import get_db
 from backend.core.security import get_current_user
 from backend.models import Exercise, User, Workout
-from backend.schemas import ExerciseCreate, ExerciseOut
+from backend.schemas import ExerciseCreate, ExerciseOut, RecategorizeIn
 from backend.serializers import completed_sets_query, epley_1rm
 
 router = APIRouter(prefix="/exercises", tags=["exercises"])
@@ -59,6 +59,26 @@ def create_exercise(
         equipment=exercise.equipment,
         is_custom=True,
     )
+
+
+@router.post("/recategorize")
+def recategorize(
+    body: RecategorizeIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Bulk-fix muscle groups — mainly for imported exercises that landed in 'Other'."""
+    updated = 0
+    for item in body.items:
+        exercise = db.get(Exercise, item.id)
+        if exercise is None or exercise.owner_id != user.id:
+            continue
+        if exercise.muscle_group != item.muscle_group:
+            exercise.muscle_group = item.muscle_group
+            db.add(exercise)
+            updated += 1
+    db.commit()
+    return {"updated": updated}
 
 
 @router.get("/{exercise_id}/stats")
