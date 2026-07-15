@@ -37,9 +37,11 @@ export default function LoginPage() {
         </div>
         <div className="flex flex-col gap-3">
           <input
+            autoFocus
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             placeholder="Username"
+            autoComplete="username"
             autoCapitalize="none"
             autoCorrect="off"
             className="h-12 rounded-lg border border-input bg-card px-4 text-base outline-none focus:ring-2 focus:ring-ring"
@@ -49,6 +51,7 @@ export default function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Password"
+            autoComplete="current-password"
             className="h-12 rounded-lg border border-input bg-card px-4 text-base outline-none focus:ring-2 focus:ring-ring"
           />
           {error && <p className="text-sm text-destructive">{error}</p>}

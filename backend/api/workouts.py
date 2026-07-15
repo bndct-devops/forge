@@ -24,6 +24,7 @@ from backend.serializers import (
     detect_prs,
     historical_bests,
     previous_sets,
+    recompute_prs,
     serialize_workout,
     workout_totals,
 )
@@ -234,6 +235,44 @@ def finish_workout(
     }
 
 
+@router.post("/{workout_id}/recompute")
+def recompute_workout(
+    workout_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Close out an editing session on a finished workout: prune sets left
+    incomplete, drop emptied exercises, and rebuild the user's PR flags."""
+    workout = _get_own_workout(db, user, workout_id)
+    if workout.finished_at is None:
+        raise HTTPException(status_code=400, detail="Workout is not finished")
+
+    for we in list(workout.exercises):
+        we.sets = [s for s in we.sets if s.is_completed]
+        for i, s in enumerate(we.sets):
+            s.position = i
+        if not we.sets:
+            workout.exercises.remove(we)
+    for i, we in enumerate(workout.exercises):
+        we.position = i
+
+    if not workout.exercises:
+        db.delete(workout)
+        db.commit()
+        recompute_prs(db, user.id)
+        return {"deleted": True}
+
+    db.add(workout)
+    db.commit()
+    recompute_prs(db, user.id)
+
+    db.refresh(workout)
+    data = serialize_workout(db, workout, with_previous=False)
+    duration = int((workout.finished_at - workout.started_at).total_seconds())
+    data.update(duration_seconds=duration, **workout_totals(workout))
+    return data
+
+
 # ── Exercises within a workout ───────────────────────────────────────────────
 
 @router.post("/{workout_id}/exercises")
@@ -244,8 +283,6 @@ def add_exercise(
     db: Session = Depends(get_db),
 ):
     workout = _get_own_workout(db, user, workout_id)
-    if workout.finished_at is not None:
-        raise HTTPException(status_code=400, detail="Workout is finished")
     _visible_exercise(db, user, body.exercise_id)
 
     # Mirror the set count of the last time this exercise was performed

@@ -172,6 +172,38 @@ def exercise_stats(
     }
 
 
+@router.patch("/{exercise_id}", response_model=ExerciseOut)
+def update_exercise(
+    exercise_id: int,
+    body: ExerciseCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    exercise = db.get(Exercise, exercise_id)
+    if exercise is None or exercise.owner_id != user.id:
+        raise HTTPException(status_code=404, detail="Custom exercise not found")
+    name = body.name.strip()
+    clash = db.execute(
+        select(Exercise).where(
+            _visible(user.id), Exercise.name == name, Exercise.id != exercise_id
+        )
+    ).scalar_one_or_none()
+    if clash:
+        raise HTTPException(status_code=400, detail="An exercise with that name already exists")
+    exercise.name = name
+    exercise.muscle_group = body.muscle_group
+    exercise.equipment = body.equipment
+    db.add(exercise)
+    db.commit()
+    return ExerciseOut(
+        id=exercise.id,
+        name=exercise.name,
+        muscle_group=exercise.muscle_group,
+        equipment=exercise.equipment,
+        is_custom=True,
+    )
+
+
 @router.delete("/{exercise_id}")
 def delete_exercise(
     exercise_id: int,

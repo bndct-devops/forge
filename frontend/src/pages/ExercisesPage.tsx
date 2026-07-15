@@ -1,17 +1,19 @@
-import { ChevronRight, Search } from 'lucide-react'
+import { ChevronRight, Plus, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import ExerciseForm, { MUSCLE_GROUPS, type ExerciseFields } from '../components/ExerciseForm'
+import Sheet from '../components/Sheet'
 import { api } from '../lib/api'
 import type { Exercise } from '../lib/types'
 import { cn } from '../lib/utils'
-
-const MUSCLE_GROUPS = ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Full Body']
 
 export default function ExercisesPage() {
   const navigate = useNavigate()
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [query, setQuery] = useState('')
   const [group, setGroup] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     api<Exercise[]>('/exercises').then(setExercises).catch(() => {})
@@ -24,10 +26,27 @@ export default function ExercisesPage() {
     )
   }, [exercises, query, group])
 
+  const createExercise = async (fields: ExerciseFields) => {
+    setError('')
+    try {
+      const created = await api<Exercise>('/exercises', { method: 'POST', body: fields })
+      setCreating(false)
+      navigate(`/exercises/${created.id}`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to create exercise')
+    }
+  }
+
   return (
     <div className="safe-top px-4 md:max-w-2xl">
-      <header className="pt-6 pb-4">
+      <header className="flex items-baseline justify-between pt-6 pb-4">
         <h1 className="text-3xl">Exercises</h1>
+        <button
+          onClick={() => setCreating(true)}
+          className="touch-feedback flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-primary"
+        >
+          <Plus size={16} /> New
+        </button>
       </header>
 
       <div className="relative">
@@ -76,6 +95,10 @@ export default function ExercisesPage() {
           <li className="py-8 text-center text-sm text-muted-foreground">No exercises found</li>
         )}
       </ul>
+
+      <Sheet open={creating} onClose={() => setCreating(false)} title="New exercise">
+        <ExerciseForm submitLabel="Create" onSubmit={createExercise} error={error} />
+      </Sheet>
     </div>
   )
 }

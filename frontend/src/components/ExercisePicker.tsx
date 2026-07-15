@@ -3,10 +3,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { api } from '../lib/api'
 import type { Exercise } from '../lib/types'
 import { cn } from '../lib/utils'
+import ExerciseForm, { MUSCLE_GROUPS, type ExerciseFields } from './ExerciseForm'
 import Sheet from './Sheet'
-
-const MUSCLE_GROUPS = ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Full Body']
-const EQUIPMENT = ['Barbell', 'Dumbbell', 'Machine', 'Cable', 'Bodyweight', 'EZ Bar', 'Trap Bar', 'Kettlebell', 'Other']
 
 interface ExercisePickerProps {
   open: boolean
@@ -19,9 +17,6 @@ export default function ExercisePicker({ open, onClose, onPick }: ExercisePicker
   const [query, setQuery] = useState('')
   const [group, setGroup] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
-  const [newName, setNewName] = useState('')
-  const [newGroup, setNewGroup] = useState(MUSCLE_GROUPS[0])
-  const [newEquipment, setNewEquipment] = useState(EQUIPMENT[0])
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -43,15 +38,11 @@ export default function ExercisePicker({ open, onClose, onPick }: ExercisePicker
     )
   }, [exercises, query, group])
 
-  const createExercise = async () => {
+  const createExercise = async (fields: ExerciseFields) => {
     setError('')
     try {
-      const created = await api<Exercise>('/exercises', {
-        method: 'POST',
-        body: { name: newName, muscle_group: newGroup, equipment: newEquipment },
-      })
+      const created = await api<Exercise>('/exercises', { method: 'POST', body: fields })
       onPick(created)
-      setNewName('')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to create exercise')
     }
@@ -60,58 +51,19 @@ export default function ExercisePicker({ open, onClose, onPick }: ExercisePicker
   return (
     <Sheet open={open} onClose={onClose} title={creating ? 'New exercise' : 'Add exercise'} full>
       {creating ? (
-        <div className="flex flex-col gap-4 pt-2">
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            Name
-            <input
-              autoFocus
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="e.g. Incline Cable Fly"
-              className="h-11 rounded-lg border border-input bg-card px-3 text-base outline-none focus:ring-2 focus:ring-ring"
-            />
-          </label>
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            Muscle group
-            <select
-              value={newGroup}
-              onChange={(e) => setNewGroup(e.target.value)}
-              className="h-11 rounded-lg border border-input bg-card px-3 text-base outline-none focus:ring-2 focus:ring-ring"
-            >
-              {MUSCLE_GROUPS.map((g) => (
-                <option key={g}>{g}</option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            Equipment
-            <select
-              value={newEquipment}
-              onChange={(e) => setNewEquipment(e.target.value)}
-              className="h-11 rounded-lg border border-input bg-card px-3 text-base outline-none focus:ring-2 focus:ring-ring"
-            >
-              {EQUIPMENT.map((eq) => (
-                <option key={eq}>{eq}</option>
-              ))}
-            </select>
-          </label>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <div className="flex gap-2 pt-1">
+        <ExerciseForm
+          submitLabel="Create"
+          onSubmit={createExercise}
+          error={error}
+          secondaryAction={
             <button
               onClick={() => setCreating(false)}
               className="touch-feedback h-11 flex-1 rounded-lg bg-secondary font-semibold text-secondary-foreground"
             >
               Back
             </button>
-            <button
-              onClick={createExercise}
-              disabled={!newName.trim()}
-              className="touch-feedback h-11 flex-1 rounded-lg bg-primary font-semibold text-primary-foreground disabled:opacity-50"
-            >
-              Create
-            </button>
-          </div>
-        </div>
+          }
+        />
       ) : (
         <>
           <div className="sticky top-0 z-10 -mx-5 bg-popover px-5 pb-2">

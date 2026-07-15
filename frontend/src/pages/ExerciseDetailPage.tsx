@@ -1,6 +1,8 @@
-import { ChevronLeft, Trophy } from 'lucide-react'
+import { ChevronLeft, Pencil, Trash2, Trophy } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import ExerciseForm, { type ExerciseFields } from '../components/ExerciseForm'
+import Sheet from '../components/Sheet'
 import {
   Bar,
   BarChart,
@@ -43,6 +45,8 @@ export default function ExerciseDetailPage() {
   const { user } = useAuth()
   const [stats, setStats] = useState<ExerciseStats | null>(null)
   const [metric, setMetric] = useState<Metric>('best_1rm')
+  const [editing, setEditing] = useState(false)
+  const [error, setError] = useState('')
   const unit = user?.unit ?? 'kg'
 
   useEffect(() => {
@@ -58,6 +62,25 @@ export default function ExerciseDetailPage() {
   if (!stats) return null
 
   const { exercise, records, chart, history } = stats
+
+  const saveExercise = async (fields: ExerciseFields) => {
+    setError('')
+    try {
+      const updated = await api<ExerciseStats['exercise']>(`/exercises/${exercise.id}`, {
+        method: 'PATCH',
+        body: fields,
+      })
+      setStats({ ...stats, exercise: updated })
+      setEditing(false)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save')
+    }
+  }
+
+  const deleteExercise = async () => {
+    await api(`/exercises/${exercise.id}`, { method: 'DELETE' })
+    navigate('/exercises', { replace: true })
+  }
   const data = chart.map((c) => ({ ...c, label: formatShortDate(c.date) }))
 
   const tooltipStyle = {
@@ -78,12 +101,22 @@ export default function ExerciseDetailPage() {
         >
           <ChevronLeft size={24} />
         </button>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="truncate text-2xl">{exercise.name}</h1>
           <p className="text-sm text-muted-foreground">
             {exercise.muscle_group} · {exercise.equipment}
+            {exercise.is_custom && ' · Custom'}
           </p>
         </div>
+        {exercise.is_custom && (
+          <button
+            onClick={() => setEditing(true)}
+            className="touch-feedback rounded-full p-2 text-muted-foreground"
+            aria-label="Edit exercise"
+          >
+            <Pencil size={18} />
+          </button>
+        )}
       </header>
 
       {records.times_performed === 0 ? (
@@ -241,6 +274,32 @@ export default function ExerciseDetailPage() {
           </section>
         </>
       )}
+
+      <Sheet open={editing} onClose={() => setEditing(false)} title="Edit exercise">
+        <ExerciseForm
+          key={`${exercise.id}-${editing}`}
+          initial={{
+            name: exercise.name,
+            muscle_group: exercise.muscle_group,
+            equipment: exercise.equipment,
+          }}
+          submitLabel="Save"
+          onSubmit={saveExercise}
+          error={error}
+          secondaryAction={
+            <button
+              onClick={() => {
+                if (confirm(`Delete "${exercise.name}"? This also removes it from every workout and template.`)) {
+                  deleteExercise()
+                }
+              }}
+              className="touch-feedback flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-secondary font-semibold text-destructive"
+            >
+              <Trash2 size={16} /> Delete
+            </button>
+          }
+        />
+      </Sheet>
     </div>
   )
 }

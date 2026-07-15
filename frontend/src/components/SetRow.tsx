@@ -7,6 +7,9 @@ import { cn } from '../lib/utils'
 interface SetRowProps {
   set: SetEntry
   previous: PastSet | undefined
+  /** Placeholder fallback when there's no previous for this slot — the last
+   *  filled set above it in the current session (Strong's behavior). */
+  suggested?: { weight: number | null; reps: number | null }
   unit: string
   /** Bodyweight exercises complete on reps alone; empty weight logs as BW (0). */
   bodyweight: boolean
@@ -27,6 +30,7 @@ function parseNum(value: string): number | null {
 export default function SetRow({
   set,
   previous,
+  suggested,
   unit,
   bodyweight,
   onComplete,
@@ -40,8 +44,8 @@ export default function SetRow({
   const [justDone, setJustDone] = useState(false)
   const touchStart = useRef<number | null>(null)
 
-  const fallbackWeight = previous?.weight ?? (bodyweight ? 0 : null)
-  const fallbackReps = previous?.reps ?? null
+  const fallbackWeight = previous?.weight ?? suggested?.weight ?? (bodyweight ? 0 : null)
+  const fallbackReps = previous?.reps ?? suggested?.reps ?? null
   const effectiveWeight = weight !== '' ? parseNum(weight) : fallbackWeight
   const effectiveReps = reps !== '' ? parseNum(reps) : fallbackReps
   const canComplete = effectiveWeight != null && effectiveReps != null

@@ -166,11 +166,15 @@ export default function ActiveWorkoutPage() {
                   </div>
 
                   <div className="divide-y divide-border/60">
-                    {we.sets.map((set) => (
+                    {we.sets.map((set, i) => (
                       <SetRow
                         key={set.id}
                         set={set}
                         previous={we.previous_sets[set.position]}
+                        suggested={we.sets
+                          .slice(0, i)
+                          .reverse()
+                          .find((s) => s.weight != null && s.reps != null)}
                         unit={user?.unit ?? 'kg'}
                         bodyweight={we.equipment === 'Bodyweight'}
                         onComplete={(weight, reps) => completeSet(we, set.id, weight, reps)}
