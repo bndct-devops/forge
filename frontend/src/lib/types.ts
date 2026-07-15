@@ -108,6 +108,8 @@ export interface FinishResult {
   total_volume: number
   total_sets: number
   prs: PR[]
+  workout_number: number
+  week_workouts: number
 }
 
 export interface RecordSet {

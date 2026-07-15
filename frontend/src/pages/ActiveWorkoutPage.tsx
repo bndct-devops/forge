@@ -1,7 +1,8 @@
-import { Calculator, ChevronDown, CloudOff, Flag, GripVertical, MoreHorizontal, Plus, StickyNote, Timer, Trash2, Trophy, X } from 'lucide-react'
+import { Calculator, ChevronDown, CloudOff, Flag, GripVertical, MoreHorizontal, Plus, StickyNote, Timer, Trash2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ExercisePicker from '../components/ExercisePicker'
+import FinishScreen from '../components/FinishScreen'
 import PlateCalculator from '../components/PlateCalculator'
 import RestTimerBar from '../components/RestTimerBar'
 import SetRow from '../components/SetRow'
@@ -10,7 +11,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useWorkout } from '../contexts/WorkoutContext'
 import { api } from '../lib/api'
 import { toast } from '../lib/toast'
-import { formatClock, formatVolume, formatDuration, parseUTC, restLabel } from '../lib/format'
+import { formatClock, formatVolume, parseUTC, restLabel } from '../lib/format'
 import { useOutboxSize } from '../lib/outbox'
 import { restTimer } from '../lib/timer'
 import { moveItem, useDragReorder } from '../lib/useDragReorder'
@@ -93,6 +94,18 @@ export default function ActiveWorkoutPage() {
   }, [loading, workout, summary, navigate])
 
   if (!workout && !summary) return null
+
+  if (summary) {
+    return (
+      <div className="mx-auto h-full max-w-lg md:max-w-2xl">
+        <FinishScreen
+          summary={summary}
+          unit={user?.unit ?? 'kg'}
+          onDone={() => navigate('/history', { replace: true })}
+        />
+      </div>
+    )
+  }
 
   const completedCount =
     workout?.exercises.reduce((n, we) => n + we.sets.filter((s) => s.is_completed).length, 0) ?? 0
@@ -419,63 +432,6 @@ export default function ActiveWorkoutPage() {
         </div>
       </Sheet>
 
-      {/* Leave `summary` set while navigating away — clearing it first lets the
-          no-workout redirect effect win over these navigations (router v7
-          navigations are transitions and commit after plain state updates). */}
-      <Sheet
-        open={summary != null}
-        onClose={() => navigate('/', { replace: true })}
-        title="Workout complete"
-      >
-        {summary && (
-          <div className="flex flex-col gap-4 pt-1">
-            <div className="grid grid-cols-3 gap-2">
-              <div className="rounded-xl bg-secondary p-3 text-center">
-                <div className="tnum text-lg font-semibold">{formatDuration(summary.duration_seconds)}</div>
-                <div className="text-xs text-muted-foreground">Duration</div>
-              </div>
-              <div className="rounded-xl bg-secondary p-3 text-center">
-                <div className="tnum text-lg font-semibold">
-                  {formatVolume(summary.total_volume, user?.unit ?? 'kg')}
-                </div>
-                <div className="text-xs text-muted-foreground">Volume</div>
-              </div>
-              <div className="rounded-xl bg-secondary p-3 text-center">
-                <div className="tnum text-lg font-semibold">{summary.total_sets}</div>
-                <div className="text-xs text-muted-foreground">Sets</div>
-              </div>
-            </div>
-            {summary.prs.length > 0 && (
-              <div>
-                <h3 className="mb-2 text-base">Personal records</h3>
-                <div className="flex flex-col gap-1.5">
-                  {summary.prs.map((pr, i) => (
-                    <div key={i} className="flex items-center gap-2.5 rounded-lg bg-secondary px-3 py-2.5 text-sm">
-                      <Trophy
-                        size={16}
-                        className="animate-trophy-pop shrink-0 text-record"
-                        style={{ animationDelay: `${150 + i * 120}ms` }}
-                      />
-                      <span className="min-w-0 flex-1 truncate font-medium">{pr.exercise_name}</span>
-                      <span className="tnum text-muted-foreground">
-                        {pr.kind === 'weight' && `${pr.value} ${user?.unit ?? 'kg'} × ${pr.reps}`}
-                        {pr.kind === '1rm' && `est. 1RM ${pr.value} ${user?.unit ?? 'kg'}`}
-                        {pr.kind === 'reps' && `${pr.value} reps`}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            <button
-              onClick={() => navigate('/history', { replace: true })}
-              className="touch-feedback h-12 rounded-xl bg-primary font-semibold text-primary-foreground"
-            >
-              Done
-            </button>
-          </div>
-        )}
-      </Sheet>
     </div>
   )
 }

@@ -13,7 +13,9 @@ from backend.models import (
     Workout,
     WorkoutExercise,
 )
-from datetime import timezone
+from datetime import timedelta, timezone
+
+from sqlalchemy import func
 
 from backend.schemas import (
     SetUpdate,
@@ -255,6 +257,27 @@ def finish_workout(
 
     totals = workout_totals(workout)
     duration = int((workout.finished_at - workout.started_at).total_seconds())
+
+    # Context for the finish screen: lifetime count + count this week
+    workout_number = db.execute(
+        select(func.count(Workout.id)).where(
+            Workout.owner_id == user.id, Workout.finished_at.is_not(None)
+        )
+    ).scalar()
+    week_start = workout.started_at - timedelta(
+        days=workout.started_at.weekday(),
+        hours=workout.started_at.hour,
+        minutes=workout.started_at.minute,
+        seconds=workout.started_at.second,
+    )
+    week_workouts = db.execute(
+        select(func.count(Workout.id)).where(
+            Workout.owner_id == user.id,
+            Workout.finished_at.is_not(None),
+            Workout.started_at >= week_start,
+        )
+    ).scalar()
+
     return {
         "id": workout.id,
         "name": workout.name,
@@ -262,6 +285,8 @@ def finish_workout(
         "total_volume": totals["total_volume"],
         "total_sets": totals["total_sets"],
         "prs": prs,
+        "workout_number": workout_number,
+        "week_workouts": week_workouts,
     }
 
 
