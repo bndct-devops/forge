@@ -39,7 +39,7 @@ export default function HistoryPage() {
           No workouts yet. Your finished workouts will show up here.
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="grid gap-3 md:grid-cols-2">
           {workouts.map((w, i) => (
             <button
               key={w.id}
@@ -75,7 +75,7 @@ export default function HistoryPage() {
             <button
               onClick={() => load(workouts.length)}
               disabled={loading}
-              className="touch-feedback rounded-lg py-3 text-sm font-semibold text-primary disabled:opacity-50"
+              className="touch-feedback rounded-lg py-3 text-sm font-semibold text-primary disabled:opacity-50 md:col-span-2"
             >
               {loading ? 'Loading…' : 'Load more'}
             </button>

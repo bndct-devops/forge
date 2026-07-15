@@ -82,7 +82,7 @@ export default function RoutineEditorPage() {
   const defaultRest = restLabel(user?.default_rest_seconds ?? 120)
 
   return (
-    <div className="safe-top px-4">
+    <div className="safe-top px-4 md:max-w-2xl">
       <header className="flex items-center gap-2 pt-4 pb-4">
         <button
           onClick={() => navigate(-1)}

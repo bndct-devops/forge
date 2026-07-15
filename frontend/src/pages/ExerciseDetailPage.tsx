@@ -87,7 +87,7 @@ export default function ExerciseDetailPage() {
         </div>
       ) : (
         <>
-          <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
             <StatTile
               label="Best weight"
               value={records.best_weight ? `${records.best_weight.weight} ${unit}` : '—'}
@@ -128,7 +128,7 @@ export default function ExerciseDetailPage() {
               onChange={setMetric}
               className="mb-4"
             />
-            <div className="h-52">
+            <div className="h-52 md:h-72">
               <ResponsiveContainer width="100%" height="100%">
                 {metric === 'volume' ? (
                   <BarChart data={data} margin={{ top: 6, right: 12, bottom: 0, left: -18 }}>
@@ -194,7 +194,7 @@ export default function ExerciseDetailPage() {
 
           <section className="mt-4 pb-8">
             <h2 className="mb-2 text-base">History</h2>
-            <div className="flex flex-col gap-2">
+            <div className="grid gap-2 md:grid-cols-2">
               {history.map((h) => (
                 <Link
                   key={h.workout_id}

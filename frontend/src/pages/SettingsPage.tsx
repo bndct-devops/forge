@@ -95,7 +95,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="safe-top px-4 pb-8">
+    <div className="safe-top px-4 pb-8 md:max-w-2xl">
       <header className="pt-6 pb-2">
         <h1 className="text-3xl">Settings</h1>
         <p className="mt-1 text-sm text-muted-foreground">

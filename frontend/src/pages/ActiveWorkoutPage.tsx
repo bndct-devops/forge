@@ -100,7 +100,7 @@ export default function ActiveWorkoutPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
+    <div className="mx-auto flex min-h-dvh max-w-lg flex-col md:max-w-2xl">
       {workout && (
         <>
           <header className="safe-top sticky top-0 z-30 border-b bg-background/90 backdrop-blur-lg">
@@ -204,7 +204,7 @@ export default function ActiveWorkoutPage() {
           </main>
 
           <div className="safe-bottom fixed inset-x-0 bottom-0 z-40">
-            <div className="mx-auto max-w-lg px-3 pb-3">
+            <div className="mx-auto max-w-lg px-3 pb-3 md:max-w-2xl">
               <RestTimerBar />
             </div>
           </div>

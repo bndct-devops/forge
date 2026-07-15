@@ -26,16 +26,16 @@ export default function Sheet({ open, onClose, title, children, full }: SheetPro
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-6">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div
         className={cn(
-          'animate-in slide-in-from-bottom relative flex w-full max-w-lg flex-col rounded-t-2xl bg-popover shadow-2xl duration-300',
-          full ? 'h-[92dvh]' : 'max-h-[85dvh]',
+          'animate-in slide-in-from-bottom md:fade-in md:zoom-in-95 md:slide-in-from-bottom-0 relative flex w-full max-w-lg flex-col rounded-t-2xl bg-popover shadow-2xl duration-300 md:rounded-2xl md:border md:duration-200',
+          full ? 'h-[92dvh] md:h-[80dvh]' : 'max-h-[85dvh] md:max-h-[80dvh]',
         )}
         style={{ animationTimingFunction: 'var(--spring)' }}
       >
-        <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-muted-foreground/30" />
+        <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-muted-foreground/30 md:hidden" />
         <div className="flex items-center justify-between px-5 pt-3 pb-1">
           <h2 className="text-lg">{title}</h2>
           <button

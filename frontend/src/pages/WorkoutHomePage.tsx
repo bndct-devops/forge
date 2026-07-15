@@ -46,7 +46,7 @@ export default function WorkoutHomePage() {
 
       <button
         onClick={() => begin()}
-        className="touch-feedback flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 text-base font-semibold text-primary-foreground"
+        className="touch-feedback flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 text-base font-semibold text-primary-foreground md:max-w-sm"
       >
         <Play size={19} className="fill-current" />
         {workout ? 'Resume workout' : 'Start empty workout'}
@@ -68,11 +68,11 @@ export default function WorkoutHomePage() {
           No templates yet. Create one to start workouts with a single tap.
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {routines.map((routine, i) => (
             <div
               key={routine.id}
-              className="animate-card-appear rounded-xl border bg-card p-4"
+              className="animate-card-appear flex flex-col rounded-xl border bg-card p-4"
               style={{ animationDelay: `${i * 40}ms` }}
             >
               <div className="flex items-start justify-between gap-2">
@@ -85,7 +85,7 @@ export default function WorkoutHomePage() {
                   <MoreVertical size={18} />
                 </button>
               </div>
-              <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+              <p className="mt-1 line-clamp-2 flex-1 text-sm text-muted-foreground">
                 {routine.exercises.map((e) => `${e.set_count} × ${e.name}`).join(', ') ||
                   'No exercises'}
               </p>

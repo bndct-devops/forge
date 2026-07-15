@@ -58,7 +58,7 @@ export default function WorkoutDetailPage() {
         </button>
       </header>
 
-      <div className="mt-2 grid grid-cols-3 gap-2">
+      <div className="mt-2 grid grid-cols-3 gap-2 md:max-w-md">
         <div className="rounded-xl border bg-card p-3 text-center">
           <Clock size={16} className="mx-auto mb-1 text-muted-foreground" />
           <div className="tnum font-semibold">{formatDuration(workout.duration_seconds ?? 0)}</div>
@@ -73,7 +73,7 @@ export default function WorkoutDetailPage() {
         </div>
       </div>
 
-      <div className="mt-4 flex flex-col gap-3 pb-8">
+      <div className="mt-4 grid gap-3 pb-8 md:grid-cols-2 md:items-start">
         {workout.exercises.map((we) => (
           <section key={we.id} className="animate-card-appear rounded-xl border bg-card p-4">
             <Link to={`/exercises/${we.exercise_id}`} className="font-semibold text-primary">

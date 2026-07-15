@@ -1,4 +1,4 @@
-import { Dumbbell, History, Settings, BicepsFlexed, Play } from 'lucide-react'
+import { Dumbbell, Flame, History, Settings, BicepsFlexed, Play } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useWorkout } from '../contexts/WorkoutContext'
 import { formatClock, parseUTC } from '../lib/format'
@@ -12,7 +12,7 @@ const TABS = [
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
-function ResumeBar() {
+function ResumeBar({ className }: { className?: string }) {
   const { workout } = useWorkout()
   const navigate = useNavigate()
   const [, setTick] = useState(0)
@@ -29,7 +29,10 @@ function ResumeBar() {
   return (
     <button
       onClick={() => navigate('/workout')}
-      className="touch-feedback mx-3 mb-2 flex items-center gap-3 rounded-xl bg-primary px-4 py-3 text-left text-primary-foreground shadow-lg"
+      className={cn(
+        'touch-feedback flex items-center gap-3 rounded-xl bg-primary px-4 py-3 text-left text-primary-foreground shadow-lg',
+        className,
+      )}
     >
       <Play size={18} className="shrink-0 fill-current" />
       <span className="min-w-0 flex-1 truncate font-semibold">{workout.name}</span>
@@ -40,13 +43,51 @@ function ResumeBar() {
 
 export default function AppShell() {
   return (
-    <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
-      <main className="flex-1 pb-36">
-        <Outlet />
+    <div className="min-h-dvh">
+      {/* Desktop sidebar */}
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r bg-card px-3 py-5 md:flex">
+        <div className="mb-6 flex items-center gap-2.5 px-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <Flame size={20} />
+          </div>
+          <span className="font-display text-xl">Forge</span>
+        </div>
+        <nav className="flex flex-col gap-1">
+          {TABS.map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === '/'}
+              className={({ isActive }) =>
+                cn(
+                  'touch-feedback flex items-center gap-3 rounded-lg px-3 py-2.5 font-medium transition-colors',
+                  isActive
+                    ? 'bg-accent-soft text-primary'
+                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+                )
+              }
+            >
+              <Icon size={19} strokeWidth={2} />
+              {label}
+            </NavLink>
+          ))}
+        </nav>
+        <div className="mt-auto">
+          <ResumeBar className="w-full" />
+        </div>
+      </aside>
+
+      {/* Content */}
+      <main className="pb-36 md:pb-12 md:pl-60">
+        <div className="mx-auto w-full max-w-lg md:max-w-4xl md:px-6">
+          <Outlet />
+        </div>
       </main>
-      <nav className="fixed inset-x-0 bottom-0 z-40">
+
+      {/* Mobile bottom nav */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 md:hidden">
         <div className="mx-auto max-w-lg">
-          <ResumeBar />
+          <ResumeBar className="mx-3 mb-2 flex w-[calc(100%-1.5rem)]" />
           <div className="safe-bottom border-t bg-card/90 backdrop-blur-lg">
             <div className="grid grid-cols-4">
               {TABS.map(({ to, label, icon: Icon }) => (

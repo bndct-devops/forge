@@ -25,7 +25,7 @@ export default function ExercisesPage() {
   }, [exercises, query, group])
 
   return (
-    <div className="safe-top px-4">
+    <div className="safe-top px-4 md:max-w-2xl">
       <header className="pt-6 pb-4">
         <h1 className="text-3xl">Exercises</h1>
       </header>
