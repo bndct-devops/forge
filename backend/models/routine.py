@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.core.clock import utcnow
@@ -37,3 +37,4 @@ class RoutineExercise(Base):
     position: Mapped[int] = mapped_column(Integer, default=0)
     set_count: Mapped[int] = mapped_column(Integer, default=3)
     rest_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    superset_with_next: Mapped[bool] = mapped_column(Boolean, default=False)

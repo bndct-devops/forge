@@ -14,11 +14,12 @@ interface WorkoutContextValue {
   addExercise: (exerciseId: number) => Promise<void>
   removeExercise: (weId: number) => Promise<void>
   setExerciseRest: (weId: number, restSeconds: number | null) => Promise<void>
+  setSupersetLink: (weId: number, withNext: boolean) => Promise<void>
   reorderExercises: (weIds: number[]) => Promise<void>
   addSet: (weId: number) => Promise<void>
   updateSet: (
     setId: number,
-    patch: Partial<Pick<SetEntry, 'weight' | 'reps' | 'is_completed' | 'is_warmup'>>,
+    patch: Partial<Pick<SetEntry, 'weight' | 'reps' | 'is_completed' | 'is_warmup' | 'rpe'>>,
   ) => Promise<SetEntry>
   deleteSet: (weId: number, setId: number) => Promise<void>
   finish: () => Promise<FinishResult>
@@ -129,6 +130,18 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       const w = await api<Workout>(`/workouts/${workout.id}/exercises/${weId}`, {
         method: 'PATCH',
         body: { rest_seconds: restSeconds },
+      })
+      setWorkout(w)
+    },
+    [workout],
+  )
+
+  const setSupersetLink = useCallback(
+    async (weId: number, withNext: boolean) => {
+      if (!workout) return
+      const w = await api<Workout>(`/workouts/${workout.id}/exercises/${weId}`, {
+        method: 'PATCH',
+        body: { superset_with_next: withNext },
       })
       setWorkout(w)
     },
@@ -258,6 +271,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
         addExercise,
         removeExercise,
         setExerciseRest,
+        setSupersetLink,
         reorderExercises,
         addSet,
         updateSet,

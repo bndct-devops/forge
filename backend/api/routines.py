@@ -25,6 +25,7 @@ def _serialize(db: Session, routine: Routine, last_performed=None) -> dict:
                 "position": re_.position,
                 "set_count": re_.set_count,
                 "rest_seconds": re_.rest_seconds,
+                "superset_with_next": re_.superset_with_next,
             }
         )
     return {
@@ -77,6 +78,7 @@ def create_routine(
             position=i,
             set_count=e.set_count,
             rest_seconds=e.rest_seconds,
+            superset_with_next=e.superset_with_next,
         )
         for i, e in enumerate(body.exercises)
     ]
@@ -109,6 +111,7 @@ def update_routine(
             position=i,
             set_count=e.set_count,
             rest_seconds=e.rest_seconds,
+            superset_with_next=e.superset_with_next,
         )
         for i, e in enumerate(body.exercises)
     ]

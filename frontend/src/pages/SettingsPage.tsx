@@ -9,6 +9,7 @@ import Sheet from '../components/Sheet'
 import { useAuth } from '../contexts/AuthContext'
 import { restLabel } from '../lib/format'
 import { disableRestPush, enableRestPush, pushEnabled, pushSupported } from '../lib/push'
+import { isRpeEnabled, setRpeEnabled } from '../lib/prefs'
 import { isTimerSoundEnabled, setTimerSoundEnabled } from '../lib/timer'
 import { applyTheme, getStoredTheme, THEMES, type ThemeId } from '../lib/theme'
 import type { User } from '../lib/types'
@@ -152,6 +153,7 @@ export default function SettingsPage() {
   const { user, logout, updateUser } = useAuth()
   const [theme, setTheme] = useState<ThemeId>(getStoredTheme())
   const [timerSound, setTimerSound] = useState(isTimerSoundEnabled())
+  const [rpe, setRpe] = useState(isRpeEnabled())
   const [restPush, setRestPush] = useState(pushEnabled())
   const [pushBusy, setPushBusy] = useState(false)
   const [users, setUsers] = useState<User[]>([])
@@ -310,6 +312,20 @@ export default function SettingsPage() {
             onChange={(v) => {
               setTimerSound(v === 'on')
               setTimerSoundEnabled(v === 'on')
+            }}
+            className="w-32"
+          />
+        </Row>
+        <Row label="Track RPE">
+          <Segmented<'on' | 'off'>
+            options={[
+              { value: 'on', label: 'On' },
+              { value: 'off', label: 'Off' },
+            ]}
+            value={rpe ? 'on' : 'off'}
+            onChange={(v) => {
+              setRpe(v === 'on')
+              setRpeEnabled(v === 'on')
             }}
             className="w-32"
           />

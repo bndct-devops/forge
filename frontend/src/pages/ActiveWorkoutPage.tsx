@@ -1,4 +1,4 @@
-import { Calculator, ChevronDown, CloudOff, Flag, GripVertical, MoreHorizontal, Plus, StickyNote, Timer, Trash2, X } from 'lucide-react'
+import { Calculator, ChevronDown, CloudOff, Flag, GripVertical, Link2, MoreHorizontal, Plus, StickyNote, Timer, Trash2, Unlink2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ConfirmSheet from '../components/ConfirmSheet'
@@ -6,11 +6,12 @@ import ExercisePicker from '../components/ExercisePicker'
 import FinishScreen from '../components/FinishScreen'
 import PlateCalculator from '../components/PlateCalculator'
 import RestTimerBar from '../components/RestTimerBar'
-import SetRow from '../components/SetRow'
+import SetRow, { SET_GRID, SET_GRID_RPE } from '../components/SetRow'
 import Sheet from '../components/Sheet'
 import { useAuth } from '../contexts/AuthContext'
 import { useWorkout } from '../contexts/WorkoutContext'
 import { api } from '../lib/api'
+import { isRpeEnabled } from '../lib/prefs'
 import { toast } from '../lib/toast'
 import { formatClock, formatVolume, parseUTC, restLabel } from '../lib/format'
 import { useOutboxSize } from '../lib/outbox'
@@ -69,6 +70,7 @@ export default function ActiveWorkoutPage() {
     addExercise,
     removeExercise,
     setExerciseRest,
+    setSupersetLink,
     addSet,
     updateSet,
     deleteSet,
@@ -85,6 +87,7 @@ export default function ActiveWorkoutPage() {
   const [summary, setSummary] = useState<FinishResult | null>(null)
   const [error, setError] = useState('')
   const pendingSync = useOutboxSize()
+  const rpeEnabled = isRpeEnabled()
   const exerciseCount = workout?.exercises.length ?? 0
   const { handleProps, itemProps } = useDragReorder(exerciseCount, (from, to) => {
     if (!workout) return
@@ -127,6 +130,8 @@ export default function ActiveWorkoutPage() {
 
   const completeSet = async (we: WorkoutExercise, setId: number, weight: number, reps: number) => {
     await updateSet(setId, { weight, reps, is_completed: true })
+    // Inside a superset, rest comes after the group's last exercise
+    if (we.superset && !we.superset_last) return
     restTimer.start(we.rest_seconds ?? user?.default_rest_seconds ?? 120)
   }
 
@@ -202,7 +207,11 @@ export default function ActiveWorkoutPage() {
                 <section
                   key={we.id}
                   {...itemProps(i)}
-                  className="animate-card-appear rounded-xl border bg-card p-3.5"
+                  className={
+                    we.superset
+                      ? 'animate-card-appear rounded-xl border border-l-2 border-l-primary bg-card p-3.5'
+                      : 'animate-card-appear rounded-xl border bg-card p-3.5'
+                  }
                 >
                   <div className="flex items-center justify-between gap-2">
                     <button
@@ -214,6 +223,11 @@ export default function ActiveWorkoutPage() {
                     </button>
                     <h3 className="min-w-0 flex-1 truncate text-base font-semibold text-primary">
                       {we.name}
+                      {we.superset && (
+                        <span className="ml-2 rounded bg-accent-soft px-1.5 py-0.5 align-middle text-[10px] font-semibold tracking-wide text-primary uppercase">
+                          Superset {we.superset}
+                        </span>
+                      )}
                     </h3>
                     <div className="flex items-center gap-1">
                       <span className="flex items-center gap-1 rounded-full bg-secondary px-2 py-1 text-xs font-medium text-muted-foreground">
@@ -237,11 +251,14 @@ export default function ActiveWorkoutPage() {
                     </p>
                   )}
 
-                  <div className="mt-2 grid grid-cols-[2rem_1fr_4.5rem_4rem_2.75rem] gap-2 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                  <div
+                    className={`mt-2 grid ${rpeEnabled ? SET_GRID_RPE : SET_GRID} gap-2 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase`}
+                  >
                     <span className="text-center">Set</span>
                     <span className="text-center">Previous</span>
                     <span className="text-center">{user?.unit ?? 'kg'}</span>
                     <span className="text-center">Reps</span>
+                    {rpeEnabled && <span className="text-center">RPE</span>}
                     <span />
                   </div>
 
@@ -257,6 +274,8 @@ export default function ActiveWorkoutPage() {
                           .find((s) => s.weight != null && s.reps != null)}
                         unit={user?.unit ?? 'kg'}
                         bodyweight={we.equipment === 'Bodyweight'}
+                        rpeEnabled={rpeEnabled}
+                        onRpe={(rpe) => updateSet(set.id, { rpe })}
                         onComplete={(weight, reps) => completeSet(we, set.id, weight, reps)}
                         onUncomplete={() => updateSet(set.id, { is_completed: false })}
                         onToggleWarmup={() => updateSet(set.id, { is_warmup: !set.is_warmup })}
@@ -325,6 +344,20 @@ export default function ActiveWorkoutPage() {
                 className="rounded-lg border border-input bg-card px-3 py-2 text-base outline-none focus:ring-2 focus:ring-ring"
               />
             </label>
+            {workout && menuExercise.position < workout.exercises.length - 1 && (
+              <button
+                onClick={async () => {
+                  await setSupersetLink(menuExercise.id, !menuExercise.superset_with_next)
+                  setMenuExercise(null)
+                }}
+                className="touch-feedback flex items-center gap-3 rounded-lg px-3 py-3 text-left font-medium hover:bg-secondary"
+              >
+                {menuExercise.superset_with_next ? <Unlink2 size={18} /> : <Link2 size={18} />}
+                {menuExercise.superset_with_next
+                  ? 'Remove superset with next'
+                  : 'Superset with next exercise'}
+              </button>
+            )}
             {BARBELL_EQUIPMENT.has(menuExercise.equipment) && (
               <button
                 onClick={() => {

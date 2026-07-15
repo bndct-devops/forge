@@ -32,6 +32,7 @@ export interface RoutineExercise {
   position: number
   set_count: number
   rest_seconds: number | null
+  superset_with_next: boolean
 }
 
 export interface Routine {
@@ -49,6 +50,7 @@ export interface SetEntry {
   is_completed: boolean
   is_warmup: boolean
   is_pr: boolean
+  rpe?: number | null
 }
 
 export interface PastSet {
@@ -66,6 +68,9 @@ export interface WorkoutExercise {
   note: string
   position: number
   rest_seconds: number | null
+  superset_with_next: boolean
+  superset: string | null
+  superset_last: boolean
   sets: SetEntry[]
   previous_sets: PastSet[]
 }

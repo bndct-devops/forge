@@ -81,7 +81,34 @@ def historical_bests(db: Session, user_id: int, exercise_id: int, exclude_workou
     return {"weight": best_weight, "one_rm": best_1rm, "bw_reps": best_bw_reps}
 
 
+def superset_labels(exercises) -> tuple[dict, dict]:
+    """Derive superset groups from the with-next chain (position order).
+    Returns ({we_id: label}, {we_id: is_last_in_group}) for chains of >= 2."""
+    ordered = sorted(exercises, key=lambda w: w.position)
+    groups: list[list] = []
+    chain: list = []
+    for we in ordered:
+        chain.append(we)
+        if not we.superset_with_next:
+            groups.append(chain)
+            chain = []
+    if chain:
+        groups.append(chain)
+    labels: dict = {}
+    last: dict = {}
+    letter = 0
+    for group in groups:
+        if len(group) < 2:
+            continue
+        for member in group:
+            labels[member.id] = chr(65 + letter % 26)
+            last[member.id] = member is group[-1]
+        letter += 1
+    return labels, last
+
+
 def serialize_workout(db: Session, workout: Workout, with_previous: bool = True) -> dict:
+    labels, last_in_group = superset_labels(workout.exercises)
     notes = {
         n.exercise_id: n.text
         for n in db.execute(
@@ -104,6 +131,9 @@ def serialize_workout(db: Session, workout: Workout, with_previous: bool = True)
                 "note": notes.get(we.exercise_id, ""),
                 "position": we.position,
                 "rest_seconds": we.rest_seconds,
+                "superset_with_next": we.superset_with_next,
+                "superset": labels.get(we.id),
+                "superset_last": last_in_group.get(we.id, True),
                 "sets": [
                     {
                         "id": s.id,
@@ -113,6 +143,7 @@ def serialize_workout(db: Session, workout: Workout, with_previous: bool = True)
                         "is_completed": s.is_completed,
                         "is_warmup": s.is_warmup,
                         "is_pr": s.is_pr,
+                        "rpe": s.rpe,
                     }
                     for s in we.sets
                 ],

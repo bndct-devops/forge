@@ -68,6 +68,7 @@ class RoutineExerciseIn(BaseModel):
     exercise_id: int
     set_count: int = Field(default=3, ge=1, le=20)
     rest_seconds: int | None = Field(default=None, ge=0, le=3600)
+    superset_with_next: bool = False
 
 
 class RoutineIn(BaseModel):
@@ -108,6 +109,7 @@ class WorkoutExerciseAdd(BaseModel):
 
 class WorkoutExerciseUpdate(BaseModel):
     rest_seconds: int | None = Field(default=None, ge=0, le=3600)
+    superset_with_next: bool | None = None
 
 
 class SetUpdate(BaseModel):
@@ -115,6 +117,7 @@ class SetUpdate(BaseModel):
     reps: int | None = Field(default=None, ge=0)
     is_completed: bool | None = None
     is_warmup: bool | None = None
+    rpe: float | None = Field(default=None, ge=1, le=10)
 
 
 class PastSet(BaseModel):

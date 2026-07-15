@@ -39,6 +39,8 @@ class WorkoutExercise(Base):
     )
     position: Mapped[int] = mapped_column(Integer, default=0)
     rest_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Chains this exercise with the following one into a superset
+    superset_with_next: Mapped[bool] = mapped_column(Boolean, default=False)
 
     sets: Mapped[List["SetEntry"]] = relationship(
         cascade="all, delete-orphan", order_by="SetEntry.position"
@@ -58,4 +60,5 @@ class SetEntry(Base):
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     is_warmup: Mapped[bool] = mapped_column(Boolean, default=False)
     is_pr: Mapped[bool] = mapped_column(Boolean, default=False)
+    rpe: Mapped[float | None] = mapped_column(Float, nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

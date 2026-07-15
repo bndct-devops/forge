@@ -19,3 +19,14 @@ def run_migrations() -> None:
     _ensure_column(
         "exercises", "variant_of_id", "variant_of_id INTEGER REFERENCES exercises(id)"
     )
+    _ensure_column(
+        "workout_exercises",
+        "superset_with_next",
+        "superset_with_next BOOLEAN NOT NULL DEFAULT 0",
+    )
+    _ensure_column(
+        "routine_exercises",
+        "superset_with_next",
+        "superset_with_next BOOLEAN NOT NULL DEFAULT 0",
+    )
+    _ensure_column("set_entries", "rpe", "rpe FLOAT")

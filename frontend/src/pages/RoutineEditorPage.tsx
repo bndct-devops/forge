@@ -1,4 +1,4 @@
-import { ChevronLeft, GripVertical, Minus, Plus, Trash2 } from 'lucide-react'
+import { ChevronLeft, GripVertical, Link2, Minus, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import ExercisePicker from '../components/ExercisePicker'
@@ -14,6 +14,7 @@ interface DraftExercise {
   name: string
   set_count: number
   rest_seconds: number | null
+  superset_with_next: boolean
 }
 
 const REST_OPTIONS = [0, 30, 45, 60, 90, 120, 150, 180, 240, 300]
@@ -44,6 +45,7 @@ export default function RoutineEditorPage() {
               name: e.name,
               set_count: e.set_count,
               rest_seconds: e.rest_seconds,
+              superset_with_next: e.superset_with_next,
             })),
           )
         })
@@ -71,7 +73,13 @@ export default function RoutineEditorPage() {
   const addExercise = (exercise: Exercise) => {
     setExercises((xs) => [
       ...xs,
-      { exercise_id: exercise.id, name: exercise.name, set_count: 3, rest_seconds: null },
+      {
+        exercise_id: exercise.id,
+        name: exercise.name,
+        set_count: 3,
+        rest_seconds: null,
+        superset_with_next: false,
+      },
     ])
     setPickerOpen(false)
   }
@@ -86,10 +94,11 @@ export default function RoutineEditorPage() {
     try {
       const body = {
         name,
-        exercises: exercises.map((e) => ({
+        exercises: exercises.map((e, i) => ({
           exercise_id: e.exercise_id,
           set_count: e.set_count,
           rest_seconds: e.rest_seconds,
+          superset_with_next: i < exercises.length - 1 && e.superset_with_next,
         })),
       }
       if (editing) await api(`/routines/${id}`, { method: 'PUT', body })
@@ -185,6 +194,19 @@ export default function RoutineEditorPage() {
                 </select>
               </label>
             </div>
+            {i < exercises.length - 1 && (
+              <button
+                onClick={() => update(i, { superset_with_next: !exercise.superset_with_next })}
+                className={
+                  exercise.superset_with_next
+                    ? 'touch-feedback mt-2.5 flex items-center gap-1.5 rounded-lg bg-accent-soft px-2.5 py-1.5 text-xs font-semibold text-primary'
+                    : 'touch-feedback mt-2.5 flex items-center gap-1.5 rounded-lg bg-secondary px-2.5 py-1.5 text-xs font-semibold text-muted-foreground'
+                }
+              >
+                <Link2 size={13} />
+                {exercise.superset_with_next ? 'Superset with next' : 'Superset with next?'}
+              </button>
+            )}
           </div>
         ))}
       </div>

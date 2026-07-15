@@ -4,6 +4,9 @@ import { formatSetWeight } from '../lib/format'
 import type { PastSet, SetEntry } from '../lib/types'
 import { cn } from '../lib/utils'
 
+export const SET_GRID = 'grid-cols-[2rem_1fr_4.5rem_4rem_2.75rem]'
+export const SET_GRID_RPE = 'grid-cols-[2rem_1fr_3.75rem_3.25rem_2.75rem_2.75rem]'
+
 interface SetRowProps {
   set: SetEntry
   previous: PastSet | undefined
@@ -13,6 +16,8 @@ interface SetRowProps {
   unit: string
   /** Bodyweight exercises complete on reps alone; empty weight logs as BW (0). */
   bodyweight: boolean
+  rpeEnabled: boolean
+  onRpe: (rpe: number | null) => void
   onComplete: (weight: number, reps: number) => void
   onUncomplete: () => void
   onToggleWarmup: () => void
@@ -33,6 +38,8 @@ export default function SetRow({
   suggested,
   unit,
   bodyweight,
+  rpeEnabled,
+  onRpe,
   onComplete,
   onUncomplete,
   onToggleWarmup,
@@ -40,6 +47,7 @@ export default function SetRow({
 }: SetRowProps) {
   const [weight, setWeight] = useState(set.weight != null && set.weight !== 0 ? String(set.weight) : '')
   const [reps, setReps] = useState(set.reps != null ? String(set.reps) : '')
+  const [rpe, setRpe] = useState(set.rpe != null ? String(set.rpe) : '')
   const [offset, setOffset] = useState(0)
   const [justDone, setJustDone] = useState(false)
   const [removing, setRemoving] = useState(false)
@@ -87,7 +95,8 @@ export default function SetRow({
       )}
       <div
         className={cn(
-          'relative grid grid-cols-[2rem_1fr_4.5rem_4rem_2.75rem] items-center gap-2 bg-card py-1.5 transition-[transform,background-color] duration-300',
+          'relative grid items-center gap-2 bg-card py-1.5 transition-[transform,background-color] duration-300',
+          rpeEnabled ? SET_GRID_RPE : SET_GRID,
           set.is_completed && 'bg-accent-soft',
         )}
         style={{ transform: `translateX(${offset}px)` }}
@@ -152,6 +161,22 @@ export default function SetRow({
           placeholder={fallbackReps != null ? String(fallbackReps) : 'reps'}
           className="tnum h-9 rounded-md border border-input bg-background px-1 text-center text-base font-medium outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-ring"
         />
+        {rpeEnabled && (
+          <input
+            value={rpe}
+            onChange={(e) => setRpe(e.target.value)}
+            onFocus={(e) => e.target.select()}
+            onBlur={() => {
+              const parsed = rpe !== '' ? parseNum(rpe) : null
+              if (parsed !== (set.rpe ?? null)) onRpe(parsed)
+            }}
+            onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+            inputMode="decimal"
+            enterKeyHint="done"
+            placeholder="RPE"
+            className="tnum h-9 rounded-md border border-input bg-background px-0.5 text-center text-sm font-medium outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-ring"
+          />
+        )}
         <button
           onClick={toggle}
           disabled={!set.is_completed && !canComplete}

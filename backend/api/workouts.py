@@ -139,6 +139,7 @@ def start_workout(
                 exercise_id=re_.exercise_id,
                 position=re_.position,
                 rest_seconds=re_.rest_seconds,
+                superset_with_next=re_.superset_with_next,
             )
             we.sets = [SetEntry(position=i) for i in range(re_.set_count)]
             exercises.append(we)
@@ -152,6 +153,7 @@ def start_workout(
                 exercise_id=src_we.exercise_id,
                 position=src_we.position,
                 rest_seconds=src_we.rest_seconds,
+                superset_with_next=src_we.superset_with_next,
             )
             we.sets = [SetEntry(position=i) for i in range(max(1, len(src_we.sets)))]
             exercises.append(we)
@@ -388,7 +390,10 @@ def update_workout_exercise(
     we = next((x for x in workout.exercises if x.id == we_id), None)
     if we is None:
         raise HTTPException(status_code=404, detail="Exercise not in workout")
-    we.rest_seconds = body.rest_seconds
+    if "rest_seconds" in body.model_fields_set:
+        we.rest_seconds = body.rest_seconds
+    if body.superset_with_next is not None:
+        we.superset_with_next = body.superset_with_next
     db.add(we)
     db.commit()
     return serialize_workout(db, workout)
@@ -461,6 +466,8 @@ def update_set(
         set_entry.completed_at = utcnow() if body.is_completed else None
     if body.is_warmup is not None:
         set_entry.is_warmup = body.is_warmup
+    if "rpe" in body.model_fields_set:
+        set_entry.rpe = body.rpe
     db.add(set_entry)
     db.commit()
     return {
@@ -471,6 +478,7 @@ def update_set(
         "is_completed": set_entry.is_completed,
         "is_warmup": set_entry.is_warmup,
         "is_pr": set_entry.is_pr,
+        "rpe": set_entry.rpe,
     }
 
 
