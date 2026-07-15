@@ -1,4 +1,4 @@
-import { Flame } from 'lucide-react'
+import { ChevronRight, Flame, Ruler } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import {
   Bar,
@@ -11,6 +11,7 @@ import {
 } from 'recharts'
 import EmptyState from '../components/EmptyState'
 import Skeleton from '../components/Skeleton'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
 import { formatShortDate, formatVolume } from '../lib/format'
@@ -72,6 +73,7 @@ function CalendarHeatmap({ days }: { days: StatsData['calendar'] }) {
 
 export default function StatsPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [stats, setStats] = useState<StatsData | null>(null)
   const unit = user?.unit ?? 'kg'
 
@@ -142,6 +144,20 @@ export default function StatsPage() {
             <StatTile label="Working sets" value={String(stats.totals.sets)} />
             <StatTile label="PRs" value={String(stats.totals.prs)} />
           </div>
+
+          <button
+            onClick={() => navigate('/measure', { viewTransition: true })}
+            className="touch-feedback flex items-center gap-3 rounded-xl border bg-card p-4 text-left"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft text-primary">
+              <Ruler size={20} />
+            </div>
+            <div className="flex-1">
+              <div className="font-semibold">Body measurements</div>
+              <div className="text-sm text-muted-foreground">weight, body fat, circumferences</div>
+            </div>
+            <ChevronRight size={18} className="text-muted-foreground" />
+          </button>
 
           <section className="rounded-xl border bg-card p-4">
             <h2 className="mb-3 text-base">Training calendar</h2>

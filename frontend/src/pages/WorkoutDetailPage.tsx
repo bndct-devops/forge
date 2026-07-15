@@ -420,6 +420,9 @@ export default function WorkoutDetailPage() {
                     </span>
                     <span className="tnum">
                       {formatSetWeight(set.weight, unit)} × {set.reps}
+                      {set.rpe != null && (
+                        <span className="text-muted-foreground"> @{set.rpe}</span>
+                      )}
                     </span>
                     {set.is_pr && <Trophy size={14} className="text-record" />}
                   </div>
