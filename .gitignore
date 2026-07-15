@@ -7,3 +7,5 @@ dist/
 dev-dist/
 .DS_Store
 *.tsbuildinfo
+deploy.local.yml
+*.local.yml

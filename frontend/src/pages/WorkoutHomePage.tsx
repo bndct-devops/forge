@@ -99,7 +99,7 @@ export default function WorkoutHomePage() {
       return
     }
     try {
-      // Empty workouts get named by time of day, Strong-style
+      // Empty workouts get named by time of day
       const hour = new Date().getHours()
       const autoName =
         hour < 5 || hour >= 21
@@ -131,6 +131,7 @@ export default function WorkoutHomePage() {
           exercise_id: e.exercise_id,
           set_count: e.set_count,
           rest_seconds: e.rest_seconds,
+          superset_with_next: e.superset_with_next,
         })),
       },
     })

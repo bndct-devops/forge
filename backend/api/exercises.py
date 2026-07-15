@@ -240,17 +240,21 @@ def exercise_stats(
     ]
 
     base_id = exercise.variant_of_id or exercise.id
-    variations = [
-        {"id": v.id, "name": v.name, "grip": v.grip}
-        for v in db.execute(
-            select(Exercise).where(
-                _visible(user.id),
-                or_(Exercise.id == base_id, Exercise.variant_of_id == base_id),
-                Exercise.id != exercise.id,
-            )
-            .order_by(Exercise.name)
-        ).scalars()
-    ]
+    family_members = db.execute(
+        select(Exercise)
+        .where(
+            _visible(user.id),
+            or_(Exercise.id == base_id, Exercise.variant_of_id == base_id),
+        )
+        .order_by(Exercise.name)
+    ).scalars().all()
+    # Only a family when there is more than one member; includes the current
+    # exercise so the client can render it highlighted in place
+    variations = (
+        [{"id": v.id, "name": v.name, "grip": v.grip} for v in family_members]
+        if len(family_members) > 1
+        else []
+    )
 
     note = db.execute(
         select(ExerciseNote.text).where(

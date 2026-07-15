@@ -140,6 +140,17 @@ export default function ExerciseDetailPage() {
       <textarea
         key={`note-${exercise.id}`}
         defaultValue={stats.note}
+        ref={(el) => {
+          if (el) {
+            el.style.height = 'auto'
+            el.style.height = `${el.scrollHeight}px`
+          }
+        }}
+        onInput={(e) => {
+          const el = e.currentTarget
+          el.style.height = 'auto'
+          el.style.height = `${el.scrollHeight}px`
+        }}
         onBlur={(e) => {
           if (e.target.value !== stats.note) {
             api(`/exercises/${exercise.id}/note`, { method: 'PUT', body: { text: e.target.value } })
@@ -147,9 +158,9 @@ export default function ExerciseDetailPage() {
               .catch(() => {})
           }
         }}
-        placeholder="Pinned note — seat height, cues, grip width. Shown during workouts."
+        placeholder="Pinned note — cues, seat height, grip width"
         rows={1}
-        className="mt-1 mb-2 w-full resize-none rounded-xl border border-input bg-card px-3.5 py-2.5 text-sm outline-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ring"
+        className="mt-1 mb-2 w-full resize-none overflow-hidden rounded-xl border border-input bg-card px-3.5 py-2.5 text-sm outline-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ring"
       />
 
       {variations.length > 0 && (
@@ -167,8 +178,16 @@ export default function ExerciseDetailPage() {
           {variations.map((v) => (
             <button
               key={v.id}
-              onClick={() => navigate(`/exercises/${v.id}`, { viewTransition: true })}
-              className="touch-feedback shrink-0 rounded-full bg-secondary px-3 py-1.5 text-sm font-medium text-secondary-foreground"
+              onClick={() => {
+                if (v.id !== exercise.id) {
+                  navigate(`/exercises/${v.id}`, { replace: true, viewTransition: true })
+                }
+              }}
+              className={
+                v.id === exercise.id
+                  ? 'touch-feedback shrink-0 rounded-full border border-primary bg-accent-soft px-3 py-1.5 text-sm font-semibold text-primary'
+                  : 'touch-feedback shrink-0 rounded-full bg-secondary px-3 py-1.5 text-sm font-medium text-secondary-foreground'
+              }
             >
               {v.name}
             </button>

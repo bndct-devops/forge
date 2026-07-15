@@ -11,7 +11,7 @@ interface SetRowProps {
   set: SetEntry
   previous: PastSet | undefined
   /** Placeholder fallback when there's no previous for this slot — the last
-   *  filled set above it in the current session (Strong's behavior). */
+   *  filled set above it in the current session. */
   suggested?: { weight: number | null; reps: number | null }
   unit: string
   /** Bodyweight exercises complete on reps alone; empty weight logs as BW (0). */
@@ -31,7 +31,7 @@ function parseNum(value: string): number | null {
 
 /** One set line: number | previous ghost | weight | reps | check.
  *  Tap the set number to mark it a warm-up (excluded from PRs and volume).
- *  Swipe left to reveal delete, matching Strong's gesture. */
+ *  Swipe left to reveal delete, like a native list row. */
 export default function SetRow({
   set,
   previous,

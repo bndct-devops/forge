@@ -1,9 +1,9 @@
 # Forge
 
-Self-hosted workout tracking for weight training. A privacy-first alternative to
-Strong: templates, set/rep/weight logging with previous-workout ghosts, rest
-timers between sets, personal records, and progress charts — running entirely on
-your own server. No cardio, by design.
+Self-hosted workout tracking for weight training, running entirely on your own
+server: templates, set/rep/weight logging with previous-workout ghosts, rest
+timers between sets, supersets, personal records, and progress charts. Your
+training data stays yours. No cardio, by design.
 
 Sibling app to [Tome](../tome): same design language (warm paper / charcoal
 surfaces, OKLCH tokens, Onest + Bricolage Grotesque), its own ember accent.

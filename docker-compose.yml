@@ -1,13 +1,24 @@
+# Run Forge from the published container image. Works on any host
+# (Linux / macOS / Windows) for amd64 and arm64.
+#
+#   docker compose pull && docker compose up -d
+#
+# To build from source instead, replace `image:` with `build: .`
+# For HTTPS + lock-screen rest alerts, put a reverse proxy in front —
+# see docs/https.md.
 services:
   forge:
-    build: .
+    image: ghcr.io/bndct-devops/forge:latest
     container_name: forge
     ports:
       - "8081:8081"
     volumes:
+      # All state: SQLite DB, generated secret key, push (VAPID) keys.
+      # Back this folder up and you have everything.
       - ./data:/data
     environment:
-      # Optional — auto-generated and persisted in /data when unset
-      # FORGE_SECRET_KEY: change-me
+      # Optional. If unset, Forge generates a random key on first start
+      # and saves it to /data/secret_key.
+      # - FORGE_SECRET_KEY=
       FORGE_DATA_DIR: /data
     restart: unless-stopped
