@@ -9,6 +9,31 @@ import { restLabel } from '../lib/format'
 import { applyTheme, getStoredTheme, THEMES, type ThemeId } from '../lib/theme'
 import type { User } from '../lib/types'
 
+/** Live viewport readout — diagnoses iOS webview sizing issues on-device. */
+function ViewportDebug() {
+  const [info, setInfo] = useState('')
+  useEffect(() => {
+    const update = () => {
+      const vv = window.visualViewport
+      const standalone =
+        window.matchMedia('(display-mode: standalone)').matches ||
+        (navigator as unknown as { standalone?: boolean }).standalone
+      const appH = document.documentElement.style.getPropertyValue('--app-h') || '—'
+      setInfo(
+        `${standalone ? 'standalone' : 'browser'} · screen ${screen.height} · inner ${window.innerHeight} · vv ${vv ? Math.round(vv.height) : '—'}+${vv ? Math.round(vv.offsetTop) : 0} · app ${appH}`,
+      )
+    }
+    update()
+    window.visualViewport?.addEventListener('resize', update)
+    const t = setInterval(update, 2000)
+    return () => {
+      window.visualViewport?.removeEventListener('resize', update)
+      clearInterval(t)
+    }
+  }, [])
+  return <p className="tnum mt-1 text-center text-[10px] text-muted-foreground/60">{info}</p>
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mt-6">
@@ -270,7 +295,10 @@ export default function SettingsPage() {
         </Section>
       )}
 
-      <p className="mt-8 text-center text-xs text-muted-foreground">Forge · self-hosted iron tracking</p>
+      <p className="mt-8 text-center text-xs text-muted-foreground">
+        Forge · self-hosted iron tracking · build {__BUILD__}
+      </p>
+      <ViewportDebug />
 
       <Sheet open={addUserOpen} onClose={() => setAddUserOpen(false)} title="Add user">
         <div className="flex flex-col gap-3 pt-1">

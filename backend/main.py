@@ -2,7 +2,6 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 
 from backend.core.database import Base, SessionLocal, engine
 from backend.api import auth, exercises, import_export, routines, users, workouts
@@ -39,11 +38,16 @@ app.include_router(import_export.router, prefix="/api")
 # Serve the built frontend (production / Docker). In dev, Vite serves it instead.
 _dist = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 if _dist.exists():
-    app.mount("/assets", StaticFiles(directory=_dist / "assets"), name="assets")
 
     @app.get("/{path:path}")
     def spa(path: str):
         file = _dist / path
         if path and file.is_file():
-            return FileResponse(file)
-        return FileResponse(_dist / "index.html")
+            # Hash-named assets are immutable; everything else must revalidate,
+            # or iOS heuristically caches a stale index.html across deploys
+            if path.startswith("assets/"):
+                return FileResponse(
+                    file, headers={"Cache-Control": "public, max-age=31536000, immutable"}
+                )
+            return FileResponse(file, headers={"Cache-Control": "no-cache"})
+        return FileResponse(_dist / "index.html", headers={"Cache-Control": "no-cache"})
