@@ -16,7 +16,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ ./backend/
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
-ENV FORGE_DATA_DIR=/data
+ARG VERSION=dev
+ENV FORGE_DATA_DIR=/data \
+    FORGE_VERSION=$VERSION
 
 RUN useradd -m -u 1000 forge \
     && mkdir -p /data \

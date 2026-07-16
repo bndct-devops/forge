@@ -19,7 +19,7 @@ import {
 import Segmented from '../components/Segmented'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
-import { formatRelativeDate, formatSetWeight, formatShortDate, formatVolume } from '../lib/format'
+import { formatRelativeDate, formatSetWeight, formatShortDate, formatVolume, parseUTC } from '../lib/format'
 import type { ExerciseStats } from '../lib/types'
 
 type Metric = 'best_1rm' | 'best_weight' | 'best_reps' | 'volume'
@@ -49,6 +49,7 @@ export default function ExerciseDetailPage() {
   const [metric, setMetric] = useState<Metric>('best_1rm')
   const [editing, setEditing] = useState(false)
   const [includeFamily, setIncludeFamily] = useState(false)
+  const [range, setRange] = useState<'3m' | '1y' | 'all'>('all')
   const [error, setError] = useState('')
   const unit = user?.unit ?? 'kg'
 
@@ -98,7 +99,11 @@ export default function ExerciseDetailPage() {
     await api(`/exercises/${exercise.id}`, { method: 'DELETE' })
     navigate('/exercises', { replace: true })
   }
-  const data = chart.map((c) => ({ ...c, label: formatShortDate(c.date) }))
+  const rangeCutoff =
+    range === 'all' ? 0 : Date.now() - (range === '3m' ? 92 : 366) * 86400000
+  const data = chart
+    .filter((c) => parseUTC(c.date).getTime() >= rangeCutoff)
+    .map((c) => ({ ...c, label: formatShortDate(c.date) }))
 
   const tooltipStyle = {
     backgroundColor: 'var(--popover)',
@@ -236,6 +241,21 @@ export default function ExerciseDetailPage() {
           <section className="mt-4 rounded-xl border bg-card p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="text-base">{METRIC_LABEL[metric]}</h2>
+              <div className="flex gap-1">
+                {(['3m', '1y', 'all'] as const).map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setRange(r)}
+                    className={
+                      range === r
+                        ? 'touch-feedback rounded-md bg-accent-soft px-2 py-1 text-xs font-semibold text-primary uppercase'
+                        : 'touch-feedback rounded-md px-2 py-1 text-xs font-semibold text-muted-foreground uppercase'
+                    }
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
             </div>
             <Segmented<Metric>
               options={

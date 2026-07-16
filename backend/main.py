@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse
 from backend.core.database import Base, SessionLocal, engine
 from backend.api import (
     auth,
+    backup,
     exercises,
     import_export,
     measurements,
@@ -42,7 +43,7 @@ def startup():
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "version": os.environ.get("FORGE_VERSION", "dev")}
 
 
 app.include_router(auth.router, prefix="/api")
@@ -56,6 +57,7 @@ app.include_router(stats.router, prefix="/api")
 app.include_router(plans.router, prefix="/api")
 app.include_router(push.router, prefix="/api")
 app.include_router(measurements.router, prefix="/api")
+app.include_router(backup.router, prefix="/api")
 
 # Serve the built frontend (production / Docker). In dev, Vite serves it instead.
 _dist = Path(__file__).resolve().parent.parent / "frontend" / "dist"

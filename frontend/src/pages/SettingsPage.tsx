@@ -1,4 +1,4 @@
-import { Download, KeyRound, LogOut, Minus, Plus, Shield, Tags, Trash2, Upload, UserPlus } from 'lucide-react'
+import { DatabaseBackup, Download, KeyRound, LogOut, Minus, Plus, Shield, Tags, Trash2, Upload, UserPlus } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { api, getToken } from '../lib/api'
 import { MUSCLE_GROUPS } from '../components/ExerciseForm'
@@ -168,6 +168,9 @@ export default function SettingsPage() {
   const [importing, setImporting] = useState(false)
   const [recategorizing, setRecategorizing] = useState(false)
   const [deleteUserTarget, setDeleteUserTarget] = useState<User | null>(null)
+  const [resetTarget, setResetTarget] = useState<User | null>(null)
+  const [resetPassword, setResetPassword] = useState('')
+  const [serverVersion, setServerVersion] = useState('')
   const fileInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -175,6 +178,12 @@ export default function SettingsPage() {
       api<User[]>('/users').then(setUsers).catch(() => {})
     }
   }, [user?.is_admin])
+
+  useEffect(() => {
+    api<{ version: string }>('/health')
+      .then((h) => setServerVersion(h.version))
+      .catch(() => {})
+  }, [])
 
   if (!user) return null
 
@@ -316,6 +325,27 @@ export default function SettingsPage() {
             className="w-32"
           />
         </Row>
+        <Row label="Weekly goal">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => updateUser({ weekly_goal: Math.max(1, user.weekly_goal - 1) }).catch(() => {})}
+              className="touch-feedback rounded-lg bg-secondary p-2"
+              aria-label="Lower goal"
+            >
+              <Minus size={15} />
+            </button>
+            <span className="tnum w-16 text-center font-semibold">
+              {user.weekly_goal}×/week
+            </span>
+            <button
+              onClick={() => updateUser({ weekly_goal: Math.min(7, user.weekly_goal + 1) }).catch(() => {})}
+              className="touch-feedback rounded-lg bg-secondary p-2"
+              aria-label="Raise goal"
+            >
+              <Plus size={15} />
+            </button>
+          </div>
+        </Row>
         <Row label="Track RPE">
           <Segmented<'on' | 'off'>
             options={[
@@ -415,6 +445,26 @@ export default function SettingsPage() {
         >
           <Tags size={18} className="text-muted-foreground" /> Re-categorize exercises
         </button>
+        {user.is_admin && (
+          <button
+            onClick={async () => {
+              const res = await fetch('/api/backup', {
+                headers: { Authorization: `Bearer ${getToken()}` },
+              })
+              if (!res.ok) return
+              const blob = await res.blob()
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              a.href = url
+              a.download = res.headers.get('content-disposition')?.match(/filename="?([^";]+)/)?.[1] ?? 'forge-backup.db'
+              a.click()
+              URL.revokeObjectURL(url)
+            }}
+            className="touch-feedback flex min-h-12 items-center gap-3 border-t px-4 py-2.5 text-left font-medium hover:bg-secondary"
+          >
+            <DatabaseBackup size={18} className="text-muted-foreground" /> Download database backup
+          </button>
+        )}
       </Section>
 
       <Section title="Account">
@@ -443,13 +493,26 @@ export default function SettingsPage() {
                 )}
               </span>
               {u.id !== user.id && (
-                <button
-                  onClick={() => setDeleteUserTarget(u)}
-                  className="touch-feedback rounded-full p-2 text-muted-foreground"
-                  aria-label={`Delete ${u.username}`}
-                >
-                  <Trash2 size={16} />
-                </button>
+                <span className="flex items-center">
+                  <button
+                    onClick={() => {
+                      setResetTarget(u)
+                      setResetPassword('')
+                      setError('')
+                    }}
+                    className="touch-feedback rounded-full p-2 text-muted-foreground"
+                    aria-label={`Reset password for ${u.username}`}
+                  >
+                    <KeyRound size={16} />
+                  </button>
+                  <button
+                    onClick={() => setDeleteUserTarget(u)}
+                    className="touch-feedback rounded-full p-2 text-muted-foreground"
+                    aria-label={`Delete ${u.username}`}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </span>
               )}
             </div>
           ))}
@@ -462,8 +525,41 @@ export default function SettingsPage() {
         </Section>
       )}
 
+      <Sheet open={resetTarget != null} onClose={() => setResetTarget(null)} title={`Reset password — ${resetTarget?.username}`}>
+        <div className="flex flex-col gap-3 pt-1">
+          <input
+            type="password"
+            value={resetPassword}
+            onChange={(e) => setResetPassword(e.target.value)}
+            placeholder="New password (min 8 characters)"
+            className="h-12 rounded-lg border border-input bg-card px-4 text-base outline-none focus:ring-2 focus:ring-ring"
+          />
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <button
+            onClick={async () => {
+              setError('')
+              try {
+                await api(`/users/${resetTarget!.id}/password`, {
+                  method: 'PATCH',
+                  body: { password: resetPassword },
+                })
+                setResetTarget(null)
+                setMessage(`Password reset for ${resetTarget!.username}`)
+                setTimeout(() => setMessage(''), 3000)
+              } catch (e) {
+                setError(e instanceof Error ? e.message : 'Failed to reset password')
+              }
+            }}
+            disabled={resetPassword.length < 8}
+            className="touch-feedback h-12 rounded-xl bg-primary font-semibold text-primary-foreground disabled:opacity-50"
+          >
+            Reset password
+          </button>
+        </div>
+      </Sheet>
+
       <p className="mt-8 text-center text-xs text-muted-foreground">
-        Forge · self-hosted iron tracking · build {__BUILD__}
+        Forge {serverVersion && serverVersion !== 'dev' ? serverVersion : ''} · self-hosted iron tracking · build {__BUILD__}
       </p>
       <ViewportDebug />
 

@@ -30,3 +30,4 @@ def run_migrations() -> None:
         "superset_with_next BOOLEAN NOT NULL DEFAULT 0",
     )
     _ensure_column("set_entries", "rpe", "rpe FLOAT")
+    _ensure_column("users", "weekly_goal", "weekly_goal INTEGER NOT NULL DEFAULT 3")

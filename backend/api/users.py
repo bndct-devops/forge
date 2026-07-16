@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from backend.core.database import get_db
 from backend.core.security import get_current_admin, hash_password
 from backend.models.user import User
+from pydantic import BaseModel, Field
+
 from backend.schemas import UserCreate, UserOut
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -33,6 +35,26 @@ def create_user(
     db.add(user)
     db.commit()
     return user
+
+
+class PasswordResetIn(BaseModel):
+    password: str = Field(min_length=8)
+
+
+@router.patch("/{user_id}/password")
+def reset_password(
+    user_id: int,
+    body: PasswordResetIn,
+    admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.hashed_password = hash_password(body.password)
+    db.add(user)
+    db.commit()
+    return {"ok": True}
 
 
 @router.delete("/{user_id}")

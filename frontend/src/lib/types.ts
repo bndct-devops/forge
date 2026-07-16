@@ -4,6 +4,7 @@ export interface User {
   is_admin: boolean
   unit: 'kg' | 'lb'
   default_rest_seconds: number
+  weekly_goal: number
 }
 
 export interface Exercise {

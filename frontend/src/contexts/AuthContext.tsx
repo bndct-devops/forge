@@ -8,7 +8,7 @@ interface AuthContextValue {
   login: (username: string, password: string) => Promise<void>
   setup: (username: string, password: string) => Promise<void>
   logout: () => void
-  updateUser: (patch: Partial<Pick<User, 'unit' | 'default_rest_seconds'>> & { password?: string }) => Promise<void>
+  updateUser: (patch: Partial<Pick<User, 'unit' | 'default_rest_seconds' | 'weekly_goal'>> & { password?: string }) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)

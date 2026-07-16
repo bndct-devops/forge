@@ -134,12 +134,32 @@ export default function StatsPage() {
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent-soft text-primary">
               <Flame size={22} />
             </div>
-            <div>
+            <div className="flex-1">
               <div className="tnum text-lg font-semibold">
                 {stats.streak_weeks} week{stats.streak_weeks === 1 ? '' : 's'} streak
               </div>
               <div className="text-sm text-muted-foreground">
-                consecutive weeks with at least one workout
+                {(() => {
+                  const thisWeek = stats.weeks[stats.weeks.length - 1]?.workouts ?? 0
+                  const goal = user?.weekly_goal ?? 3
+                  return thisWeek >= goal
+                    ? `weekly goal hit — ${thisWeek} of ${goal} workouts`
+                    : `${thisWeek} of ${goal} workouts this week`
+                })()}
+              </div>
+              <div className="mt-1.5 flex gap-1">
+                {Array.from({ length: user?.weekly_goal ?? 3 }, (_, i) => (
+                  <div
+                    key={i}
+                    className="h-1.5 flex-1 rounded-full"
+                    style={{
+                      backgroundColor:
+                        i < (stats.weeks[stats.weeks.length - 1]?.workouts ?? 0)
+                          ? 'var(--chart-accent)'
+                          : 'var(--secondary)',
+                    }}
+                  />
+                ))}
               </div>
             </div>
           </div>

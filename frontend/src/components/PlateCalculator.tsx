@@ -133,6 +133,37 @@ export default function PlateCalculator({ open, onClose, initialWeight, unit }: 
           )}
         </div>
 
+        {target > bar && (
+          <div>
+            <h3 className="mb-1.5 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+              Warm-up ramp
+            </h3>
+            <div className="flex flex-col gap-1">
+              {[
+                { label: 'Empty bar', weight: bar, reps: 10 },
+                { label: '40%', weight: Math.max(bar, Math.round((target * 0.4) / step) * step), reps: 5 },
+                { label: '60%', weight: Math.max(bar, Math.round((target * 0.6) / step) * step), reps: 3 },
+                { label: '80%', weight: Math.max(bar, Math.round((target * 0.8) / step) * step), reps: 2 },
+              ]
+                .filter((w, i, arr) => i === 0 || w.weight > arr[i - 1].weight)
+                .map((w) => (
+                  <div key={w.label} className="flex items-center justify-between rounded-lg bg-secondary px-3 py-1.5 text-sm">
+                    <span className="text-muted-foreground">{w.label}</span>
+                    <span className="tnum font-semibold">
+                      {w.weight} {unit} × {w.reps}
+                    </span>
+                  </div>
+                ))}
+              <div className="flex items-center justify-between rounded-lg bg-accent-soft px-3 py-1.5 text-sm">
+                <span className="font-medium text-primary">Working set</span>
+                <span className="tnum font-semibold text-primary">
+                  {target} {unit}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <label className="flex items-center justify-between text-sm font-medium">
           Bar weight
           <select

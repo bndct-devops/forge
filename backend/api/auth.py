@@ -83,6 +83,8 @@ def update_me(
         user.unit = body.unit
     if body.default_rest_seconds is not None:
         user.default_rest_seconds = body.default_rest_seconds
+    if body.weekly_goal is not None:
+        user.weekly_goal = body.weekly_goal
     if body.password is not None:
         user.hashed_password = hash_password(body.password)
     db.add(user)

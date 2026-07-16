@@ -17,6 +17,7 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     unit: Mapped[str] = mapped_column(String(4), default="kg")  # kg | lb
     default_rest_seconds: Mapped[int] = mapped_column(Integer, default=120)
+    weekly_goal: Mapped[int] = mapped_column(Integer, default=3)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=utcnow
     )
