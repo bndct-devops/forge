@@ -12,7 +12,7 @@ class LoginRequest(BaseModel):
 
 class SetupRequest(BaseModel):
     username: str = Field(min_length=1, max_length=64)
-    password: str = Field(min_length=4)
+    password: str = Field(min_length=8)
 
 
 class UserOut(BaseModel):
@@ -33,12 +33,12 @@ class TokenResponse(BaseModel):
 class UserUpdate(BaseModel):
     unit: str | None = None
     default_rest_seconds: int | None = Field(default=None, ge=0, le=3600)
-    password: str | None = Field(default=None, min_length=4)
+    password: str | None = Field(default=None, min_length=8)
 
 
 class UserCreate(BaseModel):
     username: str = Field(min_length=1, max_length=64)
-    password: str = Field(min_length=4)
+    password: str = Field(min_length=8)
     is_admin: bool = False
 
 

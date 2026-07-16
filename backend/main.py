@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 
 from backend.core.database import Base, SessionLocal, engine
@@ -19,7 +19,14 @@ from backend.api import (
 from backend.migrations import run_migrations
 from backend.seed import seed_exercises
 
-app = FastAPI(title="Forge", docs_url="/api/docs", openapi_url="/api/openapi.json")
+import os
+
+_dev = bool(os.environ.get("FORGE_DEV"))
+app = FastAPI(
+    title="Forge",
+    docs_url="/api/docs" if _dev else None,
+    openapi_url="/api/openapi.json" if _dev else None,
+)
 
 
 @app.on_event("startup")
@@ -56,6 +63,9 @@ if _dist.exists():
 
     @app.get("/{path:path}")
     def spa(path: str):
+        # Unmatched API paths are 404s, never the app shell
+        if path.startswith("api/") or path == "api":
+            raise HTTPException(status_code=404, detail="Not found")
         file = _dist / path
         if path and file.is_file():
             # Hash-named assets are immutable; everything else must revalidate,

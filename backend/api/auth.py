@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from backend.core import loginguard
 from backend.core.database import get_db
 from backend.core.security import (
     create_token,
@@ -43,14 +44,25 @@ def setup(body: SetupRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(body: LoginRequest, db: Session = Depends(get_db)):
+def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
+    username = body.username.strip()
+    ip = request.client.host if request.client else "unknown"
+    wait = loginguard.retry_after(username, ip)
+    if wait:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many attempts — try again in {wait}s",
+            headers={"Retry-After": str(wait)},
+        )
     user = db.execute(
-        select(User).where(User.username == body.username.strip())
+        select(User).where(User.username == username)
     ).scalar_one_or_none()
     if user is None or not verify_password(body.password, user.hashed_password):
+        loginguard.record_failure(username, ip)
         raise HTTPException(status_code=401, detail="Invalid username or password")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
+    loginguard.record_success(username, ip)
     return TokenResponse(token=create_token(user.id), user=UserOut.model_validate(user))
 
 

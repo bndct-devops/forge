@@ -11,7 +11,7 @@ if [ ! -d frontend/node_modules ]; then
   (cd frontend && npm install)
 fi
 
-FORGE_DATA_DIR=./data ./.venv/bin/python -m uvicorn backend.main:app --port 8081 --reload &
+FORGE_DEV=1 FORGE_DATA_DIR=./data ./.venv/bin/python -m uvicorn backend.main:app --port 8081 --reload &
 BACKEND_PID=$!
 (cd frontend && npm run dev) &
 FRONTEND_PID=$!

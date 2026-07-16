@@ -64,7 +64,7 @@ export default function SetupPage() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password (min 4 characters)"
+            placeholder="Password (min 8 characters)"
             className="h-12 rounded-lg border border-input bg-card px-4 text-base outline-none focus:ring-2 focus:ring-ring"
           />
           <input
@@ -77,7 +77,7 @@ export default function SetupPage() {
           {error && <p className="text-sm text-destructive">{error}</p>}
           <button
             type="submit"
-            disabled={busy || !username || password.length < 4}
+            disabled={busy || !username || password.length < 8}
             className="touch-feedback h-12 rounded-lg bg-primary text-base font-semibold text-primary-foreground disabled:opacity-50"
           >
             {busy ? 'Creating…' : 'Create account'}

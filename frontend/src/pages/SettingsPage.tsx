@@ -495,7 +495,7 @@ export default function SettingsPage() {
             type="password"
             value={newUserPassword}
             onChange={(e) => setNewUserPassword(e.target.value)}
-            placeholder="Password (min 4 characters)"
+            placeholder="Password (min 8 characters)"
             className="h-12 rounded-lg border border-input bg-card px-4 text-base outline-none focus:ring-2 focus:ring-ring"
           />
           <label className="flex items-center gap-2 px-1 text-sm font-medium">
@@ -510,7 +510,7 @@ export default function SettingsPage() {
           {error && <p className="text-sm text-destructive">{error}</p>}
           <button
             onClick={addUser}
-            disabled={!newUsername.trim() || newUserPassword.length < 4}
+            disabled={!newUsername.trim() || newUserPassword.length < 8}
             className="touch-feedback h-12 rounded-xl bg-primary font-semibold text-primary-foreground disabled:opacity-50"
           >
             Create user
@@ -524,13 +524,13 @@ export default function SettingsPage() {
             type="password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="New password (min 4 characters)"
+            placeholder="New password (min 8 characters)"
             className="h-12 rounded-lg border border-input bg-card px-4 text-base outline-none focus:ring-2 focus:ring-ring"
           />
           {error && <p className="text-sm text-destructive">{error}</p>}
           <button
             onClick={changePassword}
-            disabled={newPassword.length < 4}
+            disabled={newPassword.length < 8}
             className="touch-feedback h-12 rounded-xl bg-primary font-semibold text-primary-foreground disabled:opacity-50"
           >
             Update password
