@@ -80,20 +80,25 @@ def active_workout(user: User = Depends(get_current_user), db: Session = Depends
 def list_workouts(
     limit: int = Query(default=20, le=100),
     offset: int = 0,
+    month: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}$"),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    workouts = (
-        db.execute(
-            select(Workout)
-            .where(Workout.owner_id == user.id, Workout.finished_at.is_not(None))
-            .order_by(Workout.started_at.desc())
-            .limit(limit)
-            .offset(offset)
+    q = select(Workout).where(Workout.owner_id == user.id, Workout.finished_at.is_not(None))
+    if month:
+        year, mon = int(month[:4]), int(month[5:7])
+        from datetime import datetime as _dt
+
+        start = _dt(year, mon, 1)
+        end = _dt(year + (mon == 12), (mon % 12) + 1, 1)
+        q = q.where(Workout.started_at >= start, Workout.started_at < end)
+        workouts = db.execute(q.order_by(Workout.started_at.desc())).scalars().all()
+    else:
+        workouts = (
+            db.execute(q.order_by(Workout.started_at.desc()).limit(limit).offset(offset))
+            .scalars()
+            .all()
         )
-        .scalars()
-        .all()
-    )
     result = []
     for w in workouts:
         totals = workout_totals(w)
@@ -135,11 +140,24 @@ def start_workout(
             raise HTTPException(status_code=404, detail="Routine not found")
         name = name or routine.name
         for re_ in routine.exercises:
+            suggestion = None
+            if re_.rep_max:
+                # Double progression: every previous working set hit rep_max
+                # -> suggest last weight + increment
+                prev = previous_sets(db, user.id, re_.exercise_id, exclude_workout_id=-1)
+                working = [x for x in prev if x["reps"] is not None]
+                if working:
+                    top_weight = max((x["weight"] or 0) for x in working)
+                    if all(x["reps"] >= re_.rep_max for x in working) and top_weight > 0:
+                        suggestion = top_weight + (re_.increment or 2.5)
             we = WorkoutExercise(
                 exercise_id=re_.exercise_id,
                 position=re_.position,
                 rest_seconds=re_.rest_seconds,
                 superset_with_next=re_.superset_with_next,
+                rep_min=re_.rep_min,
+                rep_max=re_.rep_max,
+                suggested_weight=suggestion,
             )
             we.sets = [SetEntry(position=i) for i in range(re_.set_count)]
             exercises.append(we)
@@ -154,6 +172,8 @@ def start_workout(
                 position=src_we.position,
                 rest_seconds=src_we.rest_seconds,
                 superset_with_next=src_we.superset_with_next,
+                rep_min=src_we.rep_min,
+                rep_max=src_we.rep_max,
             )
             we.sets = [SetEntry(position=i) for i in range(max(1, len(src_we.sets)))]
             exercises.append(we)
@@ -280,6 +300,27 @@ def finish_workout(
         )
     ).scalar()
 
+    # Compare against the previous finished workout with the same name
+    previous_same = db.execute(
+        select(Workout)
+        .where(
+            Workout.owner_id == user.id,
+            Workout.finished_at.is_not(None),
+            Workout.name == workout.name,
+            Workout.id != workout.id,
+        )
+        .order_by(Workout.started_at.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    comparison = None
+    if previous_same is not None:
+        prev_totals = workout_totals(previous_same)
+        comparison = {
+            "prev_volume": prev_totals["total_volume"],
+            "prev_sets": prev_totals["total_sets"],
+            "prev_date": previous_same.started_at,
+        }
+
     return {
         "id": workout.id,
         "name": workout.name,
@@ -289,6 +330,7 @@ def finish_workout(
         "prs": prs,
         "workout_number": workout_number,
         "week_workouts": week_workouts,
+        "comparison": comparison,
     }
 
 

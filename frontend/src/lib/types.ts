@@ -34,6 +34,9 @@ export interface RoutineExercise {
   set_count: number
   rest_seconds: number | null
   superset_with_next: boolean
+  rep_min: number | null
+  rep_max: number | null
+  increment: number | null
 }
 
 export interface Routine {
@@ -72,6 +75,9 @@ export interface WorkoutExercise {
   superset_with_next: boolean
   superset: string | null
   superset_last: boolean
+  rep_min: number | null
+  rep_max: number | null
+  suggested_weight: number | null
   sets: SetEntry[]
   previous_sets: PastSet[]
 }
@@ -117,6 +123,7 @@ export interface FinishResult {
   prs: PR[]
   workout_number: number
   week_workouts: number
+  comparison: { prev_volume: number; prev_sets: number; prev_date: string } | null
 }
 
 export interface RecordSet {

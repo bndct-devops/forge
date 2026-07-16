@@ -41,6 +41,11 @@ class WorkoutExercise(Base):
     rest_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Chains this exercise with the following one into a superset
     superset_with_next: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Copied from the template at start; suggested_weight is the progression
+    # suggestion computed against the previous session
+    rep_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rep_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    suggested_weight: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     sets: Mapped[List["SetEntry"]] = relationship(
         cascade="all, delete-orphan", order_by="SetEntry.position"

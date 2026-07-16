@@ -7,6 +7,7 @@ from backend.core.database import Base, SessionLocal, engine
 from backend.api import (
     auth,
     backup,
+    updates,
     exercises,
     import_export,
     measurements,
@@ -58,6 +59,7 @@ app.include_router(plans.router, prefix="/api")
 app.include_router(push.router, prefix="/api")
 app.include_router(measurements.router, prefix="/api")
 app.include_router(backup.router, prefix="/api")
+app.include_router(updates.router, prefix="/api")
 
 # Serve the built frontend (production / Docker). In dev, Vite serves it instead.
 _dist = Path(__file__).resolve().parent.parent / "frontend" / "dist"

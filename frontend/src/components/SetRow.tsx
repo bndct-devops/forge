@@ -16,6 +16,8 @@ interface SetRowProps {
   unit: string
   /** Bodyweight exercises complete on reps alone; empty weight logs as BW (0). */
   bodyweight: boolean
+  /** Template progression: suggested weight + rep target range. */
+  progression?: { weight: number | null; repMin: number | null; repMax: number | null }
   rpeEnabled: boolean
   onRpe: (rpe: number | null) => void
   onComplete: (weight: number, reps: number) => void
@@ -38,6 +40,7 @@ export default function SetRow({
   suggested,
   unit,
   bodyweight,
+  progression,
   rpeEnabled,
   onRpe,
   onComplete,
@@ -59,8 +62,15 @@ export default function SetRow({
     setTimeout(onDelete, 200)
   }
 
-  const fallbackWeight = previous?.weight ?? suggested?.weight ?? (bodyweight ? 0 : null)
-  const fallbackReps = previous?.reps ?? suggested?.reps ?? null
+  // Progression suggestion beats the raw previous weight — that's the point
+  const fallbackWeight =
+    progression?.weight ?? previous?.weight ?? suggested?.weight ?? (bodyweight ? 0 : null)
+  const fallbackReps =
+    (progression?.weight != null ? progression.repMin : null) ??
+    previous?.reps ??
+    suggested?.reps ??
+    progression?.repMin ??
+    null
   const effectiveWeight = weight !== '' ? parseNum(weight) : fallbackWeight
   const effectiveReps = reps !== '' ? parseNum(reps) : fallbackReps
   const canComplete = effectiveWeight != null && effectiveReps != null
@@ -158,7 +168,13 @@ export default function SetRow({
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           inputMode="numeric"
           enterKeyHint="done"
-          placeholder={fallbackReps != null ? String(fallbackReps) : 'reps'}
+          placeholder={
+            fallbackReps != null
+              ? String(fallbackReps)
+              : progression?.repMin != null && progression?.repMax != null
+                ? `${progression.repMin}–${progression.repMax}`
+                : 'reps'
+          }
           className="tnum h-9 rounded-md border border-input bg-background px-1 text-center text-base font-medium outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-ring"
         />
         {rpeEnabled && (

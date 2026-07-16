@@ -10,18 +10,71 @@ from sqlalchemy.orm import Session
 from backend.core.clock import utcnow
 from backend.core.database import get_db
 from backend.core.security import get_current_user
-from backend.models import Exercise, User, Workout
-from backend.serializers import workout_totals
+from backend.models import Exercise, SetEntry, User, Workout, WorkoutExercise
+from backend.serializers import epley_1rm, workout_totals
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 
 CALENDAR_DAYS = 140  # 20 weeks
+MUSCLE_TREND_WEEKS = 8
 TREND_WEEKS = 12
 SPLIT_DAYS = 30
 
 
 def _week_start(d: date) -> date:
     return d - timedelta(days=d.weekday())
+
+
+@router.get("/records")
+def records(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """All-time bests per exercise, across everything ever logged."""
+    rows = db.execute(
+        select(SetEntry, Workout, WorkoutExercise.exercise_id)
+        .join(WorkoutExercise, SetEntry.workout_exercise_id == WorkoutExercise.id)
+        .join(Workout, WorkoutExercise.workout_id == Workout.id)
+        .where(
+            Workout.owner_id == user.id,
+            Workout.finished_at.is_not(None),
+            SetEntry.is_completed.is_(True),
+            SetEntry.is_warmup.is_(False),
+            SetEntry.reps.is_not(None),
+        )
+    ).all()
+    exercises = {e.id: e for e in db.execute(select(Exercise)).scalars()}
+    best: dict[int, dict] = {}
+    for se, w, ex_id in rows:
+        weight = se.weight or 0.0
+        entry = best.setdefault(
+            ex_id,
+            {"best_weight": None, "best_1rm": None, "best_reps": None, "sessions": set()},
+        )
+        entry["sessions"].add(w.id)
+        if weight > 0:
+            if entry["best_weight"] is None or weight > entry["best_weight"]["weight"]:
+                entry["best_weight"] = {"weight": weight, "reps": se.reps, "date": w.started_at}
+            one_rm = round(epley_1rm(weight, se.reps), 1)
+            if entry["best_1rm"] is None or one_rm > entry["best_1rm"]["value"]:
+                entry["best_1rm"] = {"value": one_rm, "date": w.started_at}
+        elif entry["best_reps"] is None or se.reps > entry["best_reps"]["reps"]:
+            entry["best_reps"] = {"reps": se.reps, "date": w.started_at}
+    result = []
+    for ex_id, entry in best.items():
+        exercise = exercises.get(ex_id)
+        if exercise is None:
+            continue
+        result.append(
+            {
+                "exercise_id": ex_id,
+                "name": exercise.name,
+                "muscle_group": exercise.muscle_group,
+                "best_weight": entry["best_weight"],
+                "best_1rm": entry["best_1rm"],
+                "best_reps": entry["best_reps"],
+                "sessions": len(entry["sessions"]),
+            }
+        )
+    result.sort(key=lambda r: r["name"].lower())
+    return result
 
 
 @router.get("")
@@ -47,6 +100,8 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
     trained_weeks: set[date] = set()
     split: dict[str, int] = defaultdict(int)
     split_since = today - timedelta(days=SPLIT_DAYS)
+    muscle_weeks: dict[str, dict] = defaultdict(lambda: defaultdict(int))
+    trend_since = _week_start(today) - timedelta(weeks=MUSCLE_TREND_WEEKS - 1)
 
     for w in workouts:
         totals = workout_totals(w)
@@ -61,13 +116,16 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
         volume_by_week[week] += totals["total_volume"]
         workouts_by_week[week] += 1
 
-        if day >= split_since:
+        if day >= split_since or week >= trend_since:
             for we in w.exercises:
                 exercise = exercises.get(we.exercise_id)
                 if exercise is None:
                     continue
                 working_sets = sum(1 for s in we.sets if s.is_completed and not s.is_warmup)
-                split[exercise.muscle_group] += working_sets
+                if day >= split_since:
+                    split[exercise.muscle_group] += working_sets
+                if week >= trend_since:
+                    muscle_weeks[exercise.muscle_group][week] += working_sets
 
     # Streak: consecutive trained weeks ending at the current week — or the
     # previous one, so the streak isn't "broken" before this week's session
@@ -107,6 +165,16 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
         "streak_weeks": streak,
         "calendar": calendar,
         "weeks": weeks,
+        "muscle_trend": {
+            group: [
+                {
+                    "week_start": (this_week - timedelta(weeks=i)).isoformat(),
+                    "sets": weeks_map.get(this_week - timedelta(weeks=i), 0),
+                }
+                for i in range(MUSCLE_TREND_WEEKS - 1, -1, -1)
+            ]
+            for group, weeks_map in muscle_weeks.items()
+        },
         "muscle_groups": sorted(
             ({"group": g, "sets": n} for g, n in split.items() if n > 0),
             key=lambda x: -x["sets"],

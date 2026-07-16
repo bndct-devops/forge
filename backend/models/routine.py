@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.core.clock import utcnow
@@ -38,3 +38,8 @@ class RoutineExercise(Base):
     set_count: Mapped[int] = mapped_column(Integer, default=3)
     rest_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     superset_with_next: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Optional double-progression rule: hit rep_max on all working sets ->
+    # next session suggests +increment
+    rep_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rep_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    increment: Mapped[float | None] = mapped_column(Float, nullable=True)

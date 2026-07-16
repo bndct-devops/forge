@@ -171,6 +171,7 @@ export default function SettingsPage() {
   const [resetTarget, setResetTarget] = useState<User | null>(null)
   const [resetPassword, setResetPassword] = useState('')
   const [serverVersion, setServerVersion] = useState('')
+  const [updateInfo, setUpdateInfo] = useState<{ latest: string | null; update_available: boolean } | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -182,6 +183,9 @@ export default function SettingsPage() {
   useEffect(() => {
     api<{ version: string }>('/health')
       .then((h) => setServerVersion(h.version))
+      .catch(() => {})
+    api<{ latest: string | null; update_available: boolean }>('/update-check')
+      .then(setUpdateInfo)
       .catch(() => {})
   }, [])
 
@@ -287,6 +291,16 @@ export default function SettingsPage() {
 
       {message && <p className="mt-2 text-sm text-success">{message}</p>}
       {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+
+      {updateInfo?.update_available && (
+        <div className="mt-4 flex items-center gap-3 rounded-xl border border-primary/40 bg-accent-soft p-3.5">
+          <Download size={18} className="shrink-0 text-primary" />
+          <p className="text-sm">
+            <span className="font-semibold">{updateInfo.latest}</span> is available — update the
+            container to get it (running {serverVersion}).
+          </p>
+        </div>
+      )}
 
       <Section title="Appearance">
         <Row label="Theme">

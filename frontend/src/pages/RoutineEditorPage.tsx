@@ -16,6 +16,9 @@ interface DraftExercise {
   set_count: number
   rest_seconds: number | null
   superset_with_next: boolean
+  rep_min: number | null
+  rep_max: number | null
+  increment: number | null
 }
 
 const REST_OPTIONS = [0, 30, 45, 60, 90, 120, 150, 180, 240, 300]
@@ -49,6 +52,9 @@ export default function RoutineEditorPage() {
               set_count: e.set_count,
               rest_seconds: e.rest_seconds,
               superset_with_next: e.superset_with_next,
+              rep_min: e.rep_min,
+              rep_max: e.rep_max,
+              increment: e.increment,
             })),
           )
         })
@@ -83,6 +89,9 @@ export default function RoutineEditorPage() {
         set_count: 3,
         rest_seconds: null,
         superset_with_next: false,
+        rep_min: null,
+        rep_max: null,
+        increment: null,
       },
     ])
     setPickerOpen(false)
@@ -104,6 +113,9 @@ export default function RoutineEditorPage() {
           set_count: e.set_count,
           rest_seconds: e.rest_seconds,
           superset_with_next: i < exercises.length - 1 && e.superset_with_next,
+          rep_min: e.rep_min,
+          rep_max: e.rep_max,
+          increment: e.rep_max != null ? (e.increment ?? (user?.unit === 'lb' ? 5 : 2.5)) : null,
         })),
       }
       if (editing) await api(`/routines/${id}`, { method: 'PUT', body })
@@ -204,6 +216,46 @@ export default function RoutineEditorPage() {
                   ))}
                 </select>
               </label>
+            </div>
+            <div className="mt-2.5 flex items-center justify-between gap-3">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                Reps
+                <input
+                  value={exercise.rep_min ?? ''}
+                  onChange={(e) =>
+                    update(i, { rep_min: e.target.value ? Number(e.target.value) : null })
+                  }
+                  inputMode="numeric"
+                  placeholder="min"
+                  className="tnum h-9 w-12 rounded-lg border border-input bg-card px-1 text-center text-sm text-foreground outline-none"
+                />
+                –
+                <input
+                  value={exercise.rep_max ?? ''}
+                  onChange={(e) =>
+                    update(i, { rep_max: e.target.value ? Number(e.target.value) : null })
+                  }
+                  inputMode="numeric"
+                  placeholder="max"
+                  className="tnum h-9 w-12 rounded-lg border border-input bg-card px-1 text-center text-sm text-foreground outline-none"
+                />
+              </label>
+              {exercise.rep_max != null && (
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  Progress
+                  <select
+                    value={exercise.increment ?? (user?.unit === 'lb' ? 5 : 2.5)}
+                    onChange={(e) => update(i, { increment: Number(e.target.value) })}
+                    className="h-9 rounded-lg border border-input bg-card px-2 text-sm text-foreground outline-none"
+                  >
+                    {(user?.unit === 'lb' ? [2.5, 5, 10] : [1.25, 2.5, 5]).map((inc) => (
+                      <option key={inc} value={inc}>
+                        +{inc} {user?.unit ?? 'kg'}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
             </div>
             {i < exercises.length - 1 && (
               <button

@@ -71,6 +71,9 @@ class RoutineExerciseIn(BaseModel):
     set_count: int = Field(default=3, ge=1, le=20)
     rest_seconds: int | None = Field(default=None, ge=0, le=3600)
     superset_with_next: bool = False
+    rep_min: int | None = Field(default=None, ge=1, le=100)
+    rep_max: int | None = Field(default=None, ge=1, le=100)
+    increment: float | None = Field(default=None, gt=0, le=50)
 
 
 class RoutineIn(BaseModel):

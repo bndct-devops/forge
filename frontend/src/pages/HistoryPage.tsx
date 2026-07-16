@@ -2,6 +2,8 @@ import { CalendarDays, Clock, Trophy, Weight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import EmptyState from '../components/EmptyState'
+import HistoryCalendar from '../components/HistoryCalendar'
+import Segmented from '../components/Segmented'
 import { CardListSkeleton } from '../components/Skeleton'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
@@ -34,6 +36,7 @@ export default function HistoryPage() {
   )
   const [done, setDone] = useState(false)
   const [loading, setLoading] = useState(() => getPageCache('history') == null)
+  const [view, setView] = useState<'list' | 'calendar'>('list')
 
   const load = (offset: number) => {
     setLoading(true)
@@ -54,11 +57,22 @@ export default function HistoryPage() {
 
   return (
     <div className="safe-top px-4">
-      <header className="pt-6 pb-4">
+      <header className="flex items-center justify-between pt-6 pb-4">
         <h1 className="text-3xl">History</h1>
+        <Segmented<'list' | 'calendar'>
+          options={[
+            { value: 'list', label: 'List' },
+            { value: 'calendar', label: 'Calendar' },
+          ]}
+          value={view}
+          onChange={setView}
+          className="w-44"
+        />
       </header>
 
-      {loading && workouts.length === 0 ? (
+      {view === 'calendar' ? (
+        <HistoryCalendar unit={user?.unit ?? 'kg'} />
+      ) : loading && workouts.length === 0 ? (
         <CardListSkeleton count={4} className="md:grid-cols-2" />
       ) : workouts.length === 0 ? (
         <EmptyState title="No workouts yet">

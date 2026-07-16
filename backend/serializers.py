@@ -137,6 +137,9 @@ def serialize_workout(db: Session, workout: Workout, with_previous: bool = True)
                 "superset_with_next": we.superset_with_next,
                 "superset": labels.get(we.id),
                 "superset_last": last_in_group.get(we.id, True),
+                "rep_min": we.rep_min,
+                "rep_max": we.rep_max,
+                "suggested_weight": we.suggested_weight,
                 "sets": [
                     {
                         "id": s.id,

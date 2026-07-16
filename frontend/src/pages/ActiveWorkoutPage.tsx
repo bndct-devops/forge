@@ -1,4 +1,4 @@
-import { Calculator, ChevronDown, CloudOff, Flag, GripVertical, Link2, MoreHorizontal, Plus, StickyNote, Timer, Trash2, Unlink2, X } from 'lucide-react'
+import { Calculator, ChevronDown, CloudOff, Flag, GripVertical, Link2, MoreHorizontal, Plus, StickyNote, Timer, Trash2, TrendingUp, Unlink2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ConfirmSheet from '../components/ConfirmSheet'
@@ -13,7 +13,7 @@ import { useWorkout } from '../contexts/WorkoutContext'
 import { api } from '../lib/api'
 import { isRpeEnabled } from '../lib/prefs'
 import { toast } from '../lib/toast'
-import { formatClock, formatVolume, parseUTC, restLabel } from '../lib/format'
+import { formatClock, formatRelativeDate, formatSetWeight, formatVolume, parseUTC, restLabel } from '../lib/format'
 import { useOutboxSize } from '../lib/outbox'
 import { restTimer } from '../lib/timer'
 import { moveItem, useDragReorder } from '../lib/useDragReorder'
@@ -81,6 +81,10 @@ export default function ActiveWorkoutPage() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [menuExercise, setMenuExercise] = useState<WorkoutExercise | null>(null)
   const [plateExercise, setPlateExercise] = useState<WorkoutExercise | null>(null)
+  const [peekExercise, setPeekExercise] = useState<WorkoutExercise | null>(null)
+  const [peekSessions, setPeekSessions] = useState<
+    { workout_id: number; name: string; date: string; sets: { weight: number | null; reps: number | null; is_pr: boolean }[] }[] | null
+  >(null)
   const [workoutMenu, setWorkoutMenu] = useState(false)
   const [confirmFinish, setConfirmFinish] = useState(false)
   const [confirmDiscard, setConfirmDiscard] = useState(false)
@@ -127,6 +131,14 @@ export default function ActiveWorkoutPage() {
         ),
       0,
     ) ?? 0
+
+  const openPeek = (we: WorkoutExercise) => {
+    setPeekExercise(we)
+    setPeekSessions(null)
+    api<typeof peekSessions>(`/exercises/${we.exercise_id}/recent?limit=3`)
+      .then(setPeekSessions)
+      .catch(() => setPeekSessions([]))
+  }
 
   const completeSet = async (we: WorkoutExercise, setId: number, weight: number, reps: number) => {
     await updateSet(setId, { weight, reps, is_completed: true })
@@ -221,14 +233,17 @@ export default function ActiveWorkoutPage() {
                     >
                       <GripVertical size={16} />
                     </button>
-                    <h3 className="min-w-0 flex-1 truncate text-base font-semibold text-primary">
+                    <button
+                      onClick={() => openPeek(we)}
+                      className="touch-feedback min-w-0 flex-1 truncate text-left text-base font-semibold text-primary"
+                    >
                       {we.name}
                       {we.superset && (
                         <span className="ml-2 rounded bg-accent-soft px-1.5 py-0.5 align-middle text-[10px] font-semibold tracking-wide text-primary uppercase">
                           Superset {we.superset}
                         </span>
                       )}
-                    </h3>
+                    </button>
                     <div className="flex items-center gap-1">
                       <span className="flex items-center gap-1 rounded-full bg-secondary px-2 py-1 text-xs font-medium text-muted-foreground">
                         <Timer size={12} />
@@ -244,6 +259,13 @@ export default function ActiveWorkoutPage() {
                     </div>
                   </div>
 
+                  {we.suggested_weight != null && (
+                    <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-primary">
+                      <TrendingUp size={13} className="shrink-0" />
+                      Progression: {we.suggested_weight} {user?.unit ?? 'kg'} suggested
+                      {we.rep_min != null && we.rep_max != null && ` · target ${we.rep_min}–${we.rep_max} reps`}
+                    </p>
+                  )}
                   {we.note && (
                     <p className="mt-1 flex items-start gap-1.5 text-xs text-muted-foreground">
                       <StickyNote size={13} className="mt-0.5 shrink-0" />
@@ -274,6 +296,11 @@ export default function ActiveWorkoutPage() {
                           .find((s) => s.weight != null && s.reps != null)}
                         unit={user?.unit ?? 'kg'}
                         bodyweight={we.equipment === 'Bodyweight'}
+                        progression={
+                          we.suggested_weight != null || we.rep_min != null
+                            ? { weight: we.suggested_weight, repMin: we.rep_min, repMax: we.rep_max }
+                            : undefined
+                        }
                         rpeEnabled={rpeEnabled}
                         onRpe={(rpe) => updateSet(set.id, { rpe })}
                         onComplete={(weight, reps) => completeSet(we, set.id, weight, reps)}
@@ -399,6 +426,38 @@ export default function ActiveWorkoutPage() {
             >
               <Trash2 size={18} /> Remove from workout
             </button>
+          </div>
+        )}
+      </Sheet>
+
+      <Sheet
+        open={peekExercise != null}
+        onClose={() => setPeekExercise(null)}
+        title={peekExercise ? `Recent — ${peekExercise.name}` : undefined}
+      >
+        {peekSessions == null ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">Loading…</p>
+        ) : peekSessions.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            No previous sessions of this exercise yet.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-3 pt-1 pb-2">
+            {peekSessions.map((session) => (
+              <div key={session.workout_id} className="rounded-xl border bg-card p-3.5">
+                <div className="flex items-baseline justify-between text-sm">
+                  <span className="font-medium">{session.name}</span>
+                  <span className="text-muted-foreground">{formatRelativeDate(session.date)}</span>
+                </div>
+                <div className="tnum mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-sm text-muted-foreground">
+                  {session.sets.map((st, i) => (
+                    <span key={i}>
+                      {formatSetWeight(st.weight, user?.unit ?? 'kg')}×{st.reps}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </Sheet>

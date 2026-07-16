@@ -1,6 +1,6 @@
 import { Check, Trophy } from 'lucide-react'
 import { useEffect, useRef } from 'react'
-import { formatDuration, formatVolume } from '../lib/format'
+import { formatDuration, formatRelativeDate, formatVolume } from '../lib/format'
 import type { FinishResult } from '../lib/types'
 
 /** Brief ember-toned confetti burst. Hand-rolled — no dependencies, respects
@@ -129,6 +129,29 @@ export default function FinishScreen({ summary, unit, onDone }: FinishScreenProp
             <div className="text-xs text-muted-foreground">Sets</div>
           </div>
         </div>
+
+        {summary.comparison && summary.comparison.prev_volume > 0 && (
+          <p
+            className="animate-card-appear mt-3 text-sm font-medium"
+            style={{ animationDelay: '400ms' }}
+          >
+            {(() => {
+              const delta =
+                ((summary.total_volume - summary.comparison.prev_volume) /
+                  summary.comparison.prev_volume) *
+                100
+              const rounded = Math.round(delta)
+              const cls =
+                rounded > 0 ? 'text-success' : rounded < 0 ? 'text-muted-foreground' : 'text-muted-foreground'
+              return (
+                <span className={cls}>
+                  {rounded > 0 ? '+' : ''}
+                  {rounded}% volume vs last time ({formatRelativeDate(summary.comparison.prev_date)})
+                </span>
+              )
+            })()}
+          </p>
+        )}
 
         {summary.prs.length > 0 && (
           <div

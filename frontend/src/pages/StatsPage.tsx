@@ -1,4 +1,4 @@
-import { ChevronRight, Flame, Ruler } from 'lucide-react'
+import { Flame, Ruler, Trophy } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import {
   Bar,
@@ -24,6 +24,7 @@ interface StatsData {
   calendar: { date: string; workouts: number }[]
   weeks: { week_start: string; volume: number; workouts: number }[]
   muscle_groups: { group: string; sets: number }[]
+  muscle_trend: Record<string, { week_start: string; sets: number }[]>
   split_days: number
 }
 
@@ -76,6 +77,7 @@ export default function StatsPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [stats, setStats] = useState<StatsData | null>(() => getPageCache<StatsData>('stats'))
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null)
   const unit = user?.unit ?? 'kg'
 
   useEffect(() => {
@@ -171,19 +173,32 @@ export default function StatsPage() {
             <StatTile label="PRs" value={String(stats.totals.prs)} />
           </div>
 
-          <button
-            onClick={() => navigate('/measure', { viewTransition: true })}
-            className="touch-feedback flex items-center gap-3 rounded-xl border bg-card p-4 text-left"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft text-primary">
-              <Ruler size={20} />
-            </div>
-            <div className="flex-1">
-              <div className="font-semibold">Body measurements</div>
-              <div className="text-sm text-muted-foreground">weight, body fat, circumferences</div>
-            </div>
-            <ChevronRight size={18} className="text-muted-foreground" />
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => navigate('/records', { viewTransition: true })}
+              className="touch-feedback flex items-center gap-2.5 rounded-xl border bg-card p-3.5 text-left"
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-primary">
+                <Trophy size={18} />
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold">Records</div>
+                <div className="truncate text-xs text-muted-foreground">all-time bests</div>
+              </div>
+            </button>
+            <button
+              onClick={() => navigate('/measure', { viewTransition: true })}
+              className="touch-feedback flex items-center gap-2.5 rounded-xl border bg-card p-3.5 text-left"
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-primary">
+                <Ruler size={18} />
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold">Measurements</div>
+                <div className="truncate text-xs text-muted-foreground">body tracking</div>
+              </div>
+            </button>
+          </div>
 
           <section className="rounded-xl border bg-card p-4">
             <h2 className="mb-3 text-base">Training calendar</h2>
@@ -235,20 +250,47 @@ export default function StatsPage() {
             </p>
             <div className="flex flex-col gap-2.5">
               {stats.muscle_groups.map((g) => (
-                <div key={g.group} className="flex items-center gap-3">
-                  <span className="w-20 shrink-0 text-sm font-medium">{g.group}</span>
-                  <div className="h-4 flex-1 overflow-hidden rounded-full bg-secondary">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${(g.sets / maxSets) * 100}%`,
-                        backgroundColor: 'var(--chart-accent)',
-                      }}
-                    />
-                  </div>
-                  <span className="tnum w-8 shrink-0 text-right text-sm text-muted-foreground">
-                    {g.sets}
-                  </span>
+                <div key={g.group}>
+                  <button
+                    onClick={() => setExpandedGroup(expandedGroup === g.group ? null : g.group)}
+                    className="touch-feedback flex w-full items-center gap-3"
+                  >
+                    <span className="w-20 shrink-0 text-left text-sm font-medium">{g.group}</span>
+                    <div className="h-4 flex-1 overflow-hidden rounded-full bg-secondary">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${(g.sets / maxSets) * 100}%`,
+                          backgroundColor: 'var(--chart-accent)',
+                        }}
+                      />
+                    </div>
+                    <span className="tnum w-8 shrink-0 text-right text-sm text-muted-foreground">
+                      {g.sets}
+                    </span>
+                  </button>
+                  {expandedGroup === g.group && stats.muscle_trend[g.group] && (
+                    <div className="mt-2 mb-1 ml-20">
+                      <div className="flex h-14 items-end gap-1">
+                        {stats.muscle_trend[g.group].map((w) => {
+                          const max = Math.max(1, ...stats.muscle_trend[g.group].map((x) => x.sets))
+                          return (
+                            <div key={w.week_start} className="flex flex-1 flex-col items-center gap-0.5">
+                              <span className="tnum text-[9px] text-muted-foreground">{w.sets || ''}</span>
+                              <div
+                                className="w-full rounded-t-[3px]"
+                                style={{
+                                  height: `${Math.max(2, (w.sets / max) * 40)}px`,
+                                  backgroundColor: w.sets > 0 ? 'var(--chart-accent)' : 'var(--secondary)',
+                                }}
+                              />
+                            </div>
+                          )
+                        })}
+                      </div>
+                      <p className="mt-1 text-[10px] text-muted-foreground">sets per week, last 8 weeks</p>
+                    </div>
+                  )}
                 </div>
               ))}
               {stats.muscle_groups.length === 0 && (

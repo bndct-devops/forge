@@ -6,7 +6,7 @@ from backend.core.database import get_db
 from backend.core.security import get_current_user
 from pydantic import BaseModel, Field
 
-from backend.models import Exercise, ExerciseNote, User, Workout, WorkoutExercise
+from backend.models import Exercise, ExerciseNote, SetEntry, User, Workout, WorkoutExercise
 from backend.schemas import ExerciseCreate, ExerciseOut, RecategorizeIn
 from backend.serializers import completed_sets_query, epley_1rm
 
@@ -133,6 +133,46 @@ def put_note(
         db.add(note)
     db.commit()
     return {"text": text}
+
+
+@router.get("/{exercise_id}/recent")
+def recent_sessions(
+    exercise_id: int,
+    limit: int = 3,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """The last few sessions of this exercise — for the mid-workout peek."""
+    workout_ids = db.execute(
+        select(Workout.id, Workout.name, Workout.started_at)
+        .join(WorkoutExercise, WorkoutExercise.workout_id == Workout.id)
+        .where(
+            Workout.owner_id == user.id,
+            Workout.finished_at.is_not(None),
+            WorkoutExercise.exercise_id == exercise_id,
+        )
+        .order_by(Workout.started_at.desc())
+        .limit(min(limit, 10))
+    ).all()
+    sessions = []
+    for wid, name, started_at in workout_ids:
+        rows = db.execute(
+            completed_sets_query(user.id, exercise_id)
+            .where(Workout.id == wid)
+            .order_by(SetEntry.position)
+        ).all()
+        sessions.append(
+            {
+                "workout_id": wid,
+                "name": name,
+                "date": started_at,
+                "sets": [
+                    {"weight": se.weight, "reps": se.reps, "is_pr": se.is_pr, "rpe": se.rpe}
+                    for se, _w in rows
+                ],
+            }
+        )
+    return sessions
 
 
 @router.get("/{exercise_id}/stats")
