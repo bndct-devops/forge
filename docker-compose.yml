@@ -15,6 +15,9 @@ services:
     volumes:
       # All state: SQLite DB, generated secret key, push (VAPID) keys.
       # Back this folder up and you have everything.
+      # NOTE: the container runs as uid 1000 — if the host directory is
+      # created by Docker (root-owned), fix it once:
+      #   chown -R 1000:1000 <host data dir>
       - ./data:/data
     environment:
       # Optional. If unset, Forge generates a random key on first start
