@@ -31,9 +31,13 @@ self.addEventListener('push', (event) => {
       // If the app is open and focused, the in-app timer bar already handles it
       const clients = await self.clients.matchAll({ type: 'window' })
       if (clients.some((c) => c.focused)) return
+      // No tag on purpose: replacing a same-tag notification is SILENT per
+      // spec (no sound/banner), and Safari doesn't support renotify. Close
+      // stale ones manually instead, then show a fresh alerting notification.
+      const stale = await self.registration.getNotifications()
+      stale.forEach((n) => n.close())
       await self.registration.showNotification(data.title ?? 'Forge', {
         body: data.body ?? '',
-        tag: data.tag ?? 'forge',
         icon: '/pwa-192.png',
         badge: '/pwa-192.png',
       })
