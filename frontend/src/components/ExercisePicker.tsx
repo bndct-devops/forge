@@ -45,7 +45,7 @@ function equipmentChip(e: Exercise, base: Exercise | null): string | null {
 const GRIP_OPTIONS = ['Overhand', 'Underhand', 'Neutral'] as const
 const WIDTH_OPTIONS = ['Close', 'Wide'] as const
 const EQUIPMENT_OPTIONS = ['Barbell', 'Dumbbell', 'Machine', 'Plate-Loaded', 'Smith Machine', 'Cable'] as const
-const ATTACHMENT_OPTIONS = ['Rope', 'Straight Bar', 'V-Bar', 'Single Handle', 'Neutral-Grip Bar'] as const
+const ATTACHMENT_OPTIONS = ['Rope', 'Straight Bar', 'EZ Bar', 'V-Bar', 'Single Handle', 'Neutral-Grip Bar', 'Ankle Strap'] as const
 
 function ToggleChips<T extends string>({
   label,
