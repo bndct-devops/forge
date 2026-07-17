@@ -145,13 +145,24 @@ function cnPush(on: boolean): string {
     : 'touch-feedback rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50'
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  hint,
+  children,
+}: {
+  title: string
+  hint?: string
+  children: React.ReactNode
+}) {
   return (
-    <section className="mt-6">
-      <h2 className="mb-2 px-1 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+    <section className="mt-7">
+      <h2 className="px-1 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
         {title}
       </h2>
-      <div className="flex flex-col gap-px overflow-hidden rounded-xl border bg-card">{children}</div>
+      {hint && <p className="mt-0.5 px-1 text-xs text-muted-foreground/80">{hint}</p>}
+      <div className="mt-2 flex flex-col gap-px overflow-hidden rounded-xl border bg-card">
+        {children}
+      </div>
     </section>
   )
 }
@@ -357,7 +368,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="safe-top px-4 pb-8 md:max-w-2xl">
+    <div className="safe-top w-full max-w-xl px-4 pb-8">
       <header className="pt-6 pb-2">
         <h1 className="text-3xl">Settings</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -389,7 +400,6 @@ export default function SettingsPage() {
             options={THEMES.map((t) => ({ value: t.id, label: t.label }))}
             value={theme}
             onChange={changeTheme}
-            className="w-56"
           />
         </Row>
       </Section>
@@ -406,6 +416,27 @@ export default function SettingsPage() {
             className="w-32"
           />
         </Row>
+        <Row label="Default rest timer">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => adjustRest(-15)}
+              className="touch-feedback rounded-lg bg-secondary p-2"
+              aria-label="Less rest"
+            >
+              <Minus size={15} />
+            </button>
+            <span className="tnum w-12 text-center font-semibold">
+              {restLabel(user.default_rest_seconds)}
+            </span>
+            <button
+              onClick={() => adjustRest(15)}
+              className="touch-feedback rounded-lg bg-secondary p-2"
+              aria-label="More rest"
+            >
+              <Plus size={15} />
+            </button>
+          </div>
+        </Row>
         <Row label="Timer sound">
           <Segmented<'on' | 'off'>
             options={[
@@ -416,63 +447,6 @@ export default function SettingsPage() {
             onChange={(v) => {
               setTimerSound(v === 'on')
               setTimerSoundEnabled(v === 'on')
-            }}
-            className="w-32"
-          />
-        </Row>
-        <Row label="Weekly goal">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => updateUser({ weekly_goal: Math.max(1, user.weekly_goal - 1) }).catch(() => {})}
-              className="touch-feedback rounded-lg bg-secondary p-2"
-              aria-label="Lower goal"
-            >
-              <Minus size={15} />
-            </button>
-            <span className="tnum w-16 text-center font-semibold">
-              {user.weekly_goal}×/week
-            </span>
-            <button
-              onClick={() => updateUser({ weekly_goal: Math.min(7, user.weekly_goal + 1) }).catch(() => {})}
-              className="touch-feedback rounded-lg bg-secondary p-2"
-              aria-label="Raise goal"
-            >
-              <Plus size={15} />
-            </button>
-          </div>
-        </Row>
-        <Row label="Training nudges">
-          <Segmented<'on' | 'off'>
-            options={[
-              { value: 'on', label: 'On' },
-              { value: 'off', label: 'Off' },
-            ]}
-            value={user.gap_nudges ? 'on' : 'off'}
-            onChange={(v) => updateUser({ gap_nudges: v === 'on' }).catch(() => {})}
-            className="w-32"
-          />
-        </Row>
-        <Row label="Deload hints">
-          <Segmented<'on' | 'off'>
-            options={[
-              { value: 'on', label: 'On' },
-              { value: 'off', label: 'Off' },
-            ]}
-            value={user.deload_hints ? 'on' : 'off'}
-            onChange={(v) => updateUser({ deload_hints: v === 'on' }).catch(() => {})}
-            className="w-32"
-          />
-        </Row>
-        <Row label="Track RPE">
-          <Segmented<'on' | 'off'>
-            options={[
-              { value: 'on', label: 'On' },
-              { value: 'off', label: 'Off' },
-            ]}
-            value={rpe ? 'on' : 'off'}
-            onChange={(v) => {
-              setRpe(v === 'on')
-              setRpeEnabled(v === 'on')
             }}
             className="w-32"
           />
@@ -508,22 +482,36 @@ export default function SettingsPage() {
             <span className="text-sm text-muted-foreground">Needs HTTPS</span>
           )}
         </Row>
-        <Row label="Default rest timer">
+        <Row label="Track RPE">
+          <Segmented<'on' | 'off'>
+            options={[
+              { value: 'on', label: 'On' },
+              { value: 'off', label: 'Off' },
+            ]}
+            value={rpe ? 'on' : 'off'}
+            onChange={(v) => {
+              setRpe(v === 'on')
+              setRpeEnabled(v === 'on')
+            }}
+            className="w-32"
+          />
+        </Row>
+        <Row label="Weekly goal">
           <div className="flex items-center gap-2">
             <button
-              onClick={() => adjustRest(-15)}
+              onClick={() => updateUser({ weekly_goal: Math.max(1, user.weekly_goal - 1) }).catch(() => {})}
               className="touch-feedback rounded-lg bg-secondary p-2"
-              aria-label="Less rest"
+              aria-label="Lower goal"
             >
               <Minus size={15} />
             </button>
-            <span className="tnum w-12 text-center font-semibold">
-              {restLabel(user.default_rest_seconds)}
+            <span className="tnum w-16 text-center font-semibold">
+              {user.weekly_goal}×/week
             </span>
             <button
-              onClick={() => adjustRest(15)}
+              onClick={() => updateUser({ weekly_goal: Math.min(7, user.weekly_goal + 1) }).catch(() => {})}
               className="touch-feedback rounded-lg bg-secondary p-2"
-              aria-label="More rest"
+              aria-label="Raise goal"
             >
               <Plus size={15} />
             </button>
@@ -531,7 +519,35 @@ export default function SettingsPage() {
         </Row>
       </Section>
 
-      <Section title="Data">
+      <Section
+        title="Insights"
+        hint="Coaching hints computed from your history — each can be turned off."
+      >
+        <Row label="Training nudges">
+          <Segmented<'on' | 'off'>
+            options={[
+              { value: 'on', label: 'On' },
+              { value: 'off', label: 'Off' },
+            ]}
+            value={user.gap_nudges ? 'on' : 'off'}
+            onChange={(v) => updateUser({ gap_nudges: v === 'on' }).catch(() => {})}
+            className="w-32"
+          />
+        </Row>
+        <Row label="Deload hints">
+          <Segmented<'on' | 'off'>
+            options={[
+              { value: 'on', label: 'On' },
+              { value: 'off', label: 'Off' },
+            ]}
+            value={user.deload_hints ? 'on' : 'off'}
+            onChange={(v) => updateUser({ deload_hints: v === 'on' }).catch(() => {})}
+            className="w-32"
+          />
+        </Row>
+      </Section>
+
+      <Section title="Data" hint="Imports, exports and database backups.">
         <button
           onClick={() => fileInput.current?.click()}
           disabled={importing}
@@ -633,7 +649,7 @@ export default function SettingsPage() {
         )}
       </Section>
 
-      <Section title="API">
+      <Section title="API" hint="Tokens and webhooks for scripting Forge — guide in docs/api.md.">
         {tokens.map((t, i) => (
           <div
             key={t.id}
@@ -745,6 +761,16 @@ export default function SettingsPage() {
         </div>
       </Section>
 
+      {user.is_admin && (
+        <Section title="Users">
+          {users.map((u) => (
+            <div key={u.id} className="flex min-h-12 items-center justify-between gap-3 border-b px-4 py-2.5 last:border-b-0">
+              <span className="font-medium">
+                {u.username}
+                {u.is_admin && (
+                  <span className="ml-2 text-xs font-semibold text-primary">admin</span>
+                )}
+
       <Section title="Account">
         {ssoConfig?.enabled && (
           <button
@@ -785,16 +811,6 @@ export default function SettingsPage() {
           <LogOut size={18} /> Sign out
         </button>
       </Section>
-
-      {user.is_admin && (
-        <Section title="Users">
-          {users.map((u) => (
-            <div key={u.id} className="flex min-h-12 items-center justify-between gap-3 border-b px-4 py-2.5 last:border-b-0">
-              <span className="font-medium">
-                {u.username}
-                {u.is_admin && (
-                  <span className="ml-2 text-xs font-semibold text-primary">admin</span>
-                )}
               </span>
               {u.id !== user.id && (
                 <span className="flex items-center">

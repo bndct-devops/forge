@@ -10,16 +10,30 @@ import {
   YAxis,
 } from 'recharts'
 import EmptyState from '../components/EmptyState'
+import Segmented from '../components/Segmented'
 import Skeleton from '../components/Skeleton'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
 import { getPageCache, setPageCache } from '../lib/pageCache'
-import { formatShortDate, formatVolume } from '../lib/format'
+import { formatDuration, formatShortDate, formatVolume } from '../lib/format'
 import { cn } from '../lib/utils'
+
+interface StatsExtras {
+  avg_per_week: number
+  avg_duration_seconds: number
+  avg_volume: number
+  total_time_seconds: number
+  longest_streak_weeks: number
+  top_exercise: { name: string; sessions: number } | null
+  busiest_weekday: string | null
+  month_volume: number
+  prev_month_volume: number
+}
 
 interface StatsData {
   nudges: { group: string; days: number }[]
+  extras: StatsExtras | null
   totals: { workouts: number; volume: number; sets: number; prs: number; since: string | null }
   streak_weeks: number
   calendar: { date: string; workouts: number }[]
@@ -29,11 +43,12 @@ interface StatsData {
   split_days: number
 }
 
-function StatTile({ label, value }: { label: string; value: string }) {
+function StatTile({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-xl border bg-card p-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="tnum mt-0.5 text-lg font-semibold">{value}</div>
+    <div className="min-w-0 rounded-xl border bg-card p-3">
+      <div className="truncate text-xs text-muted-foreground">{label}</div>
+      <div className="tnum mt-0.5 truncate text-lg font-semibold">{value}</div>
+      {hint && <div className="truncate text-[10px] text-muted-foreground">{hint}</div>}
     </div>
   )
 }
@@ -143,6 +158,7 @@ export default function StatsPage() {
   const navigate = useNavigate()
   const [stats, setStats] = useState<StatsData | null>(() => getPageCache<StatsData>('stats'))
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null)
+  const [tab, setTab] = useState<'overview' | 'trends'>('overview')
   const unit = user?.unit ?? 'kg'
 
   useEffect(() => {
@@ -182,8 +198,16 @@ export default function StatsPage() {
 
   return (
     <div className="safe-top px-4 pb-8">
-      <header className="pt-6 pb-4">
+      <header className="flex items-center justify-between pt-6 pb-4">
         <h1 className="text-3xl">Stats</h1>
+        <Segmented<'overview' | 'trends'>
+          options={[
+            { value: 'overview', label: 'Overview' },
+            { value: 'trends', label: 'Trends' },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
       </header>
 
       {stats.totals.workouts === 0 ? (
@@ -192,6 +216,8 @@ export default function StatsPage() {
         </EmptyState>
       ) : (
         <div className="flex flex-col gap-4">
+          {tab === 'overview' && (
+            <>
           <div
             className={cn(
               'flex items-center gap-3 rounded-xl border bg-card p-4',
@@ -210,7 +236,7 @@ export default function StatsPage() {
                   const thisWeek = stats.weeks[stats.weeks.length - 1]?.workouts ?? 0
                   const goal = user?.weekly_goal ?? 3
                   return thisWeek >= goal
-                    ? `weekly goal hit — ${thisWeek} of ${goal} workouts`
+                    ? `weekly goal hit — ${thisWeek} workout${thisWeek === 1 ? '' : 's'} this week`
                     : `${thisWeek} of ${goal} workouts this week`
                 })()}
               </div>
@@ -250,6 +276,49 @@ export default function StatsPage() {
             <StatTile label="PRs" value={String(stats.totals.prs)} />
           </div>
 
+          {stats.extras && (
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+              <StatTile label="Avg per week" value={String(stats.extras.avg_per_week)} />
+              <StatTile
+                label="Avg duration"
+                value={formatDuration(stats.extras.avg_duration_seconds)}
+              />
+              <StatTile label="Avg volume" value={formatVolume(stats.extras.avg_volume, unit)} />
+              <StatTile
+                label="Time under iron"
+                value={formatDuration(stats.extras.total_time_seconds)}
+              />
+            </div>
+          )}
+
+          {stats.extras && (
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+              <StatTile
+                label="Longest streak"
+                value={`${stats.extras.longest_streak_weeks} wk${stats.extras.longest_streak_weeks === 1 ? '' : 's'}`}
+              />
+              {stats.extras.busiest_weekday && (
+                <StatTile label="Favourite day" value={stats.extras.busiest_weekday} />
+              )}
+              {stats.extras.top_exercise && (
+                <StatTile
+                  label="Most trained"
+                  value={stats.extras.top_exercise.name}
+                  hint={`${stats.extras.top_exercise.sessions} sessions`}
+                />
+              )}
+              <StatTile
+                label="This month"
+                value={formatVolume(stats.extras.month_volume, unit)}
+                hint={
+                  stats.extras.prev_month_volume > 0
+                    ? `${stats.extras.month_volume >= stats.extras.prev_month_volume ? '+' : ''}${Math.round(((stats.extras.month_volume - stats.extras.prev_month_volume) / stats.extras.prev_month_volume) * 100)}% vs last month`
+                    : undefined
+                }
+              />
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => navigate('/records', { viewTransition: true })}
@@ -282,6 +351,11 @@ export default function StatsPage() {
             <CalendarHeatmap days={stats.calendar} />
           </section>
 
+            </>
+          )}
+
+          {tab === 'trends' && (
+            <>
           <section className="rounded-xl border bg-card p-4">
             <h2 className="mb-3 text-base">Weekly volume</h2>
             <div className="h-44 md:h-56">
@@ -375,6 +449,8 @@ export default function StatsPage() {
               )}
             </div>
           </section>
+            </>
+          )}
         </div>
       )}
     </div>

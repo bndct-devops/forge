@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, Clock, Pencil, Plus, RotateCcw, Trash2, Trophy, Weight, X } from 'lucide-react'
+import { Check, ChevronLeft, Clock, Pencil, Plus, RotateCcw, Share, Trash2, Trophy, Weight, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import ExercisePicker from '../components/ExercisePicker'
@@ -15,6 +15,8 @@ import {
   parseUTC,
   toDatetimeLocal,
 } from '../lib/format'
+import { shareWorkoutCard } from '../lib/shareCard'
+import { toast } from '../lib/toast'
 import type { SetEntry, Workout, WorkoutExercise } from '../lib/types'
 import { cn } from '../lib/utils'
 import Skeleton, { CardListSkeleton } from '../components/Skeleton'
@@ -222,8 +224,36 @@ export default function WorkoutDetailPage() {
     }
   }
 
+  const share = async () => {
+    const prs = workout.exercises.flatMap((we) =>
+      we.sets
+        .filter((s) => s.is_pr)
+        .map((s) => ({
+          exercise_name: we.name,
+          kind: 'weight',
+          value: s.weight ?? 0,
+          reps: s.reps ?? 0,
+        })),
+    )
+    try {
+      await shareWorkoutCard(
+        {
+          name: workout.name,
+          duration_seconds: workout.duration_seconds ?? 0,
+          total_volume: workout.total_volume ?? 0,
+          total_sets: workout.total_sets ?? 0,
+          prs,
+          date: parseUTC(workout.started_at),
+        },
+        unit,
+      )
+    } catch {
+      toast('Could not create the share image')
+    }
+  }
+
   return (
-    <div className="safe-top px-4">
+    <div className="safe-top w-full px-4 md:max-w-3xl">
       <header className="flex items-center gap-2 pt-4 pb-2">
         <button
           onClick={() => (editing ? finishEditing() : navigate(-1))}
@@ -281,6 +311,13 @@ export default function WorkoutDetailPage() {
         ) : (
           <>
             <button
+              onClick={share}
+              className="touch-feedback rounded-full p-2 text-muted-foreground"
+              aria-label="Share workout"
+            >
+              <Share size={19} />
+            </button>
+            <button
               onClick={() => setEditing(true)}
               className="touch-feedback rounded-full p-2 text-muted-foreground"
               aria-label="Edit workout"
@@ -314,7 +351,7 @@ export default function WorkoutDetailPage() {
                 setRepeatError(e instanceof Error ? e.message : 'Could not start workout')
               }
             }}
-            className="touch-feedback mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-soft py-3 font-semibold text-primary md:max-w-md"
+            className="touch-feedback mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-soft py-3 font-semibold text-primary"
           >
             <RotateCcw size={17} />
             {activeWorkout ? 'Resume current workout' : 'Repeat this workout'}
@@ -324,7 +361,7 @@ export default function WorkoutDetailPage() {
       )}
 
       {!editing && (
-        <div className="mt-3 grid grid-cols-3 gap-2 md:max-w-md">
+        <div className="mt-3 grid grid-cols-3 gap-2">
           <div className="rounded-xl border bg-card p-3 text-center">
             <Clock size={16} className="mx-auto mb-1 text-muted-foreground" />
             <div className="tnum font-semibold">{formatDuration(workout.duration_seconds ?? 0)}</div>

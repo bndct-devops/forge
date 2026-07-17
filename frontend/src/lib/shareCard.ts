@@ -2,7 +2,16 @@
  *  system share sheet (Web Share API level 2). Falls back to a download
  *  where file-sharing isn't available. */
 import { formatDuration, formatVolume } from './format'
-import type { FinishResult } from './types'
+
+export interface ShareCardData {
+  name: string
+  duration_seconds: number
+  total_volume: number
+  total_sets: number
+  prs: { exercise_name: string; kind: string; value: number; reps: number }[]
+  comparison?: { prev_volume: number; prev_date: string } | null
+  date?: Date
+}
 
 // Tome/Forge dark tokens, hex-approximated for canvas
 const BG = '#171412'
@@ -26,7 +35,7 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath()
 }
 
-function drawCard(summary: FinishResult, unit: string): HTMLCanvasElement {
+function drawCard(summary: ShareCardData, unit: string): HTMLCanvasElement {
   // Height grows with content so a PR-less card isn't mostly empty space
   const nameLines = Math.min(2, Math.ceil(summary.name.length / 22))
   const prCount = Math.min(5, summary.prs.length)
@@ -54,7 +63,7 @@ function drawCard(summary: FinishResult, unit: string): HTMLCanvasElement {
   ctx.font = "700 44px 'Bricolage Grotesque', 'Onest', sans-serif"
   ctx.textBaseline = 'top'
   ctx.fillText('Forge', PAD, PAD)
-  const date = new Date().toLocaleDateString(undefined, {
+  const date = (summary.date ?? new Date()).toLocaleDateString(undefined, {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -177,7 +186,7 @@ function drawCard(summary: FinishResult, unit: string): HTMLCanvasElement {
   return canvas
 }
 
-export async function shareWorkoutCard(summary: FinishResult, unit: string): Promise<void> {
+export async function shareWorkoutCard(summary: ShareCardData, unit: string): Promise<void> {
   // Make sure the display fonts are actually loaded before drawing
   try {
     await Promise.all([

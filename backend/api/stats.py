@@ -101,6 +101,10 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
     split: dict[str, int] = defaultdict(int)
     split_since = today - timedelta(days=SPLIT_DAYS)
     last_by_group: dict[str, date] = {}
+    total_time = 0
+    weekday_counts: dict[int, int] = defaultdict(int)
+    sessions_by_exercise: dict[int, int] = defaultdict(int)
+    volume_by_month: dict[str, float] = defaultdict(float)
     muscle_weeks: dict[str, dict] = defaultdict(lambda: defaultdict(int))
     trend_since = _week_start(today) - timedelta(weeks=MUSCLE_TREND_WEEKS - 1)
 
@@ -116,6 +120,12 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
         trained_weeks.add(week)
         volume_by_week[week] += totals["total_volume"]
         workouts_by_week[week] += 1
+        total_time += int((w.finished_at - w.started_at).total_seconds())
+        weekday_counts[day.weekday()] += 1
+        volume_by_month[day.strftime("%Y-%m")] += totals["total_volume"]
+        for we in w.exercises:
+            if any(s.is_completed and not s.is_warmup for s in we.sets):
+                sessions_by_exercise[we.exercise_id] += 1
 
         for we in w.exercises:
             exercise = exercises.get(we.exercise_id)
@@ -175,8 +185,46 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
             nudges.sort(key=lambda n: -n["days"])
             nudges = nudges[:2]
 
+    # Longest streak ever (consecutive trained weeks)
+    longest = run = 0
+    prev_week = None
+    for wk in sorted(trained_weeks):
+        run = run + 1 if prev_week is not None and wk - prev_week == timedelta(weeks=1) else 1
+        longest = max(longest, run)
+        prev_week = wk
+
+    extras = None
+    if workouts:
+        first_week = _week_start(workouts[0].started_at.date())
+        weeks_active = max(1, (this_week - first_week).days // 7 + 1)
+        top_eid = max(sessions_by_exercise, key=sessions_by_exercise.get, default=None)
+        top_exercise = exercises.get(top_eid) if top_eid else None
+        busiest = max(weekday_counts, key=weekday_counts.get, default=None)
+        weekday_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        this_month = today.strftime("%Y-%m")
+        prev_month_date = (today.replace(day=1) - timedelta(days=1))
+        extras = {
+            "avg_per_week": round(len(workouts) / weeks_active, 1),
+            "avg_duration_seconds": total_time // len(workouts),
+            "avg_volume": round(total_volume / len(workouts), 1),
+            "total_time_seconds": total_time,
+            "longest_streak_weeks": longest,
+            "top_exercise": {
+                "name": top_exercise.name,
+                "sessions": sessions_by_exercise[top_eid],
+            }
+            if top_exercise
+            else None,
+            "busiest_weekday": weekday_names[busiest] if busiest is not None else None,
+            "month_volume": round(volume_by_month.get(this_month, 0.0), 1),
+            "prev_month_volume": round(
+                volume_by_month.get(prev_month_date.strftime("%Y-%m"), 0.0), 1
+            ),
+        }
+
     return {
         "nudges": nudges,
+        "extras": extras,
         "totals": {
             "workouts": len(workouts),
             "volume": round(total_volume, 1),

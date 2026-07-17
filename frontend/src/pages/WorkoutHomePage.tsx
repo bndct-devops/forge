@@ -167,14 +167,14 @@ export default function WorkoutHomePage() {
   }
 
   return (
-    <div className="safe-top px-4">
+    <div className="safe-top w-full px-4 md:max-w-3xl">
       <header className="pt-6 pb-4">
         <h1 className="text-3xl">Workout</h1>
       </header>
 
       <button
         onClick={() => begin()}
-        className="touch-feedback flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 text-base font-semibold text-primary-foreground md:max-w-sm"
+        className="touch-feedback flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 text-base font-semibold text-primary-foreground"
       >
         <Play size={19} className="fill-current" />
         {workout ? 'Resume workout' : 'Start empty workout'}
