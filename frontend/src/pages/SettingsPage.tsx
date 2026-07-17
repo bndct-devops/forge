@@ -181,6 +181,7 @@ export default function SettingsPage() {
     latest: string | null
   } | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
+  const hevyInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (user?.is_admin) {
@@ -256,14 +257,14 @@ export default function SettingsPage() {
     setUsers((us) => us.filter((u) => u.id !== id))
   }
 
-  const importStrong = async (file: File) => {
+  const importCsv = async (source: 'strong' | 'hevy', file: File) => {
     setImporting(true)
     setMessage('')
     setError('')
     try {
       const form = new FormData()
       form.append('file', file)
-      const res = await fetch('/api/import/strong', {
+      const res = await fetch(`/api/import/${source}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${getToken()}` },
         body: form,
@@ -279,6 +280,7 @@ export default function SettingsPage() {
     } finally {
       setImporting(false)
       if (fileInput.current) fileInput.current.value = ''
+      if (hevyInput.current) hevyInput.current.value = ''
     }
   }
 
@@ -499,7 +501,25 @@ export default function SettingsPage() {
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0]
-            if (file) importStrong(file)
+            if (file) importCsv('strong', file)
+          }}
+        />
+        <button
+          onClick={() => hevyInput.current?.click()}
+          disabled={importing}
+          className="touch-feedback flex min-h-12 items-center gap-3 border-t px-4 py-2.5 text-left font-medium hover:bg-secondary disabled:opacity-50"
+        >
+          <Upload size={18} className="text-muted-foreground" />
+          {importing ? 'Importing…' : 'Import from Hevy (CSV)'}
+        </button>
+        <input
+          ref={hevyInput}
+          type="file"
+          accept=".csv,text/csv"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) importCsv('hevy', file)
           }}
         />
         <button

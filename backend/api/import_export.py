@@ -310,6 +310,178 @@ def import_strong(
     }
 
 
+_HEVY_SET_TYPE = {"dropset": "drop", "failure": "failure"}
+
+
+def _parse_hevy_date(value: str) -> datetime | None:
+    value = value.strip().strip('"')
+    for fmt in (
+        "%d %b %Y, %H:%M",  # "12 Jan 2024, 18:30" — the common Hevy format
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S",
+        "%d %b %Y %H:%M",
+    ):
+        try:
+            return datetime.strptime(value, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+@router.post("/import/hevy")
+def import_hevy(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Hevy workout export: title, start_time, end_time, exercise_title,
+    superset_id, set_index, set_type, weight_kg, reps, distance_km,
+    duration_seconds, rpe. Cardio rows (no reps) are skipped."""
+    contents = file.file.read(MAX_UPLOAD + 1)
+    if len(contents) > MAX_UPLOAD:
+        raise HTTPException(status_code=413, detail="File too large (max 10 MB)")
+    try:
+        text = contents.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="File is not UTF-8 text")
+
+    reader = csv.DictReader(io.StringIO(text))
+    fields = reader.fieldnames or []
+    if "start_time" not in fields or "exercise_title" not in fields:
+        raise HTTPException(
+            status_code=400, detail="Not a Hevy export (missing start_time/exercise_title)"
+        )
+    weight_col = "weight_kg" if "weight_kg" in fields else "weight_lbs"
+
+    groups: OrderedDict[tuple[str, str], list[dict]] = OrderedDict()
+    for row in reader:
+        start = (row.get("start_time") or "").strip()
+        title = (row.get("title") or "").strip()
+        if start:
+            groups.setdefault((start, title or "Workout"), []).append(row)
+
+    exercise_cache = {
+        e.name.lower(): e
+        for e in db.execute(
+            select(Exercise).where(or_(Exercise.owner_id.is_(None), Exercise.owner_id == user.id))
+        ).scalars()
+    }
+    existing_starts = {
+        w.started_at.isoformat()[:19]
+        for w in db.execute(select(Workout).where(Workout.owner_id == user.id)).scalars()
+    }
+
+    imported = skipped = created_exercises = imported_sets = 0
+
+    for (start_str, title), rows in groups.items():
+        started_at = _parse_hevy_date(start_str)
+        if started_at is None:
+            skipped += 1
+            continue
+        if started_at.isoformat()[:19] in existing_starts:
+            skipped += 1
+            continue
+
+        finished_at = _parse_hevy_date((rows[0].get("end_time") or "").strip())
+        if finished_at is None or finished_at <= started_at:
+            finished_at = started_at + timedelta(seconds=1)
+
+        workout = Workout(
+            owner_id=user.id,
+            name=title,
+            notes=(rows[0].get("description") or "").strip() or None,
+            started_at=started_at,
+            finished_at=finished_at,
+        )
+
+        per_exercise: OrderedDict[str, list[dict]] = OrderedDict()
+        for row in rows:
+            exercise_name = (row.get("exercise_title") or "").strip()
+            if exercise_name:
+                per_exercise.setdefault(exercise_name, []).append(row)
+
+        position = 0
+        entries: list[tuple[WorkoutExercise, str]] = []
+        for exercise_name, exercise_rows in per_exercise.items():
+            sets: list[SetEntry] = []
+            for row in exercise_rows:
+                try:
+                    reps = int(float(row.get("reps") or 0))
+                except (ValueError, TypeError):
+                    reps = 0
+                if reps <= 0:
+                    continue  # cardio / duration rows
+                try:
+                    weight = float(row.get(weight_col) or 0)
+                except (ValueError, TypeError):
+                    weight = 0.0
+                try:
+                    rpe = float(row.get("rpe") or "") if (row.get("rpe") or "").strip() else None
+                except (ValueError, TypeError):
+                    rpe = None
+                raw_type = (row.get("set_type") or "").strip().lower()
+                sets.append(
+                    SetEntry(
+                        position=len(sets),
+                        weight=weight,
+                        reps=reps,
+                        is_completed=True,
+                        is_warmup=raw_type == "warmup",
+                        set_type=_HEVY_SET_TYPE.get(raw_type),
+                        rpe=rpe,
+                        completed_at=started_at,
+                    )
+                )
+            if not sets:
+                continue
+
+            key = exercise_name.lower()
+            exercise = _match_exercise(exercise_cache, exercise_name)
+            if exercise is None:
+                exercise = Exercise(
+                    name=exercise_name,
+                    muscle_group=_STRONG_MUSCLE_GROUP.get(key, "Other"),
+                    equipment=_guess_equipment(exercise_name),
+                    owner_id=user.id,
+                )
+                db.add(exercise)
+                db.flush()
+                exercise_cache[key] = exercise
+                created_exercises += 1
+
+            we = WorkoutExercise(exercise_id=exercise.id, position=position)
+            we.sets = sets
+            superset_id = (exercise_rows[0].get("superset_id") or "").strip()
+            entries.append((we, superset_id))
+            workout.exercises.append(we)
+            position += 1
+            imported_sets += len(sets)
+
+        # Consecutive exercises sharing a superset_id chain into a superset
+        for (we, sid), (_next_we, next_sid) in zip(entries, entries[1:]):
+            if sid and sid == next_sid:
+                we.superset_with_next = True
+
+        if not workout.exercises:
+            skipped += 1
+            continue
+
+        db.add(workout)
+        existing_starts.add(started_at.isoformat()[:19])
+        imported += 1
+
+    db.commit()
+    if imported:
+        recompute_prs(db, user.id)
+
+    return {
+        "imported_workouts": imported,
+        "skipped_workouts": skipped,
+        "created_exercises": created_exercises,
+        "imported_sets": imported_sets,
+    }
+
+
 @router.get("/export/strong")
 def export_strong(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     workouts = (

@@ -1,8 +1,8 @@
 import { Minus, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import Sheet from './Sheet'
-
-const BAR_KEY = 'forge_bar_weight'
+import { useAuth } from '../contexts/AuthContext'
+import { cn } from '../lib/utils'
 
 // IWF-style colors, softened a touch so they sit inside the theme
 const PLATES_KG: { weight: number; color: string; height: number }[] = [
@@ -22,13 +22,29 @@ const PLATES_LB: { weight: number; color: string; height: number }[] = [
   { weight: 5, color: '#3d3936', height: 48 },
   { weight: 2.5, color: '#8a8580', height: 38 },
 ]
-const BARS_KG = [20, 15, 10]
-const BARS_LB = [45, 35, 15]
+// 0 = "the tracked weight is plates only" — the default. Whether the bar
+// counts is a personal tracking convention, so it's opt-in per account.
+const BARS_KG = [0, 20, 15, 10]
+const BARS_LB = [0, 45, 35, 15]
 
-function getStoredBar(unit: string): number {
-  const stored = parseFloat(localStorage.getItem(BAR_KEY) ?? '')
+interface PlateConfig {
+  bar: number
+  plates: number[]
+}
+
+function parseConfig(raw: string | null | undefined, unit: string): PlateConfig {
+  const all = (unit === 'lb' ? PLATES_LB : PLATES_KG).map((p) => p.weight)
   const bars = unit === 'lb' ? BARS_LB : BARS_KG
-  return bars.includes(stored) ? stored : bars[0]
+  try {
+    const parsed = raw ? (JSON.parse(raw) as Partial<PlateConfig>) : {}
+    const bar = typeof parsed.bar === 'number' && bars.includes(parsed.bar) ? parsed.bar : 0
+    const plates = Array.isArray(parsed.plates)
+      ? all.filter((w) => (parsed.plates as number[]).includes(w))
+      : all
+    return { bar, plates: plates.length ? plates : all }
+  } catch {
+    return { bar: 0, plates: all }
+  }
 }
 
 interface PlateCalculatorProps {
@@ -39,11 +55,19 @@ interface PlateCalculatorProps {
 }
 
 export default function PlateCalculator({ open, onClose, initialWeight, unit }: PlateCalculatorProps) {
+  const { user, updateUser } = useAuth()
   const [weight, setWeight] = useState<string | null>(null)
-  const [bar, setBar] = useState(() => getStoredBar(unit))
-  const plates = unit === 'lb' ? PLATES_LB : PLATES_KG
+  const [config, setConfig] = useState<PlateConfig>(() => parseConfig(user?.plate_config, unit))
+  const allPlates = unit === 'lb' ? PLATES_LB : PLATES_KG
+  const plates = allPlates.filter((p) => config.plates.includes(p.weight))
   const bars = unit === 'lb' ? BARS_LB : BARS_KG
   const step = unit === 'lb' ? 5 : 2.5
+  const bar = config.bar
+
+  const saveConfig = (next: PlateConfig) => {
+    setConfig(next)
+    updateUser({ plate_config: JSON.stringify(next) }).catch(() => {})
+  }
 
   const target = weight != null ? parseFloat(weight.replace(',', '.')) || 0 : (initialWeight ?? 0)
 
@@ -57,7 +81,8 @@ export default function PlateCalculator({ open, onClose, initialWeight, unit }: 
       }
     }
     return { perSide: result, remainder: Math.round(side * 2 * 100) / 100 }
-  }, [target, bar, plates])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target, bar, config.plates, unit])
 
   const counts = useMemo(() => {
     const map = new Map<number, number>()
@@ -120,7 +145,9 @@ export default function PlateCalculator({ open, onClose, initialWeight, unit }: 
           {target < bar ? (
             <span className="text-muted-foreground">Below bar weight</span>
           ) : counts.length === 0 ? (
-            <span className="text-muted-foreground">Empty bar</span>
+            <span className="text-muted-foreground">
+              {bar > 0 ? 'Empty bar' : 'Nothing to plate'}
+            </span>
           ) : (
             <span className="tnum font-medium">
               Per side: {counts.map(([w, n]) => `${n} × ${w}`).join('  ·  ')}
@@ -128,7 +155,7 @@ export default function PlateCalculator({ open, onClose, initialWeight, unit }: 
           )}
           {remainder > 0 && target >= bar && (
             <p className="tnum mt-1 text-xs text-warning">
-              {remainder} {unit} can’t be plated with standard plates
+              {remainder} {unit} can’t be plated with your plates
             </p>
           )}
         </div>
@@ -140,7 +167,7 @@ export default function PlateCalculator({ open, onClose, initialWeight, unit }: 
             </h3>
             <div className="flex flex-col gap-1">
               {[
-                { label: 'Empty bar', weight: bar, reps: 10 },
+                ...(bar > 0 ? [{ label: 'Empty bar', weight: bar, reps: 10 }] : []),
                 { label: '40%', weight: Math.max(bar, Math.round((target * 0.4) / step) * step), reps: 5 },
                 { label: '60%', weight: Math.max(bar, Math.round((target * 0.6) / step) * step), reps: 3 },
                 { label: '80%', weight: Math.max(bar, Math.round((target * 0.8) / step) * step), reps: 2 },
@@ -168,20 +195,47 @@ export default function PlateCalculator({ open, onClose, initialWeight, unit }: 
           Bar weight
           <select
             value={bar}
-            onChange={(e) => {
-              const value = Number(e.target.value)
-              setBar(value)
-              localStorage.setItem(BAR_KEY, String(value))
-            }}
+            onChange={(e) => saveConfig({ ...config, bar: Number(e.target.value) })}
             className="h-10 rounded-lg border border-input bg-card px-2 text-sm outline-none"
           >
             {bars.map((b) => (
               <option key={b} value={b}>
-                {b} {unit}
+                {b === 0 ? 'Not counted' : `${b} ${unit}`}
               </option>
             ))}
           </select>
         </label>
+
+        <div>
+          <h3 className="mb-1.5 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+            Your plates
+          </h3>
+          <div className="flex flex-wrap gap-1.5">
+            {allPlates.map((p) => {
+              const active = config.plates.includes(p.weight)
+              return (
+                <button
+                  key={p.weight}
+                  onClick={() => {
+                    const next = active
+                      ? config.plates.filter((w) => w !== p.weight)
+                      : [...config.plates, p.weight]
+                    if (next.length === 0) return // at least one plate
+                    saveConfig({ ...config, plates: next })
+                  }}
+                  className={cn(
+                    'tnum touch-feedback rounded-full border px-3 py-1.5 text-sm font-semibold',
+                    active
+                      ? 'border-transparent bg-accent-soft text-primary'
+                      : 'text-muted-foreground line-through opacity-60',
+                  )}
+                >
+                  {p.weight}
+                </button>
+              )
+            })}
+          </div>
+        </div>
       </div>
     </Sheet>
   )
