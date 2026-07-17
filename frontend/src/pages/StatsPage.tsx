@@ -1,5 +1,5 @@
 import { Flame, Moon, Ruler, Trophy } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -38,36 +38,89 @@ function StatTile({ label, value }: { label: string; value: string }) {
   )
 }
 
-/** GitHub-style training calendar: 20 week columns x 7 day rows.
- *  Sequential single-hue fill from the chart accent (0 / 1 / 2+ sessions). */
+const CELL = 12 // px — GitHub-sized squares, never stretched
+const GAP = 3
+
+function heatColor(workouts: number): string {
+  return workouts === 0
+    ? 'var(--secondary)'
+    : workouts === 1
+      ? 'color-mix(in oklch, var(--chart-accent) 55%, var(--secondary))'
+      : 'var(--chart-accent)'
+}
+
+/** GitHub-style training calendar: 52 Monday-aligned week columns × 7 day
+ *  rows, fixed-size cells in a horizontal scroller (starts at "now"), month
+ *  labels on top, sticky weekday labels on the left. */
 function CalendarHeatmap({ days }: { days: StatsData['calendar'] }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = scrollRef.current
+    if (el) el.scrollLeft = el.scrollWidth
+  }, [days])
+
+  const weeks: StatsData['calendar'][] = []
+  for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7))
+
+  // A month label goes above the first full week of each month
+  const monthLabels = weeks.map((week, i) => {
+    const month = new Date(`${week[0].date}T00:00:00`).toLocaleDateString(undefined, {
+      month: 'short',
+    })
+    const prev = i > 0 ? weeks[i - 1] : null
+    const prevMonth = prev
+      ? new Date(`${prev[0].date}T00:00:00`).toLocaleDateString(undefined, { month: 'short' })
+      : null
+    return month !== prevMonth ? month : ''
+  })
+
+  const col = CELL + GAP
   return (
     <div>
-      <div className="grid w-full grid-flow-col grid-rows-7 gap-1">
-        {days.map((d) => (
-          <div
-            key={d.date}
-            title={`${d.date}: ${d.workouts} workout${d.workouts === 1 ? '' : 's'}`}
-            className="aspect-square w-full rounded-[3px]"
-            style={{
-              backgroundColor:
-                d.workouts === 0
-                  ? 'var(--secondary)'
-                  : d.workouts === 1
-                    ? 'color-mix(in oklch, var(--chart-accent) 55%, var(--secondary))'
-                    : 'var(--chart-accent)',
-            }}
-          />
-        ))}
+      <div ref={scrollRef} className="overflow-x-auto pb-1">
+        <div className="w-max">
+          <div className="mb-1 flex text-[9px] text-muted-foreground" style={{ paddingLeft: 30 }}>
+            {monthLabels.map((label, i) => (
+              <span key={i} className="shrink-0 overflow-visible whitespace-nowrap" style={{ width: col }}>
+                {label}
+              </span>
+            ))}
+          </div>
+          <div className="flex" style={{ gap: GAP }}>
+            <div
+              className="sticky left-0 z-10 flex shrink-0 flex-col bg-card pr-1.5 text-right text-[9px] leading-none text-muted-foreground"
+              style={{ gap: GAP, width: 27 }}
+            >
+              {['Mon', '', 'Wed', '', 'Fri', '', ''].map((d, i) => (
+                <span key={i} className="flex items-center justify-end" style={{ height: CELL }}>
+                  {d}
+                </span>
+              ))}
+            </div>
+            {weeks.map((week, i) => (
+              <div key={i} className="flex shrink-0 flex-col" style={{ gap: GAP }}>
+                {week.map((d) => (
+                  <div
+                    key={d.date}
+                    title={`${d.date}: ${d.workouts} workout${d.workouts === 1 ? '' : 's'}`}
+                    className="rounded-[3px]"
+                    style={{ width: CELL, height: CELL, backgroundColor: heatColor(d.workouts) }}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
       <div className="mt-2 flex items-center justify-end gap-1.5 text-[10px] text-muted-foreground">
         Less
-        <span className="h-2.5 w-2.5 rounded-[3px]" style={{ backgroundColor: 'var(--secondary)' }} />
-        <span
-          className="h-2.5 w-2.5 rounded-[3px]"
-          style={{ backgroundColor: 'color-mix(in oklch, var(--chart-accent) 55%, var(--secondary))' }}
-        />
-        <span className="h-2.5 w-2.5 rounded-[3px]" style={{ backgroundColor: 'var(--chart-accent)' }} />
+        {[0, 1, 2].map((n) => (
+          <span
+            key={n}
+            className="h-2.5 w-2.5 rounded-[3px]"
+            style={{ backgroundColor: heatColor(n) }}
+          />
+        ))}
         More
       </div>
     </div>

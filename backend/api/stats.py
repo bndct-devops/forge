@@ -15,7 +15,7 @@ from backend.serializers import epley_1rm, workout_totals
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 
-CALENDAR_DAYS = 140  # 20 weeks
+CALENDAR_WEEKS = 52  # a GitHub-style year, Monday-aligned
 MUSCLE_TREND_WEEKS = 8
 TREND_WEEKS = 12
 SPLIT_DAYS = 30
@@ -141,11 +141,13 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
         streak += 1
         cursor -= timedelta(weeks=1)
 
-    calendar_start = today - timedelta(days=CALENDAR_DAYS - 1)
+    # Start on a Monday so heatmap columns are true calendar weeks
+    calendar_start = _week_start(today) - timedelta(weeks=CALENDAR_WEEKS)
+    calendar_days = (today - calendar_start).days + 1
     calendar = [
         {"date": (calendar_start + timedelta(days=i)).isoformat(),
          "workouts": by_day.get((calendar_start + timedelta(days=i)).isoformat(), 0)}
-        for i in range(CALENDAR_DAYS)
+        for i in range(calendar_days)
     ]
 
     weeks = []
