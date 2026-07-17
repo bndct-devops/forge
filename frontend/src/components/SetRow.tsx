@@ -1,5 +1,5 @@
 import { Check, Trophy } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { formatSetWeight } from '../lib/format'
 import type { PastSet, SetEntry } from '../lib/types'
 import { cn } from '../lib/utils'
@@ -25,6 +25,11 @@ interface SetRowProps {
   onToggleWarmup: () => void
   onDelete: () => void
 }
+
+// One revealed row at a time (iOS list etiquette): starting a swipe on another
+// row — or touching/scrolling anywhere else — closes the open one. Holds the
+// open row's stable closeRef so identity survives re-renders.
+let openRow: { current: () => void } | null = null
 
 function parseNum(value: string): number | null {
   const n = parseFloat(value.replace(',', '.'))
@@ -53,8 +58,9 @@ export default function SetRow({
   const [rpe, setRpe] = useState(set.rpe != null ? String(set.rpe) : '')
   const [justDone, setJustDone] = useState(false)
   const [removing, setRemoving] = useState(false)
-  const [swipeActive, setSwipeActive] = useState(false)
   const rowRef = useRef<HTMLDivElement>(null)
+  const labelRef = useRef<HTMLSpanElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
   const gesture = useRef<{
     x: number
     y: number
@@ -66,17 +72,56 @@ export default function SetRow({
   const revealed = useRef(false)
   const repsRef = useRef<HTMLInputElement>(null)
 
-  // Direct DOM writes during the gesture — no React work per touchmove,
-  // no transition fighting the finger. Animation only on release.
-  const setX = (px: number, animate: boolean) => {
-    const el = rowRef.current
-    if (!el) return
-    el.style.transition = animate ? 'transform 0.25s var(--spring)' : 'none'
-    el.style.transform = `translateX(${px}px)`
-  }
-
   const REVEAL = -80
   const FULL_SWIPE = -180
+
+  // Direct DOM writes during the gesture — no React work per touchmove (the
+  // red layer stays mounted under the opaque row), no transition fighting the
+  // finger. Animation only on release. The Delete label rides the row's edge
+  // like iOS Mail: offscreen right at rest, pinned once the reveal is full.
+  const setX = (px: number, animate: boolean) => {
+    const t = animate ? 'transform 0.3s var(--spring)' : 'none'
+    const el = rowRef.current
+    if (el) {
+      el.style.transition = t
+      el.style.transform = `translateX(${px}px)`
+    }
+    const label = labelRef.current
+    if (label) {
+      label.style.transition = t
+      label.style.transform = `translateX(${px - REVEAL}px)`
+    }
+  }
+
+  // Registry + window listeners need identities that survive re-renders (a
+  // parked row re-renders when e.g. another set completes) — everything these
+  // touch lives in refs, so route them through stable refs.
+  const closeRef = useRef(() => {})
+  const outsideRef = useRef((e: Event) => {
+    if (e.type === 'touchstart' && wrapRef.current?.contains(e.target as Node)) return
+    closeRef.current()
+  })
+
+  const detach = () => {
+    if (openRow === closeRef) openRow = null
+    window.removeEventListener('touchstart', outsideRef.current, true)
+    window.removeEventListener('scroll', outsideRef.current, true)
+  }
+
+  const close = () => {
+    revealed.current = false
+    setX(0, true)
+    detach()
+  }
+  closeRef.current = close
+
+  const park = () => {
+    revealed.current = true
+    setX(REVEAL, true)
+    openRow = closeRef
+    window.addEventListener('touchstart', outsideRef.current, true)
+    window.addEventListener('scroll', outsideRef.current, true)
+  }
 
   const onTouchStart = (e: React.TouchEvent) => {
     gesture.current = {
@@ -101,7 +146,7 @@ export default function SetRow({
       }
       if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2) {
         g.mode = 'swipe'
-        setSwipeActive(true) // mounts the red layer, once per gesture
+        if (openRow && openRow !== closeRef) openRow.current()
       } else {
         return
       }
@@ -123,20 +168,26 @@ export default function SetRow({
       return
     }
     if (total < REVEAL * 0.6 || quickFlick) {
-      revealed.current = true
-      setX(REVEAL, true)
+      park()
     } else {
-      revealed.current = false
-      setX(0, true)
-      setSwipeActive(false)
+      close()
     }
   }
 
   const requestDelete = () => {
     setX(-400, true)
     setRemoving(true) // collapse while sliding out, then remove from the list
+    detach()
     setTimeout(onDelete, 200)
   }
+
+  // Unmount hygiene: drop the registry entry + window listeners if this row
+  // disappears while revealed
+  useEffect(
+    () => () => detach(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  )
 
   // Progression suggestion beats the raw previous weight — that's the point
   const fallbackWeight =
@@ -168,17 +219,27 @@ export default function SetRow({
 
   return (
     <div
+      ref={wrapRef}
       className="animate-card-appear relative overflow-hidden transition-[max-height,opacity] duration-200 ease-out"
       style={{ maxHeight: removing ? 0 : 64, opacity: removing ? 0 : 1 }}
     >
-      {swipeActive && (
-        <button
-          onClick={requestDelete}
-          className="absolute inset-0 flex items-center justify-end bg-destructive pr-7 text-sm font-semibold text-white"
+      {/* Always mounted — the opaque row covers it at rest, so revealing it is
+          pure compositor work with zero React renders mid-gesture. The label
+          starts clipped offscreen right and rides the row's edge (setX). */}
+      <button
+        onClick={requestDelete}
+        tabIndex={-1}
+        aria-hidden="true"
+        className="absolute inset-0 bg-destructive"
+      >
+        <span
+          ref={labelRef}
+          className="absolute inset-y-0 right-0 flex w-20 items-center justify-center text-sm font-semibold text-white"
+          style={{ transform: 'translateX(80px)' }}
         >
           Delete
-        </button>
-      )}
+        </span>
+      </button>
       <div
         ref={rowRef}
         className={cn(
