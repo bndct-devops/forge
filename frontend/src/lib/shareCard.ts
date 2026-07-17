@@ -14,7 +14,6 @@ const EMBER = '#de844f'
 const RECORD = '#d4a843'
 
 const W = 1080
-const H = 1350
 const PAD = 88
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -28,6 +27,13 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 }
 
 function drawCard(summary: FinishResult, unit: string): HTMLCanvasElement {
+  // Height grows with content so a PR-less card isn't mostly empty space
+  const nameLines = Math.min(2, Math.ceil(summary.name.length / 22))
+  const prCount = Math.min(5, summary.prs.length)
+  const H = Math.max(
+    760,
+    240 + nameLines * 108 + 24 + 190 + 48 + 76 + (prCount ? 56 + prCount * 112 : 0) + 180,
+  )
   const canvas = document.createElement('canvas')
   canvas.width = W
   canvas.height = H

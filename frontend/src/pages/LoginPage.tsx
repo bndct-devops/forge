@@ -1,15 +1,36 @@
-import { Flame } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Flame, KeyRound } from 'lucide-react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { api } from '../lib/api'
+
+const SSO_ERRORS: Record<string, string> = {
+  disabled: 'SSO is not configured on this server.',
+  exchange: 'The identity provider rejected the sign-in — try again.',
+  claims: 'The identity provider sent an incomplete profile.',
+  not_allowed: 'Your account is not allowed to sign in here.',
+  no_account: 'No Forge account is linked to that identity.',
+  already_linked: 'That identity is already linked to another account.',
+}
 
 export default function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
+  const [error, setError] = useState(() => {
+    const code = params.get('sso_error')
+    return code ? (SSO_ERRORS[code] ?? 'SSO sign-in failed.') : ''
+  })
   const [busy, setBusy] = useState(false)
+  const [sso, setSso] = useState<{ enabled: boolean; button_label: string } | null>(null)
+
+  useEffect(() => {
+    api<{ enabled: boolean; button_label: string }>('/auth/oidc/config')
+      .then(setSso)
+      .catch(() => {})
+  }, [])
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -62,6 +83,25 @@ export default function LoginPage() {
           >
             {busy ? 'Signing in…' : 'Sign in'}
           </button>
+          {sso?.enabled && (
+            <>
+              <div className="flex items-center gap-3 py-1 text-xs text-muted-foreground">
+                <div className="h-px flex-1 bg-border" />
+                or
+                <div className="h-px flex-1 bg-border" />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = '/api/auth/oidc/login'
+                }}
+                className="touch-feedback flex h-12 items-center justify-center gap-2 rounded-lg border bg-card text-base font-semibold"
+              >
+                <KeyRound size={18} className="text-muted-foreground" />
+                {sso.button_label}
+              </button>
+            </>
+          )}
         </div>
       </form>
     </div>

@@ -45,3 +45,8 @@ def run_migrations() -> None:
     _ensure_column(
         "workout_exercises", "suggestion_kind", "suggestion_kind VARCHAR(12)"
     )
+    _ensure_column(
+        "users", "auth_source", "auth_source VARCHAR(8) NOT NULL DEFAULT 'local'"
+    )
+    _ensure_column("users", "oidc_sub", "oidc_sub VARCHAR(255)")
+    _ensure_column("users", "oidc_issuer", "oidc_issuer VARCHAR(255)")

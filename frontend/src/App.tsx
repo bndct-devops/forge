@@ -11,6 +11,7 @@ import ExerciseDetailPage from './pages/ExerciseDetailPage'
 import ExercisesPage from './pages/ExercisesPage'
 import HistoryPage from './pages/HistoryPage'
 import LoginPage from './pages/LoginPage'
+import OidcCallbackPage from './pages/OidcCallbackPage'
 import RoutineEditorPage from './pages/RoutineEditorPage'
 import SettingsPage from './pages/SettingsPage'
 import SetupPage from './pages/SetupPage'
@@ -55,6 +56,7 @@ export default function App() {
           <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/setup" element={<SetupPage />} />
+          <Route path="/auth/callback" element={<OidcCallbackPage />} />
           <Route
             path="/workout"
             element={

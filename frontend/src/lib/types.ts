@@ -8,6 +8,7 @@ export interface User {
   gap_nudges: boolean
   deload_hints: boolean
   plate_config: string | null
+  oidc_linked: boolean
 }
 
 export interface Exercise {

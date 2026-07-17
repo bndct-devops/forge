@@ -27,6 +27,7 @@ class UserOut(BaseModel):
     gap_nudges: bool = True
     deload_hints: bool = True
     plate_config: str | None = None
+    oidc_linked: bool = False
 
     model_config = {"from_attributes": True}
 

@@ -6,6 +6,7 @@ interface AuthContextValue {
   user: User | null
   loading: boolean
   login: (username: string, password: string) => Promise<void>
+  loginWithToken: (token: string) => Promise<void>
   setup: (username: string, password: string) => Promise<void>
   logout: () => void
   updateUser: (patch: Partial<Pick<User, 'unit' | 'default_rest_seconds' | 'weekly_goal' | 'gap_nudges' | 'deload_hints' | 'plate_config'>> & { password?: string }) => Promise<void>
@@ -42,6 +43,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(res.user)
   }, [])
 
+  const loginWithToken = useCallback(async (token: string) => {
+    setToken(token)
+    const me = await api<User>('/auth/me')
+    setUser(me)
+  }, [])
+
   const setup = useCallback(async (username: string, password: string) => {
     const res = await api<TokenResponse>('/auth/setup', {
       method: 'POST',
@@ -63,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, setup, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithToken, setup, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   )

@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse
 from backend.core.database import Base, SessionLocal, engine
 from backend.api import (
     auth,
+    oidc,
     backup,
     updates,
     exercises,
@@ -23,11 +24,22 @@ from backend.seed import seed_exercises
 
 import os
 
+from starlette.middleware.sessions import SessionMiddleware
+
+from backend.core.config import SECRET_KEY
+
 _dev = bool(os.environ.get("FORGE_DEV"))
 app = FastAPI(
     title="Forge",
     docs_url="/api/docs" if _dev else None,
     openapi_url="/api/openapi.json" if _dev else None,
+)
+
+
+# Transient cookie for the OIDC handshake state/PKCE only — app auth stays
+# a bearer JWT
+app.add_middleware(
+    SessionMiddleware, secret_key=SECRET_KEY, max_age=600, same_site="lax"
 )
 
 
@@ -49,6 +61,7 @@ def health():
 
 
 app.include_router(auth.router, prefix="/api")
+app.include_router(oidc.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(exercises.router, prefix="/api")
 app.include_router(routines.router, prefix="/api")

@@ -68,8 +68,11 @@ Environment variables:
 | `FORGE_SECRET_KEY` | auto-generated, persisted in `/data/secret_key` | JWT signing secret |
 | `FORGE_DATA_DIR` | `/data` | SQLite database + secret key |
 | `FORGE_PORT` | `8081` | HTTP port (dev convenience; the container binds 8081) |
+| `FORGE_OIDC_*` | disabled | Optional OIDC single sign-on — see `docs/sso.md` |
 
-Single volume: `/data` (SQLite in WAL mode). Back it up, and you have everything.
+Single volume: `/data` (SQLite in WAL mode). Back it up, and you have
+everything — or enable nightly snapshots in Settings → Data (admin) and
+they land in `/data/backups`.
 
 ## Development
 

@@ -124,6 +124,12 @@ function ViewportDebug() {
   return <p className="tnum mt-1 text-center text-[10px] text-muted-foreground/60">{info}</p>
 }
 
+function cnAccountRow(afterSso: boolean): string {
+  return afterSso
+    ? 'touch-feedback flex min-h-12 items-center gap-3 border-t px-4 py-2.5 text-left font-medium hover:bg-secondary'
+    : 'touch-feedback flex min-h-12 items-center gap-3 px-4 py-2.5 text-left font-medium hover:bg-secondary'
+}
+
 function cnPush(on: boolean): string {
   return on
     ? 'touch-feedback rounded-lg bg-accent-soft px-4 py-2 text-sm font-semibold text-primary'
@@ -182,6 +188,9 @@ export default function SettingsPage() {
   } | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const hevyInput = useRef<HTMLInputElement>(null)
+  const [ssoConfig, setSsoConfig] = useState<{ enabled: boolean; button_label: string } | null>(
+    null,
+  )
 
   useEffect(() => {
     if (user?.is_admin) {
@@ -204,6 +213,18 @@ export default function SettingsPage() {
       .then(setBackupInfo)
       .catch(() => {})
   }, [user?.is_admin])
+
+  useEffect(() => {
+    api<{ enabled: boolean; button_label: string }>('/auth/oidc/config')
+      .then(setSsoConfig)
+      .catch(() => {})
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('sso_linked')) setMessage('SSO linked — you can sign in with it from now on')
+    if (params.get('sso_error') === 'already_linked')
+      setError('That identity is already linked to another account')
+    if (params.get('sso_linked') || params.get('sso_error'))
+      history.replaceState(null, '', window.location.pathname)
+  }, [])
 
   if (!user) return null
 
@@ -588,9 +609,35 @@ export default function SettingsPage() {
       </Section>
 
       <Section title="Account">
+        {ssoConfig?.enabled && (
+          <button
+            onClick={async () => {
+              if (user.oidc_linked) {
+                try {
+                  await api('/auth/oidc/unlink', { method: 'POST' })
+                  await updateUser({})
+                  setMessage('SSO unlinked')
+                } catch {
+                  setError('Could not unlink SSO')
+                }
+              } else {
+                try {
+                  await api('/auth/oidc/link/start', { method: 'POST' })
+                  window.location.href = '/api/auth/oidc/login'
+                } catch {
+                  setError('Could not start SSO linking')
+                }
+              }
+            }}
+            className="touch-feedback flex min-h-12 items-center gap-3 px-4 py-2.5 text-left font-medium hover:bg-secondary"
+          >
+            <Shield size={18} className="text-muted-foreground" />
+            {user.oidc_linked ? 'Unlink SSO sign-in' : 'Link SSO sign-in'}
+          </button>
+        )}
         <button
           onClick={() => setPasswordOpen(true)}
-          className="touch-feedback flex min-h-12 items-center gap-3 px-4 py-2.5 text-left font-medium hover:bg-secondary"
+          className={cnAccountRow(ssoConfig?.enabled ?? false)}
         >
           <KeyRound size={18} className="text-muted-foreground" /> Change password
         </button>
