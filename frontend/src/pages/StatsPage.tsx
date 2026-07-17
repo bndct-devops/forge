@@ -49,20 +49,30 @@ function heatColor(workouts: number): string {
       : 'var(--chart-accent)'
 }
 
-/** GitHub-style training calendar: 52 Monday-aligned week columns × 7 day
- *  rows, fixed-size cells in a horizontal scroller (starts at "now"), month
- *  labels on top, sticky weekday labels on the left. */
+const LABEL_COL = 30 // px, weekday labels
+
+/** GitHub-style training calendar: Monday-aligned week columns × 7 day rows
+ *  at fixed cell size. No scrolling — the card shows as many of the most
+ *  recent weeks as fit its width (a year on desktop, ~5 months on phones). */
 function CalendarHeatmap({ days }: { days: StatsData['calendar'] }) {
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [fitWeeks, setFitWeeks] = useState(20)
   useEffect(() => {
-    const el = scrollRef.current
-    if (el) el.scrollLeft = el.scrollWidth
-  }, [days])
+    const el = wrapRef.current
+    if (!el) return
+    const update = () =>
+      setFitWeeks(Math.max(8, Math.floor((el.clientWidth - LABEL_COL + GAP) / (CELL + GAP))))
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
-  const weeks: StatsData['calendar'][] = []
-  for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7))
+  const allWeeks: StatsData['calendar'][] = []
+  for (let i = 0; i < days.length; i += 7) allWeeks.push(days.slice(i, i + 7))
+  const weeks = allWeeks.slice(-fitWeeks)
 
-  // A month label goes above the first full week of each month
+  // A month label goes above the first week of each month in view
   const monthLabels = weeks.map((week, i) => {
     const month = new Date(`${week[0].date}T00:00:00`).toLocaleDateString(undefined, {
       month: 'short',
@@ -76,40 +86,41 @@ function CalendarHeatmap({ days }: { days: StatsData['calendar'] }) {
 
   const col = CELL + GAP
   return (
-    <div>
-      <div ref={scrollRef} className="overflow-x-auto pb-1">
-        <div className="w-max">
-          <div className="mb-1 flex text-[9px] text-muted-foreground" style={{ paddingLeft: 30 }}>
-            {monthLabels.map((label, i) => (
-              <span key={i} className="shrink-0 overflow-visible whitespace-nowrap" style={{ width: col }}>
-                {label}
+    <div ref={wrapRef}>
+      <div>
+        <div
+          className="mb-1 flex text-[9px] text-muted-foreground"
+          style={{ paddingLeft: LABEL_COL }}
+        >
+          {monthLabels.map((label, i) => (
+            <span key={i} className="shrink-0 overflow-visible whitespace-nowrap" style={{ width: col }}>
+              {label}
+            </span>
+          ))}
+        </div>
+        <div className="flex" style={{ gap: GAP }}>
+          <div
+            className="flex shrink-0 flex-col pr-1.5 text-right text-[9px] leading-none text-muted-foreground"
+            style={{ gap: GAP, width: LABEL_COL - GAP }}
+          >
+            {['Mon', '', 'Wed', '', 'Fri', '', ''].map((d, i) => (
+              <span key={i} className="flex items-center justify-end" style={{ height: CELL }}>
+                {d}
               </span>
             ))}
           </div>
-          <div className="flex" style={{ gap: GAP }}>
-            <div
-              className="sticky left-0 z-10 flex shrink-0 flex-col bg-card pr-1.5 text-right text-[9px] leading-none text-muted-foreground"
-              style={{ gap: GAP, width: 27 }}
-            >
-              {['Mon', '', 'Wed', '', 'Fri', '', ''].map((d, i) => (
-                <span key={i} className="flex items-center justify-end" style={{ height: CELL }}>
-                  {d}
-                </span>
+          {weeks.map((week, i) => (
+            <div key={i} className="flex shrink-0 flex-col" style={{ gap: GAP }}>
+              {week.map((d) => (
+                <div
+                  key={d.date}
+                  title={`${d.date}: ${d.workouts} workout${d.workouts === 1 ? '' : 's'}`}
+                  className="rounded-[3px]"
+                  style={{ width: CELL, height: CELL, backgroundColor: heatColor(d.workouts) }}
+                />
               ))}
             </div>
-            {weeks.map((week, i) => (
-              <div key={i} className="flex shrink-0 flex-col" style={{ gap: GAP }}>
-                {week.map((d) => (
-                  <div
-                    key={d.date}
-                    title={`${d.date}: ${d.workouts} workout${d.workouts === 1 ? '' : 's'}`}
-                    className="rounded-[3px]"
-                    style={{ width: CELL, height: CELL, backgroundColor: heatColor(d.workouts) }}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
+          ))}
         </div>
       </div>
       <div className="mt-2 flex items-center justify-end gap-1.5 text-[10px] text-muted-foreground">
