@@ -676,6 +676,121 @@ CATALOG: list[tuple[str, str, str, dict]] = [
         "Cable",
         {"attachment": "Single Handle", "base": "Cable Woodchop"},
     ),
+    # Machine handles are short bars — width is a real choice on them too
+    (
+        "Machine Chest Press (Close Grip)",
+        "Chest",
+        "Machine",
+        {"width": "Close", "base": "Machine Chest Press"},
+    ),
+    (
+        "Machine Chest Press (Wide Grip)",
+        "Chest",
+        "Machine",
+        {"width": "Wide", "base": "Machine Chest Press"},
+    ),
+    (
+        "Incline Machine Chest Press (Close Grip)",
+        "Chest",
+        "Machine",
+        {"width": "Close", "base": "Incline Machine Chest Press"},
+    ),
+    (
+        "Incline Machine Chest Press (Wide Grip)",
+        "Chest",
+        "Machine",
+        {"width": "Wide", "base": "Incline Machine Chest Press"},
+    ),
+    (
+        "Decline Machine Chest Press (Close Grip)",
+        "Chest",
+        "Machine",
+        {"width": "Close", "base": "Decline Machine Chest Press"},
+    ),
+    (
+        "Decline Machine Chest Press (Wide Grip)",
+        "Chest",
+        "Machine",
+        {"width": "Wide", "base": "Decline Machine Chest Press"},
+    ),
+    (
+        "Plate-Loaded Chest Press (Close Grip)",
+        "Chest",
+        "Plate-Loaded",
+        {"width": "Close", "base": "Plate-Loaded Chest Press"},
+    ),
+    (
+        "Plate-Loaded Chest Press (Wide Grip)",
+        "Chest",
+        "Plate-Loaded",
+        {"width": "Wide", "base": "Plate-Loaded Chest Press"},
+    ),
+    (
+        "Plate-Loaded Incline Chest Press (Close Grip)",
+        "Chest",
+        "Plate-Loaded",
+        {"width": "Close", "base": "Plate-Loaded Incline Chest Press"},
+    ),
+    (
+        "Plate-Loaded Incline Chest Press (Wide Grip)",
+        "Chest",
+        "Plate-Loaded",
+        {"width": "Wide", "base": "Plate-Loaded Incline Chest Press"},
+    ),
+    (
+        "Plate-Loaded Decline Chest Press (Close Grip)",
+        "Chest",
+        "Plate-Loaded",
+        {"width": "Close", "base": "Plate-Loaded Decline Chest Press"},
+    ),
+    (
+        "Plate-Loaded Decline Chest Press (Wide Grip)",
+        "Chest",
+        "Plate-Loaded",
+        {"width": "Wide", "base": "Plate-Loaded Decline Chest Press"},
+    ),
+    (
+        "Machine Shoulder Press (Close Grip)",
+        "Shoulders",
+        "Machine",
+        {"width": "Close", "base": "Machine Shoulder Press"},
+    ),
+    (
+        "Plate-Loaded Shoulder Press (Close Grip)",
+        "Shoulders",
+        "Plate-Loaded",
+        {"width": "Close", "base": "Plate-Loaded Shoulder Press"},
+    ),
+    (
+        "Plate-Loaded Row (Close Grip)",
+        "Back",
+        "Plate-Loaded",
+        {"width": "Close", "base": "Plate-Loaded Row"},
+    ),
+    (
+        "Chest Supported Row (Close Grip)",
+        "Back",
+        "Machine",
+        {"width": "Close", "base": "Chest Supported Row"},
+    ),
+    (
+        "Machine Lat Pulldown (Close Grip)",
+        "Back",
+        "Machine",
+        {"width": "Close", "base": "Machine Lat Pulldown"},
+    ),
+    (
+        "Plate-Loaded Lat Pulldown (Close Grip)",
+        "Back",
+        "Plate-Loaded",
+        {"width": "Close", "base": "Plate-Loaded Lat Pulldown"},
+    ),
+    (
+        "T-Bar Row (Close Grip)",
+        "Back",
+        "Plate-Loaded",
+        {"width": "Close", "base": "T-Bar Row"},
+    ),
 ]
 
 
