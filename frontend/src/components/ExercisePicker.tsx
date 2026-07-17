@@ -388,6 +388,24 @@ export default function ExercisePicker({ open, onClose, onPick }: ExercisePicker
                   </div>
                   {isOpen && (
                     <ul className="mb-1 divide-y divide-border/40 border-t border-border/40">
+                      <li>
+                        <button
+                          onClick={() => onPick(head)}
+                          className="touch-feedback flex w-full items-center gap-2 py-2.5 pr-2 pl-7 text-left"
+                        >
+                          <span className="min-w-0 truncate font-medium">Standard</span>
+                          {head.attachment && (
+                            <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                              {head.attachment}
+                            </span>
+                          )}
+                          {head.grip && (
+                            <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                              {head.grip}
+                            </span>
+                          )}
+                        </button>
+                      </li>
                       {variants.map((v) => renderVariantRow(v, family.base))}
                       <li>
                         <button
