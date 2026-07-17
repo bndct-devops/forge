@@ -43,9 +43,14 @@ export default function ExercisesPage() {
     return [...map.entries()]
       .map(([baseId, members]) => {
         const base = byId.get(baseId) ?? null
-        members.sort((a, b) =>
-          a.id === baseId ? -1 : b.id === baseId ? 1 : a.name.localeCompare(b.name),
-        )
+        members.sort((a, b) => {
+          if (a.id === baseId) return -1
+          if (b.id === baseId) return 1
+          const baseEq = byId.get(baseId)?.equipment
+          const ae = a.equipment !== baseEq ? a.equipment : ''
+          const be = b.equipment !== baseEq ? b.equipment : ''
+          return ae.localeCompare(be) || a.name.localeCompare(b.name)
+        })
         return { baseId, base, members }
       })
       .sort((a, b) =>
@@ -125,6 +130,8 @@ export default function ExercisesPage() {
                       <span className="block truncate font-medium">{head.name}</span>
                       <span className="block text-sm text-muted-foreground">
                         {head.muscle_group} · {head.equipment}
+                        {head.attachment && ` · ${head.attachment}`}
+                        {head.grip && ` · ${head.grip}`}
                         {head.is_custom && ' · Custom'}
                       </span>
                     </span>

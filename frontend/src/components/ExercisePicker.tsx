@@ -23,8 +23,10 @@ interface Family {
  *  "Lat Pulldown (Wide Grip)" reads as "Wide Grip". Falls back to the full
  *  name when stripping the base leaves nothing sensible. */
 export function variantLabel(name: string, baseName: string): string {
-  let label = name.replace(baseName, '').trim()
-  label = label.replace(/^[-–—(]\s*/, '').replace(/[)]\s*$/, '').replace(/^[-–—]\s*/, '').trim()
+  let label = name.replace(baseName, '').replace(/\s{2,}/g, ' ').trim()
+  label = label.replace(/^[-–—]\s*/, '').trim()
+  // Unwrap only a fully parenthesized label — never eat one side of a pair
+  if (/^\(.*\)$/.test(label)) label = label.slice(1, -1).trim()
   return label || name
 }
 
@@ -190,9 +192,14 @@ export default function ExercisePicker({ open, onClose, onPick }: ExercisePicker
     }
     const result: Family[] = [...map.entries()].map(([baseId, members]) => {
       const base = byId.get(baseId) ?? null
-      members.sort((a, b) =>
-        a.id === baseId ? -1 : b.id === baseId ? 1 : a.name.localeCompare(b.name),
-      )
+      members.sort((a, b) => {
+        if (a.id === baseId) return -1
+        if (b.id === baseId) return 1
+        const baseEq = byId.get(baseId)?.equipment
+        const ae = a.equipment !== baseEq ? a.equipment : ''
+        const be = b.equipment !== baseEq ? b.equipment : ''
+        return ae.localeCompare(be) || a.name.localeCompare(b.name)
+      })
       return { baseId, base, members }
     })
     result.sort((a, b) =>
@@ -361,6 +368,8 @@ export default function ExercisePicker({ open, onClose, onPick }: ExercisePicker
                         <span className="block truncate font-medium">{head.name}</span>
                         <span className="block text-sm text-muted-foreground">
                           {head.muscle_group} · {head.equipment}
+                          {head.attachment && ` · ${head.attachment}`}
+                          {head.grip && ` · ${head.grip}`}
                           {head.is_custom && ' · Custom'}
                         </span>
                       </span>
