@@ -1,9 +1,11 @@
-import { Flame, Moon, Ruler, Trophy } from 'lucide-react'
+import { CalendarDays, Dumbbell, Flame, Hourglass, Moon, Repeat, Ruler, Timer, TrendingUp, Trophy, Weight } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import {
   Bar,
   BarChart,
   CartesianGrid,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -31,9 +33,17 @@ interface StatsExtras {
   prev_month_volume: number
 }
 
+interface StatsTrends {
+  weekdays: { day: string; workouts: number }[]
+  rep_ranges: { range: string; sets: number }[]
+  prs_by_month: { month: string; prs: number }[]
+  top_lifts: { names: string[]; weeks: Record<string, string | number | null>[] }
+}
+
 interface StatsData {
   nudges: { group: string; days: number }[]
   extras: StatsExtras | null
+  trends: StatsTrends
   totals: { workouts: number; volume: number; sets: number; prs: number; since: string | null }
   streak_weeks: number
   calendar: { date: string; workouts: number }[]
@@ -65,6 +75,35 @@ function heatColor(workouts: number): string {
 }
 
 const LABEL_COL = 30 // px, weekday labels
+
+const SERIES_COLORS = ['var(--chart-accent)', '#6d87ab', '#5a9367']
+
+function HighlightRow({
+  icon: Icon,
+  label,
+  value,
+  hint,
+}: {
+  icon: typeof Flame
+  label: string
+  value: string
+  hint?: string
+}) {
+  return (
+    <div className="flex items-center gap-3 py-2">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-primary">
+        <Icon size={15} />
+      </div>
+      <div className="min-w-0">
+        <div className="text-xs text-muted-foreground">{label}</div>
+        <div className="truncate text-sm font-semibold">
+          {value}
+          {hint && <span className="ml-1.5 font-normal text-muted-foreground">{hint}</span>}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 /** GitHub-style training calendar: Monday-aligned week columns × 7 day rows
  *  at fixed cell size. No scrolling — the card shows as many of the most
@@ -277,46 +316,66 @@ export default function StatsPage() {
           </div>
 
           {stats.extras && (
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-              <StatTile label="Avg per week" value={String(stats.extras.avg_per_week)} />
-              <StatTile
-                label="Avg duration"
-                value={formatDuration(stats.extras.avg_duration_seconds)}
-              />
-              <StatTile label="Avg volume" value={formatVolume(stats.extras.avg_volume, unit)} />
-              <StatTile
-                label="Time under iron"
-                value={formatDuration(stats.extras.total_time_seconds)}
-              />
-            </div>
-          )}
-
-          {stats.extras && (
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-              <StatTile
-                label="Longest streak"
-                value={`${stats.extras.longest_streak_weeks} wk${stats.extras.longest_streak_weeks === 1 ? '' : 's'}`}
-              />
-              {stats.extras.busiest_weekday && (
-                <StatTile label="Favourite day" value={stats.extras.busiest_weekday} />
-              )}
-              {stats.extras.top_exercise && (
-                <StatTile
-                  label="Most trained"
-                  value={stats.extras.top_exercise.name}
-                  hint={`${stats.extras.top_exercise.sessions} sessions`}
+            <section className="rounded-xl border bg-card px-4 py-2">
+              <div className="grid md:grid-cols-2 md:gap-x-6">
+                <HighlightRow
+                  icon={Repeat}
+                  label="Frequency"
+                  value={`${stats.extras.avg_per_week}× / week`}
                 />
-              )}
-              <StatTile
-                label="This month"
-                value={formatVolume(stats.extras.month_volume, unit)}
-                hint={
-                  stats.extras.prev_month_volume > 0
-                    ? `${stats.extras.month_volume >= stats.extras.prev_month_volume ? '+' : ''}${Math.round(((stats.extras.month_volume - stats.extras.prev_month_volume) / stats.extras.prev_month_volume) * 100)}% vs last month`
-                    : undefined
-                }
-              />
-            </div>
+                <HighlightRow
+                  icon={Timer}
+                  label="Average session"
+                  value={formatDuration(stats.extras.avg_duration_seconds)}
+                  hint={`· ${formatVolume(stats.extras.avg_volume, unit)}`}
+                />
+                <HighlightRow
+                  icon={Hourglass}
+                  label="Time under iron"
+                  value={formatDuration(stats.extras.total_time_seconds)}
+                />
+                <HighlightRow
+                  icon={Flame}
+                  label="Longest streak"
+                  value={`${stats.extras.longest_streak_weeks} week${stats.extras.longest_streak_weeks === 1 ? '' : 's'}`}
+                />
+                {stats.extras.top_exercise && (
+                  <HighlightRow
+                    icon={Dumbbell}
+                    label="Most trained"
+                    value={stats.extras.top_exercise.name}
+                    hint={`· ${stats.extras.top_exercise.sessions} sessions`}
+                  />
+                )}
+                {stats.extras.busiest_weekday && (
+                  <HighlightRow
+                    icon={CalendarDays}
+                    label="Favourite day"
+                    value={stats.extras.busiest_weekday}
+                  />
+                )}
+                <HighlightRow
+                  icon={TrendingUp}
+                  label="This month"
+                  value={formatVolume(stats.extras.month_volume, unit)}
+                  hint={
+                    stats.extras.prev_month_volume > 0
+                      ? `· ${stats.extras.month_volume >= stats.extras.prev_month_volume ? '+' : ''}${Math.round(((stats.extras.month_volume - stats.extras.prev_month_volume) / stats.extras.prev_month_volume) * 100)}% vs last`
+                      : undefined
+                  }
+                />
+                {stats.totals.since && (
+                  <HighlightRow
+                    icon={Weight}
+                    label="Training since"
+                    value={new Date(stats.totals.since).toLocaleDateString(undefined, {
+                      month: 'long',
+                      year: 'numeric',
+                    })}
+                  />
+                )}
+              </div>
+            </section>
           )}
 
           <div className="grid grid-cols-2 gap-2">
@@ -374,7 +433,7 @@ export default function StatsPage() {
                     tickLine={false}
                     axisLine={false}
                     width={44}
-                    tickFormatter={(v: number) => (v >= 1000 ? `${v / 1000}k` : String(v))}
+                    tickFormatter={(v: number) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))}
                   />
                   <Tooltip
                     cursor={{ fill: 'var(--accent-soft)' }}
@@ -389,6 +448,172 @@ export default function StatsPage() {
                     labelFormatter={(label) => `Week of ${label}`}
                   />
                   <Bar dataKey="volume" fill="var(--chart-accent)" radius={[4, 4, 0, 0]} maxBarSize={22} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+
+          {stats.trends.top_lifts.names.length > 0 && (
+            <section className="rounded-xl border bg-card p-4">
+              <h2 className="mb-1 text-base">Top lifts — estimated 1RM</h2>
+              <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1">
+                {stats.trends.top_lifts.names.map((name, i) => (
+                  <span key={name} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: SERIES_COLORS[i] }}
+                    />
+                    {name}
+                  </span>
+                ))}
+              </div>
+              <div className="h-48 md:h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={stats.trends.top_lifts.weeks}
+                    margin={{ top: 6, right: 12, bottom: 0, left: -14 }}
+                  >
+                    <CartesianGrid vertical={false} stroke="var(--border)" />
+                    <XAxis
+                      dataKey="week_start"
+                      tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={{ stroke: 'var(--border)' }}
+                      tickFormatter={(v: string) => formatShortDate(v)}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis
+                      tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={false}
+                      width={44}
+                      domain={['auto', 'auto']}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'var(--popover)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '10px',
+                        color: 'var(--popover-foreground)',
+                        fontSize: '13px',
+                      }}
+                      formatter={(value, name) => [`${value} ${unit}`, name]}
+                      labelFormatter={(label) => `Week of ${formatShortDate(String(label))}`}
+                    />
+                    {stats.trends.top_lifts.names.map((name, i) => (
+                      <Line
+                        key={name}
+                        type="monotone"
+                        dataKey={name}
+                        stroke={SERIES_COLORS[i]}
+                        strokeWidth={2}
+                        dot={{ r: 3, fill: SERIES_COLORS[i], strokeWidth: 0 }}
+                        connectNulls
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+          )}
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <section className="rounded-xl border bg-card p-4">
+              <h2 className="mb-3 text-base">Training days</h2>
+              <div className="h-36">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={stats.trends.weekdays} margin={{ top: 6, right: 0, bottom: 0, left: -30 }}>
+                    <CartesianGrid vertical={false} stroke="var(--border)" />
+                    <XAxis
+                      dataKey="day"
+                      tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={{ stroke: 'var(--border)' }}
+                    />
+                    <YAxis
+                      tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={false}
+                      allowDecimals={false}
+                    />
+                    <Tooltip
+                      cursor={{ fill: 'var(--accent-soft)' }}
+                      contentStyle={{
+                        backgroundColor: 'var(--popover)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '10px',
+                        color: 'var(--popover-foreground)',
+                        fontSize: '13px',
+                      }}
+                      formatter={(value) => [String(value), 'Workouts']}
+                    />
+                    <Bar dataKey="workouts" fill="var(--chart-accent)" radius={[4, 4, 0, 0]} maxBarSize={22} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+
+            <section className="rounded-xl border bg-card p-4">
+              <h2 className="mb-1 text-base">Rep ranges</h2>
+              <p className="mb-3 text-xs text-muted-foreground">
+                working sets, last {stats.split_days} days
+              </p>
+              <div className="flex flex-col gap-2.5">
+                {(() => {
+                  const maxBucket = Math.max(1, ...stats.trends.rep_ranges.map((r) => r.sets))
+                  return stats.trends.rep_ranges.map((r) => (
+                    <div key={r.range} className="flex items-center gap-3">
+                      <span className="tnum w-12 shrink-0 text-sm font-medium">{r.range}</span>
+                      <div className="h-4 flex-1 overflow-hidden rounded-full bg-secondary">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${(r.sets / maxBucket) * 100}%`,
+                            backgroundColor: 'var(--chart-accent)',
+                          }}
+                        />
+                      </div>
+                      <span className="tnum w-8 shrink-0 text-right text-sm text-muted-foreground">
+                        {r.sets}
+                      </span>
+                    </div>
+                  ))
+                })()}
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">reps per working set</p>
+            </section>
+          </div>
+
+          <section className="rounded-xl border bg-card p-4">
+            <h2 className="mb-3 text-base">PRs per month</h2>
+            <div className="h-36">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats.trends.prs_by_month} margin={{ top: 6, right: 0, bottom: 0, left: -30 }}>
+                  <CartesianGrid vertical={false} stroke="var(--border)" />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+                    tickLine={false}
+                    axisLine={{ stroke: 'var(--border)' }}
+                  />
+                  <YAxis
+                    tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+                    tickLine={false}
+                    axisLine={false}
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    cursor={{ fill: 'var(--accent-soft)' }}
+                    contentStyle={{
+                      backgroundColor: 'var(--popover)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '10px',
+                      color: 'var(--popover-foreground)',
+                      fontSize: '13px',
+                    }}
+                    formatter={(value) => [String(value), 'PRs']}
+                  />
+                  <Bar dataKey="prs" fill="#d4a843" radius={[4, 4, 0, 0]} maxBarSize={22} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

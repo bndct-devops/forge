@@ -105,6 +105,11 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
     weekday_counts: dict[int, int] = defaultdict(int)
     sessions_by_exercise: dict[int, int] = defaultdict(int)
     volume_by_month: dict[str, float] = defaultdict(float)
+    rep_buckets: dict[str, int] = {"1–5": 0, "6–10": 0, "11–15": 0, "16+": 0}
+    prs_by_month: dict[str, int] = defaultdict(int)
+    # weekly max estimated 1RM per exercise, last 12 weeks
+    e1rm_weeks: dict[int, dict[date, float]] = defaultdict(dict)
+    e1rm_since = _week_start(today) - timedelta(weeks=TREND_WEEKS - 1)
     muscle_weeks: dict[str, dict] = defaultdict(lambda: defaultdict(int))
     trend_since = _week_start(today) - timedelta(weeks=MUSCLE_TREND_WEEKS - 1)
 
@@ -123,9 +128,29 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
         total_time += int((w.finished_at - w.started_at).total_seconds())
         weekday_counts[day.weekday()] += 1
         volume_by_month[day.strftime("%Y-%m")] += totals["total_volume"]
+        month_key = day.strftime("%Y-%m")
         for we in w.exercises:
-            if any(s.is_completed and not s.is_warmup for s in we.sets):
+            working = [s for s in we.sets if s.is_completed and not s.is_warmup]
+            if working:
                 sessions_by_exercise[we.exercise_id] += 1
+            for st in working:
+                if st.is_pr:
+                    prs_by_month[month_key] += 1
+                if day >= split_since and st.reps:
+                    reps = st.reps
+                    bucket = (
+                        "1–5" if reps <= 5 else "6–10" if reps <= 10
+                        else "11–15" if reps <= 15 else "16+"
+                    )
+                    rep_buckets[bucket] += 1
+            if week >= e1rm_since and working:
+                best = max(
+                    (epley_1rm(st.weight or 0, st.reps or 0) for st in working),
+                    default=0.0,
+                )
+                if best > 0:
+                    prev = e1rm_weeks[we.exercise_id].get(week, 0.0)
+                    e1rm_weeks[we.exercise_id][week] = max(prev, best)
 
         for we in w.exercises:
             exercise = exercises.get(we.exercise_id)
@@ -222,9 +247,45 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
             ),
         }
 
+    # Trend payloads
+    weekday_names_short = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
+    weekday_distribution = [
+        {"day": weekday_names_short[i], "workouts": weekday_counts.get(i, 0)} for i in range(7)
+    ]
+    months = []
+    cursor_month = today.replace(day=1)
+    for _ in range(6):
+        months.append(cursor_month)
+        cursor_month = (cursor_month - timedelta(days=1)).replace(day=1)
+    prs_monthly = [
+        {
+            "month": m.strftime("%b"),
+            "prs": prs_by_month.get(m.strftime("%Y-%m"), 0),
+        }
+        for m in reversed(months)
+    ]
+    top_ids = sorted(sessions_by_exercise, key=sessions_by_exercise.get, reverse=True)[:3]
+    top_ids = [eid for eid in top_ids if e1rm_weeks.get(eid)]
+    top_names = [exercises[eid].name for eid in top_ids if eid in exercises]
+    top_lift_weeks = []
+    for i in range(TREND_WEEKS - 1, -1, -1):
+        wk = this_week - timedelta(weeks=i)
+        row: dict = {"week_start": wk.isoformat()}
+        for eid in top_ids:
+            if eid in exercises:
+                value = e1rm_weeks[eid].get(wk)
+                row[exercises[eid].name] = round(value, 1) if value else None
+        top_lift_weeks.append(row)
+
     return {
         "nudges": nudges,
         "extras": extras,
+        "trends": {
+            "weekdays": weekday_distribution,
+            "rep_ranges": [{"range": k, "sets": v} for k, v in rep_buckets.items()],
+            "prs_by_month": prs_monthly,
+            "top_lifts": {"names": top_names, "weeks": top_lift_weeks},
+        },
         "totals": {
             "workouts": len(workouts),
             "volume": round(total_volume, 1),
