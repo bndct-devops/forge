@@ -42,6 +42,8 @@ def list_exercises(user: User = Depends(get_current_user), db: Session = Depends
             muscle_group=e.muscle_group,
             equipment=e.equipment,
             grip=e.grip,
+            grip_width=e.grip_width,
+            attachment=e.attachment,
             variant_of_id=e.variant_of_id,
             is_custom=e.owner_id is not None,
             last_used=last_used,
@@ -67,6 +69,8 @@ def create_exercise(
         muscle_group=body.muscle_group,
         equipment=body.equipment,
         grip=body.grip,
+        grip_width=body.grip_width,
+        attachment=body.attachment,
         owner_id=user.id,
     )
     db.add(exercise)
@@ -77,6 +81,96 @@ def create_exercise(
         muscle_group=exercise.muscle_group,
         equipment=exercise.equipment,
         grip=exercise.grip,
+        grip_width=exercise.grip_width,
+        attachment=exercise.attachment,
+        is_custom=True,
+    )
+
+
+class VariantIn(BaseModel):
+    grip: str | None = Field(default=None, max_length=24)
+    grip_width: str | None = Field(default=None, max_length=16)
+    attachment: str | None = Field(default=None, max_length=24)
+    equipment: str | None = Field(default=None, max_length=32)
+
+
+def _variant_name(base: Exercise, body: VariantIn) -> str:
+    """Compose a readable canonical name from the modifiers that differ from
+    the base: 'Close-Grip Bench Press (Smith Machine)' style."""
+    name = base.name
+    if body.grip_width and body.grip_width != base.grip_width:
+        name = f"{body.grip_width}-Grip {name}"
+    parts = []
+    if body.grip and body.grip != base.grip:
+        parts.append(body.grip)
+    if body.equipment and body.equipment != base.equipment:
+        parts.append(body.equipment)
+    if body.attachment and body.attachment != base.attachment:
+        parts.append(body.attachment)
+    if parts:
+        name = f"{name} ({', '.join(parts)})"
+    return name
+
+
+@router.post("/{exercise_id}/variant", response_model=ExerciseOut)
+def create_variant(
+    exercise_id: int,
+    body: VariantIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Spawn a variant of an exercise from modifier toggles. The variant is
+    linked into the base movement's family and tracks its own history."""
+    source = db.execute(
+        select(Exercise).where(Exercise.id == exercise_id, _visible(user.id))
+    ).scalar_one_or_none()
+    if source is None:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+    # Variants always hang off the family root, never off another variant
+    base = db.get(Exercise, source.variant_of_id) if source.variant_of_id else source
+
+    if not any([body.grip, body.grip_width, body.attachment, body.equipment]):
+        raise HTTPException(status_code=422, detail="Pick at least one modifier")
+
+    name = _variant_name(base, body)
+    existing = db.execute(
+        select(Exercise).where(_visible(user.id), Exercise.name == name)
+    ).scalar_one_or_none()
+    if existing is not None:
+        # Same combination already exists — hand it back instead of erroring
+        return ExerciseOut(
+            id=existing.id,
+            name=existing.name,
+            muscle_group=existing.muscle_group,
+            equipment=existing.equipment,
+            grip=existing.grip,
+            grip_width=existing.grip_width,
+            attachment=existing.attachment,
+            variant_of_id=existing.variant_of_id,
+            is_custom=existing.owner_id is not None,
+        )
+
+    exercise = Exercise(
+        name=name,
+        muscle_group=base.muscle_group,
+        equipment=body.equipment or base.equipment,
+        grip=body.grip,
+        grip_width=body.grip_width,
+        attachment=body.attachment,
+        variant_of_id=base.id,
+        owner_id=user.id,
+    )
+    db.add(exercise)
+    db.commit()
+    return ExerciseOut(
+        id=exercise.id,
+        name=exercise.name,
+        muscle_group=exercise.muscle_group,
+        equipment=exercise.equipment,
+        grip=exercise.grip,
+        grip_width=exercise.grip_width,
+        attachment=exercise.attachment,
+        variant_of_id=exercise.variant_of_id,
         is_custom=True,
     )
 
@@ -291,7 +385,17 @@ def exercise_stats(
     # Only a family when there is more than one member; includes the current
     # exercise so the client can render it highlighted in place
     variations = (
-        [{"id": v.id, "name": v.name, "grip": v.grip} for v in family_members]
+        [
+            {
+                "id": v.id,
+                "name": v.name,
+                "grip": v.grip,
+                "grip_width": v.grip_width,
+                "attachment": v.attachment,
+                "equipment": v.equipment,
+            }
+            for v in family_members
+        ]
         if len(family_members) > 1
         else []
     )
@@ -309,6 +413,8 @@ def exercise_stats(
             "muscle_group": exercise.muscle_group,
             "equipment": exercise.equipment,
             "grip": exercise.grip,
+            "grip_width": exercise.grip_width,
+            "attachment": exercise.attachment,
             "variant_of_id": exercise.variant_of_id,
             "is_custom": exercise.owner_id is not None,
         },
@@ -350,6 +456,8 @@ def update_exercise(
     exercise.muscle_group = body.muscle_group
     exercise.equipment = body.equipment
     exercise.grip = body.grip
+    exercise.grip_width = body.grip_width
+    exercise.attachment = body.attachment
     db.add(exercise)
     db.commit()
     return ExerciseOut(
@@ -358,6 +466,8 @@ def update_exercise(
         muscle_group=exercise.muscle_group,
         equipment=exercise.equipment,
         grip=exercise.grip,
+        grip_width=exercise.grip_width,
+        attachment=exercise.attachment,
         variant_of_id=exercise.variant_of_id,
         is_custom=True,
     )

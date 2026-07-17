@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 
 export const MUSCLE_GROUPS = ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Full Body', 'Other']
-export const EQUIPMENT = ['Barbell', 'Dumbbell', 'Machine', 'Cable', 'Bodyweight', 'EZ Bar', 'Trap Bar', 'Kettlebell', 'Other']
+export const EQUIPMENT = ['Barbell', 'Dumbbell', 'Machine', 'Plate-Loaded', 'Smith Machine', 'Cable', 'Bodyweight', 'EZ Bar', 'Trap Bar', 'Kettlebell', 'Other']
 export const GRIPS = ['Overhand', 'Underhand', 'Neutral', 'Mixed', 'Wide', 'Close']
 
 export interface ExerciseFields {

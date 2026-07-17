@@ -21,7 +21,7 @@ import type { FinishResult, SetEntry, WorkoutExercise } from '../lib/types'
 import { cn } from '../lib/utils'
 
 const REST_OPTIONS = [0, 30, 45, 60, 90, 120, 150, 180, 240, 300]
-const BARBELL_EQUIPMENT = new Set(['Barbell', 'EZ Bar', 'Trap Bar'])
+const BARBELL_EQUIPMENT = new Set(['Barbell', 'EZ Bar', 'Trap Bar', 'Smith Machine', 'Plate-Loaded'])
 
 /** Best plate-calc prefill: heaviest filled set, else heaviest previous ghost. */
 function plateWeightFor(we: WorkoutExercise): number | null {

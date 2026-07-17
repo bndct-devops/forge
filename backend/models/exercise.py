@@ -14,8 +14,12 @@ class Exercise(Base):
     name: Mapped[str] = mapped_column(String(128), index=True)
     muscle_group: Mapped[str] = mapped_column(String(32), index=True)
     equipment: Mapped[str] = mapped_column(String(32), default="Other")
-    # Overhand / Underhand / Neutral / Mixed / Wide / Close — NULL = standard
+    # Orientation: Overhand / Underhand / Neutral / Mixed — NULL = standard
     grip: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    # Close / Wide — NULL = standard width
+    grip_width: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # Cable attachment: Rope / Straight Bar / V-Bar / Single Handle / ...
+    attachment: Mapped[str | None] = mapped_column(String(24), nullable=True)
     # Groups grip/style variations under a base exercise (NULL = base itself)
     variant_of_id: Mapped[int | None] = mapped_column(
         ForeignKey("exercises.id"), nullable=True

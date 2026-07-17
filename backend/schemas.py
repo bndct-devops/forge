@@ -63,6 +63,8 @@ class ExerciseCreate(BaseModel):
     muscle_group: str = Field(min_length=1, max_length=32)
     equipment: str = Field(default="Other", max_length=32)
     grip: str | None = Field(default=None, max_length=24)
+    grip_width: str | None = Field(default=None, max_length=16)
+    attachment: str | None = Field(default=None, max_length=24)
 
 
 class ExerciseOut(BaseModel):
@@ -71,6 +73,8 @@ class ExerciseOut(BaseModel):
     muscle_group: str
     equipment: str
     grip: str | None = None
+    grip_width: str | None = None
+    attachment: str | None = None
     variant_of_id: int | None = None
     is_custom: bool
     last_used: datetime | None = None
