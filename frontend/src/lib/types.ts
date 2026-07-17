@@ -9,6 +9,7 @@ export interface User {
   deload_hints: boolean
   plate_config: string | null
   oidc_linked: boolean
+  webhook_url: string | null
 }
 
 export interface Exercise {

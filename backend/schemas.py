@@ -28,6 +28,7 @@ class UserOut(BaseModel):
     deload_hints: bool = True
     plate_config: str | None = None
     oidc_linked: bool = False
+    webhook_url: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -44,6 +45,8 @@ class UserUpdate(BaseModel):
     gap_nudges: bool | None = None
     deload_hints: bool | None = None
     plate_config: str | None = Field(default=None, max_length=2000)
+    webhook_url: str | None = Field(default=None, max_length=512)
+    webhook_secret: str | None = Field(default=None, max_length=128)
     password: str | None = Field(default=None, min_length=8)
 
 
@@ -189,6 +192,33 @@ class WorkoutOut(BaseModel):
     started_at: datetime
     finished_at: datetime | None
     exercises: list[WorkoutExerciseOut]
+
+
+class LogSetIn(BaseModel):
+    weight: float | None = Field(default=None, ge=0)
+    reps: int = Field(ge=1, le=1000)
+    is_warmup: bool = False
+    set_type: Literal["drop", "failure"] | None = None
+    rpe: float | None = Field(default=None, ge=1, le=10)
+
+
+class LogExerciseIn(BaseModel):
+    exercise_id: int | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    rest_seconds: int | None = Field(default=None, ge=0, le=3600)
+    superset_with_next: bool = False
+    sets: list[LogSetIn] = Field(min_length=1, max_length=50)
+
+
+class WorkoutLogIn(BaseModel):
+    """One-call logging of a complete, finished workout (API clients)."""
+
+    name: str = Field(min_length=1, max_length=128)
+    notes: str | None = None
+    started_at: datetime
+    finished_at: datetime | None = None
+    duration_seconds: int | None = Field(default=None, ge=1, le=86400)
+    exercises: list[LogExerciseIn] = Field(min_length=1, max_length=50)
 
 
 class PROut(BaseModel):

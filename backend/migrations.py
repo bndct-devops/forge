@@ -50,3 +50,5 @@ def run_migrations() -> None:
     )
     _ensure_column("users", "oidc_sub", "oidc_sub VARCHAR(255)")
     _ensure_column("users", "oidc_issuer", "oidc_issuer VARCHAR(255)")
+    _ensure_column("users", "webhook_url", "webhook_url VARCHAR(512)")
+    _ensure_column("users", "webhook_secret", "webhook_secret VARCHAR(128)")

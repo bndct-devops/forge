@@ -19,6 +19,7 @@ from sqlalchemy import func
 
 from backend.schemas import (
     SetRestore,
+    WorkoutLogIn,
     SetUpdate,
     WorkoutExerciseAdd,
     WorkoutExerciseOrder,
@@ -26,6 +27,7 @@ from backend.schemas import (
     WorkoutStart,
     WorkoutUpdate,
 )
+from backend.core.webhooks import fire_webhook
 from backend.serializers import (
     detect_prs,
     historical_bests,
@@ -244,6 +246,144 @@ def start_workout(
     return serialize_workout(db, workout)
 
 
+
+
+def _naive_utc(dt):
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
+
+
+def _build_logged_exercises(
+    db: Session, user: User, body: WorkoutLogIn, finished_at
+) -> list[WorkoutExercise]:
+    """Resolve/create exercises and build completed WorkoutExercise rows for
+    one-call logging. Names use the same suffix-tolerant matching as imports."""
+    from backend.api.import_export import _guess_equipment, _match_exercise
+
+    cache = {
+        e.name.lower(): e
+        for e in db.execute(
+            select(Exercise).where(
+                or_(Exercise.owner_id.is_(None), Exercise.owner_id == user.id)
+            )
+        ).scalars()
+    }
+    built: list[WorkoutExercise] = []
+    for position, entry in enumerate(body.exercises):
+        if entry.exercise_id is not None:
+            exercise = _visible_exercise(db, user, entry.exercise_id)
+        elif entry.name:
+            exercise = _match_exercise(cache, entry.name)
+            if exercise is None:
+                exercise = Exercise(
+                    name=entry.name.strip(),
+                    muscle_group="Other",
+                    equipment=_guess_equipment(entry.name),
+                    owner_id=user.id,
+                )
+                db.add(exercise)
+                db.flush()
+                cache[exercise.name.lower()] = exercise
+        else:
+            raise HTTPException(
+                status_code=422, detail="Each exercise needs exercise_id or name"
+            )
+        we = WorkoutExercise(
+            exercise_id=exercise.id,
+            position=position,
+            rest_seconds=entry.rest_seconds,
+            superset_with_next=entry.superset_with_next,
+        )
+        we.sets = [
+            SetEntry(
+                position=i,
+                weight=s.weight,
+                reps=s.reps,
+                is_completed=True,
+                is_warmup=s.is_warmup,
+                set_type=s.set_type,
+                rpe=s.rpe,
+                completed_at=finished_at,
+            )
+            for i, s in enumerate(entry.sets)
+        ]
+        built.append(we)
+    return built
+
+
+def _log_window(body: WorkoutLogIn) -> tuple:
+    started_at = _naive_utc(body.started_at)
+    finished_at = _naive_utc(body.finished_at)
+    if finished_at is None:
+        finished_at = started_at + timedelta(seconds=body.duration_seconds or 3600)
+    if finished_at <= started_at:
+        raise HTTPException(status_code=422, detail="finished_at must be after started_at")
+    return started_at, finished_at
+
+
+@router.post("/log")
+def log_workout(
+    body: WorkoutLogIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Create a complete, finished workout in one call (API clients).
+    Exercises resolve by id or by name (created under your account when
+    unknown). PRs are recomputed chronologically, so backdating is fine."""
+    started_at, finished_at = _log_window(body)
+    workout = Workout(
+        owner_id=user.id,
+        name=body.name.strip(),
+        notes=body.notes,
+        started_at=started_at,
+        finished_at=finished_at,
+    )
+    workout.exercises = _build_logged_exercises(db, user, body, finished_at)
+    db.add(workout)
+    db.commit()
+    recompute_prs(db, user.id)
+    fire_webhook(user, workout, source="api")
+    data = serialize_workout(db, workout)
+    data.update(
+        duration_seconds=int((finished_at - started_at).total_seconds()),
+        **workout_totals(workout),
+    )
+    return data
+
+
+@router.put("/{workout_id}")
+def replace_workout(
+    workout_id: int,
+    body: WorkoutLogIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Full-replace a finished workout with the same payload shape as /log."""
+    workout = _get_own_workout(db, user, workout_id)
+    if workout.finished_at is None:
+        raise HTTPException(
+            status_code=409, detail="Workout is in progress — finish it in the app first"
+        )
+    started_at, finished_at = _log_window(body)
+    workout.name = body.name.strip()
+    workout.notes = body.notes
+    workout.started_at = started_at
+    workout.finished_at = finished_at
+    workout.exercises = _build_logged_exercises(db, user, body, finished_at)
+    db.add(workout)
+    db.commit()
+    recompute_prs(db, user.id)
+    data = serialize_workout(db, workout)
+    data.update(
+        duration_seconds=int((finished_at - started_at).total_seconds()),
+        **workout_totals(workout),
+    )
+    return data
+
+
 # ── Per-workout routes ───────────────────────────────────────────────────────
 
 @router.get("/{workout_id}")
@@ -335,6 +475,7 @@ def finish_workout(
     workout.finished_at = utcnow()
     db.add(workout)
     db.commit()
+    fire_webhook(user, workout, source="app")
 
     totals = workout_totals(workout)
     duration = int((workout.finished_at - workout.started_at).total_seconds())

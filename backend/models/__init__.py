@@ -1,3 +1,4 @@
+from backend.models.api_token import ApiToken
 from backend.models.app_setting import AppSetting
 from backend.models.exercise import Exercise
 from backend.models.exercise_note import ExerciseNote
@@ -8,6 +9,7 @@ from backend.models.user import User
 from backend.models.workout import SetEntry, Workout, WorkoutExercise
 
 __all__ = [
+    "ApiToken",
     "AppSetting",
     "Exercise",
     "ExerciseNote",

@@ -482,6 +482,114 @@ def import_hevy(
     }
 
 
+@router.get("/export/json")
+def export_json(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Complete structured dump of your training data — for scripts,
+    dashboards, or moving elsewhere."""
+    from backend.models import Measurement, Routine
+
+    exercises = {
+        e.id: e
+        for e in db.execute(
+            select(Exercise).where(or_(Exercise.owner_id.is_(None), Exercise.owner_id == user.id))
+        ).scalars()
+    }
+    workouts = (
+        db.execute(
+            select(Workout)
+            .where(Workout.owner_id == user.id, Workout.finished_at.is_not(None))
+            .order_by(Workout.started_at)
+        )
+        .scalars()
+        .all()
+    )
+    routines = db.execute(
+        select(Routine).where(Routine.owner_id == user.id).order_by(Routine.position)
+    ).scalars()
+    measurements = db.execute(
+        select(Measurement).where(Measurement.user_id == user.id).order_by(Measurement.measured_at)
+    ).scalars()
+
+    def iso(dt):
+        return dt.isoformat() + "Z" if dt else None
+
+    return {
+        "format": "forge-export-v1",
+        "user": {"username": user.username, "unit": user.unit},
+        "exercises": [
+            {
+                "id": e.id,
+                "name": e.name,
+                "muscle_group": e.muscle_group,
+                "equipment": e.equipment,
+                "grip": e.grip,
+                "custom": e.owner_id is not None,
+            }
+            for e in exercises.values()
+        ],
+        "workouts": [
+            {
+                "id": w.id,
+                "name": w.name,
+                "notes": w.notes,
+                "started_at": iso(w.started_at),
+                "finished_at": iso(w.finished_at),
+                "exercises": [
+                    {
+                        "exercise_id": we.exercise_id,
+                        "exercise": exercises[we.exercise_id].name
+                        if we.exercise_id in exercises
+                        else "Unknown",
+                        "superset_with_next": we.superset_with_next,
+                        "sets": [
+                            {
+                                "weight": s.weight,
+                                "reps": s.reps,
+                                "is_warmup": s.is_warmup,
+                                "set_type": s.set_type,
+                                "rpe": s.rpe,
+                                "is_pr": s.is_pr,
+                            }
+                            for s in we.sets
+                            if s.is_completed
+                        ],
+                    }
+                    for we in w.exercises
+                ],
+            }
+            for w in workouts
+        ],
+        "routines": [
+            {
+                "name": r.name,
+                "exercises": [
+                    {
+                        "exercise_id": re_.exercise_id,
+                        "exercise": exercises[re_.exercise_id].name
+                        if re_.exercise_id in exercises
+                        else "Unknown",
+                        "set_count": re_.set_count,
+                        "rest_seconds": re_.rest_seconds,
+                        "rep_min": re_.rep_min,
+                        "rep_max": re_.rep_max,
+                        "increment": re_.increment,
+                    }
+                    for re_ in r.exercises
+                ],
+            }
+            for r in routines
+        ],
+        "measurements": [
+            {
+                "kind": m.kind,
+                "value": m.value,
+                "measured_at": iso(m.measured_at),
+            }
+            for m in measurements
+        ],
+    }
+
+
 @router.get("/export/strong")
 def export_strong(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     workouts = (

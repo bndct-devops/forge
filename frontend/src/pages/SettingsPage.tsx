@@ -1,4 +1,4 @@
-import { DatabaseBackup, Download, KeyRound, LogOut, Minus, Plus, Shield, Tags, Trash2, Upload, UserPlus } from 'lucide-react'
+import { BookOpen, Copy, DatabaseBackup, Download, KeyRound, LogOut, Minus, Plus, Shield, Tags, Trash2, Upload, UserPlus, Webhook } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { api, getToken } from '../lib/api'
 import { MUSCLE_GROUPS } from '../components/ExerciseForm'
@@ -7,7 +7,7 @@ import ConfirmSheet from '../components/ConfirmSheet'
 import Segmented from '../components/Segmented'
 import Sheet from '../components/Sheet'
 import { useAuth } from '../contexts/AuthContext'
-import { restLabel } from '../lib/format'
+import { formatRelativeDate, restLabel } from '../lib/format'
 import { disableRestPush, enableRestPush, pushEnabled, pushSupported } from '../lib/push'
 import { isRpeEnabled, setRpeEnabled } from '../lib/prefs'
 import { toast } from '../lib/toast'
@@ -124,6 +124,15 @@ function ViewportDebug() {
   return <p className="tnum mt-1 text-center text-[10px] text-muted-foreground/60">{info}</p>
 }
 
+interface ApiTokenInfo {
+  id: number
+  name: string
+  scope: 'read' | 'full'
+  prefix: string
+  created_at: string
+  last_used_at: string | null
+}
+
 function cnAccountRow(afterSso: boolean): string {
   return afterSso
     ? 'touch-feedback flex min-h-12 items-center gap-3 border-t px-4 py-2.5 text-left font-medium hover:bg-secondary'
@@ -191,6 +200,14 @@ export default function SettingsPage() {
   const [ssoConfig, setSsoConfig] = useState<{ enabled: boolean; button_label: string } | null>(
     null,
   )
+  const [tokens, setTokens] = useState<ApiTokenInfo[]>([])
+  const [tokenSheetOpen, setTokenSheetOpen] = useState(false)
+  const [newTokenName, setNewTokenName] = useState('')
+  const [newTokenScope, setNewTokenScope] = useState<'full' | 'read'>('full')
+  const [createdToken, setCreatedToken] = useState<string | null>(null)
+  const [creatingToken, setCreatingToken] = useState(false)
+  const [webhookUrl, setWebhookUrl] = useState('')
+  const [webhookSecret, setWebhookSecret] = useState('')
 
   useEffect(() => {
     if (user?.is_admin) {
@@ -213,6 +230,14 @@ export default function SettingsPage() {
       .then(setBackupInfo)
       .catch(() => {})
   }, [user?.is_admin])
+
+  useEffect(() => {
+    api<ApiTokenInfo[]>('/tokens').then(setTokens).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    setWebhookUrl(user?.webhook_url ?? '')
+  }, [user?.webhook_url])
 
   useEffect(() => {
     api<{ enabled: boolean; button_label: string }>('/auth/oidc/config')
@@ -608,6 +633,118 @@ export default function SettingsPage() {
         )}
       </Section>
 
+      <Section title="API">
+        {tokens.map((t, i) => (
+          <div
+            key={t.id}
+            className={
+              'flex min-h-12 items-center justify-between gap-3 px-4 py-2.5' +
+              (i > 0 ? ' border-t' : '')
+            }
+          >
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="truncate font-medium">{t.name}</span>
+                <span
+                  className={
+                    'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ' +
+                    (t.scope === 'read'
+                      ? 'bg-secondary text-muted-foreground'
+                      : 'bg-accent-soft text-primary')
+                  }
+                >
+                  {t.scope === 'read' ? 'read-only' : 'full access'}
+                </span>
+              </div>
+              <p className="tnum mt-0.5 text-xs text-muted-foreground">
+                {t.prefix}… ·{' '}
+                {t.last_used_at ? `used ${formatRelativeDate(t.last_used_at)}` : 'never used'}
+              </p>
+            </div>
+            <button
+              onClick={async () => {
+                try {
+                  await api(`/tokens/${t.id}`, { method: 'DELETE' })
+                  setTokens((ts) => ts.filter((x) => x.id !== t.id))
+                } catch {
+                  toast('Could not delete the token')
+                }
+              }}
+              className="touch-feedback shrink-0 rounded-full p-2 text-muted-foreground"
+              aria-label={`Delete token ${t.name}`}
+            >
+              <Trash2 size={17} />
+            </button>
+          </div>
+        ))}
+        <button
+          onClick={() => {
+            setNewTokenName('')
+            setNewTokenScope('full')
+            setCreatedToken(null)
+            setTokenSheetOpen(true)
+          }}
+          className={
+            'touch-feedback flex min-h-12 items-center gap-3 px-4 py-2.5 text-left font-medium hover:bg-secondary' +
+            (tokens.length > 0 ? ' border-t' : '')
+          }
+        >
+          <KeyRound size={18} className="text-muted-foreground" /> Create API token
+        </button>
+        <a
+          href="/api/docs"
+          target="_blank"
+          rel="noreferrer"
+          className="touch-feedback flex min-h-12 items-center gap-3 border-t px-4 py-2.5 text-left font-medium hover:bg-secondary"
+        >
+          <BookOpen size={18} className="text-muted-foreground" /> API documentation
+        </a>
+        <div className="border-t px-4 py-3">
+          <label className="flex flex-col gap-1.5 text-sm font-medium">
+            <span className="flex items-center gap-2">
+              <Webhook size={16} className="text-muted-foreground" /> Webhook on workout finish
+            </span>
+            <input
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+              onBlur={() => {
+                const url = webhookUrl.trim()
+                if (url === (user.webhook_url ?? '')) return
+                updateUser({ webhook_url: url || null }).then(
+                  () => setMessage(url ? 'Webhook saved' : 'Webhook removed'),
+                  () => setError('Webhook URL must be http(s)'),
+                )
+              }}
+              placeholder="https://n8n.example.com/webhook/forge"
+              inputMode="url"
+              autoCapitalize="none"
+              className="h-11 rounded-lg border border-input bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+            <input
+              value={webhookSecret}
+              onChange={(e) => setWebhookSecret(e.target.value)}
+              onBlur={() => {
+                if (!webhookSecret) return
+                updateUser({ webhook_secret: webhookSecret }).then(
+                  () => {
+                    setWebhookSecret('')
+                    setMessage('Signing secret saved')
+                  },
+                  () => setError('Could not save the secret'),
+                )
+              }}
+              placeholder="Signing secret (optional, write-only)"
+              autoCapitalize="none"
+              className="h-11 rounded-lg border border-input bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+            <span className="text-xs font-normal text-muted-foreground">
+              POSTs a JSON summary when you finish a workout; the secret adds an
+              X-Forge-Signature HMAC header.
+            </span>
+          </label>
+        </div>
+      </Section>
+
       <Section title="Account">
         {ssoConfig?.enabled && (
           <button
@@ -723,6 +860,87 @@ export default function SettingsPage() {
             Reset password
           </button>
         </div>
+      </Sheet>
+
+      <Sheet
+        open={tokenSheetOpen}
+        onClose={() => setTokenSheetOpen(false)}
+        title={createdToken ? 'Token created' : 'Create API token'}
+      >
+        {createdToken ? (
+          <div className="flex flex-col gap-3 pt-1">
+            <p className="text-sm text-muted-foreground">
+              Copy it now — this is the only time it's shown.
+            </p>
+            <code className="tnum rounded-lg border bg-secondary/60 p-3 text-xs break-all select-all">
+              {createdToken}
+            </code>
+            <button
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(createdToken)
+                  setMessage('Token copied')
+                  setTimeout(() => setMessage(''), 2500)
+                } catch {
+                  toast('Copy failed — select it manually')
+                }
+              }}
+              className="touch-feedback flex h-12 items-center justify-center gap-2 rounded-xl bg-primary font-semibold text-primary-foreground"
+            >
+              <Copy size={17} /> Copy token
+            </button>
+            <button
+              onClick={() => setTokenSheetOpen(false)}
+              className="touch-feedback h-12 rounded-xl bg-secondary font-semibold text-secondary-foreground"
+            >
+              Done
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 pt-1">
+            <input
+              value={newTokenName}
+              onChange={(e) => setNewTokenName(e.target.value)}
+              placeholder="Name (e.g. grafana, n8n)"
+              autoCapitalize="none"
+              className="h-12 rounded-lg border border-input bg-card px-4 text-base outline-none focus:ring-2 focus:ring-ring"
+            />
+            <Segmented<'full' | 'read'>
+              options={[
+                { value: 'full', label: 'Full access' },
+                { value: 'read', label: 'Read-only' },
+              ]}
+              value={newTokenScope}
+              onChange={setNewTokenScope}
+            />
+            <p className="text-xs text-muted-foreground">
+              Read-only tokens can fetch workouts, stats, exports and metrics but
+              can't change anything — safe for dashboards.
+            </p>
+            <button
+              onClick={async () => {
+                setCreatingToken(true)
+                try {
+                  const created = await api<ApiTokenInfo & { token: string }>('/tokens', {
+                    method: 'POST',
+                    body: { name: newTokenName.trim(), scope: newTokenScope },
+                  })
+                  setTokens((ts) => [...ts, created])
+                  setCreatedToken(created.token)
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : 'Could not create the token')
+                  setTokenSheetOpen(false)
+                } finally {
+                  setCreatingToken(false)
+                }
+              }}
+              disabled={!newTokenName.trim() || creatingToken}
+              className="touch-feedback h-12 rounded-xl bg-primary font-semibold text-primary-foreground disabled:opacity-50"
+            >
+              {creatingToken ? 'Creating…' : 'Create token'}
+            </button>
+          </div>
+        )}
       </Sheet>
 
       <p className="mt-8 text-center text-xs text-muted-foreground">

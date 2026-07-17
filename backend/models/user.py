@@ -27,6 +27,9 @@ class User(Base):
     # SSO: 'local' accounts keep password login as break-glass even when
     # linked; 'oidc' accounts were provisioned by the IdP
     auth_source: Mapped[str] = mapped_column(String(8), default="local")
+    # Outbound webhook fired when a workout is finished (optional)
+    webhook_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    webhook_secret: Mapped[str | None] = mapped_column(String(128), nullable=True)
     oidc_sub: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     oidc_issuer: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

@@ -91,6 +91,13 @@ def update_me(
         user.deload_hints = body.deload_hints
     if "plate_config" in body.model_fields_set:
         user.plate_config = body.plate_config
+    if "webhook_url" in body.model_fields_set:
+        url = (body.webhook_url or "").strip()
+        if url and not url.startswith(("http://", "https://")):
+            raise HTTPException(status_code=400, detail="Webhook URL must be http(s)")
+        user.webhook_url = url or None
+    if "webhook_secret" in body.model_fields_set:
+        user.webhook_secret = body.webhook_secret or None
     if body.password is not None:
         user.hashed_password = hash_password(body.password)
     db.add(user)

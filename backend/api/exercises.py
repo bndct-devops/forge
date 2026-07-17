@@ -372,6 +372,17 @@ def delete_exercise(
     exercise = db.get(Exercise, exercise_id)
     if exercise is None or exercise.owner_id != user.id:
         raise HTTPException(status_code=404, detail="Custom exercise not found")
+    # Deleting would cascade through logged history — refuse instead
+    uses = db.execute(
+        select(func.count(WorkoutExercise.id)).where(
+            WorkoutExercise.exercise_id == exercise_id
+        )
+    ).scalar()
+    if uses:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Exercise appears in {uses} logged workout(s) — history would be lost",
+        )
     db.delete(exercise)
     db.commit()
     return {"ok": True}

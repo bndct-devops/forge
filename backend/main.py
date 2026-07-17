@@ -6,7 +6,9 @@ from fastapi.responses import FileResponse
 from backend.core.database import Base, SessionLocal, engine
 from backend.api import (
     auth,
+    metrics,
     oidc,
+    tokens,
     backup,
     updates,
     exercises,
@@ -31,8 +33,10 @@ from backend.core.config import SECRET_KEY
 _dev = bool(os.environ.get("FORGE_DEV"))
 app = FastAPI(
     title="Forge",
-    docs_url="/api/docs" if _dev else None,
-    openapi_url="/api/openapi.json" if _dev else None,
+    description="Self-hosted iron tracking. Authenticate with a personal "
+    "access token from Settings (`Authorization: Bearer forge_pat_...`).",
+    docs_url="/api/docs",
+    openapi_url="/api/openapi.json",
 )
 
 
@@ -62,6 +66,8 @@ def health():
 
 app.include_router(auth.router, prefix="/api")
 app.include_router(oidc.router, prefix="/api")
+app.include_router(tokens.router, prefix="/api")
+app.include_router(metrics.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(exercises.router, prefix="/api")
 app.include_router(routines.router, prefix="/api")
