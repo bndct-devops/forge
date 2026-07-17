@@ -51,14 +51,90 @@ export default function SetRow({
   const [weight, setWeight] = useState(set.weight != null && set.weight !== 0 ? String(set.weight) : '')
   const [reps, setReps] = useState(set.reps != null ? String(set.reps) : '')
   const [rpe, setRpe] = useState(set.rpe != null ? String(set.rpe) : '')
-  const [offset, setOffset] = useState(0)
   const [justDone, setJustDone] = useState(false)
   const [removing, setRemoving] = useState(false)
-  const touchStart = useRef<number | null>(null)
+  const [swipeActive, setSwipeActive] = useState(false)
+  const rowRef = useRef<HTMLDivElement>(null)
+  const gesture = useRef<{
+    x: number
+    y: number
+    base: number
+    mode: 'undecided' | 'swipe' | 'scroll'
+    startedAt: number
+    last: number
+  } | null>(null)
+  const revealed = useRef(false)
   const repsRef = useRef<HTMLInputElement>(null)
 
+  // Direct DOM writes during the gesture — no React work per touchmove,
+  // no transition fighting the finger. Animation only on release.
+  const setX = (px: number, animate: boolean) => {
+    const el = rowRef.current
+    if (!el) return
+    el.style.transition = animate ? 'transform 0.25s var(--spring)' : 'none'
+    el.style.transform = `translateX(${px}px)`
+  }
+
+  const REVEAL = -80
+  const FULL_SWIPE = -180
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    gesture.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+      base: revealed.current ? REVEAL : 0,
+      mode: 'undecided',
+      startedAt: performance.now(),
+      last: 0,
+    }
+  }
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    const g = gesture.current
+    if (!g || g.mode === 'scroll') return
+    const dx = e.touches[0].clientX - g.x
+    const dy = e.touches[0].clientY - g.y
+    if (g.mode === 'undecided') {
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) {
+        g.mode = 'scroll' // vertical wins — hands off, let the page scroll
+        return
+      }
+      if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+        g.mode = 'swipe'
+        setSwipeActive(true) // mounts the red layer, once per gesture
+      } else {
+        return
+      }
+    }
+    g.last = g.base + dx
+    // free leftward travel (full-swipe deletes); slight resistance rightward
+    const next = Math.min(0, g.last)
+    setX(next, false)
+  }
+
+  const onTouchEnd = () => {
+    const g = gesture.current
+    gesture.current = null
+    if (!g || g.mode !== 'swipe') return
+    const total = Math.min(0, g.last)
+    const quickFlick = performance.now() - g.startedAt < 220 && total - g.base < -40
+    if (total <= FULL_SWIPE) {
+      requestDelete() // iOS-Mail-style full swipe
+      return
+    }
+    if (total < REVEAL * 0.6 || quickFlick) {
+      revealed.current = true
+      setX(REVEAL, true)
+    } else {
+      revealed.current = false
+      setX(0, true)
+      setSwipeActive(false)
+    }
+  }
+
   const requestDelete = () => {
-    setRemoving(true) // collapse first, remove from the list once it's gone
+    setX(-400, true)
+    setRemoving(true) // collapse while sliding out, then remove from the list
     setTimeout(onDelete, 200)
   }
 
@@ -95,33 +171,26 @@ export default function SetRow({
       className="animate-card-appear relative overflow-hidden transition-[max-height,opacity] duration-200 ease-out"
       style={{ maxHeight: removing ? 0 : 64, opacity: removing ? 0 : 1 }}
     >
-      {offset < 0 && (
+      {swipeActive && (
         <button
           onClick={requestDelete}
-          className="absolute inset-y-0 right-0 flex w-20 items-center justify-center bg-destructive text-sm font-semibold text-white"
+          className="absolute inset-0 flex items-center justify-end bg-destructive pr-7 text-sm font-semibold text-white"
         >
           Delete
         </button>
       )}
       <div
+        ref={rowRef}
         className={cn(
-          'relative grid items-center gap-2 bg-card py-1.5 transition-[transform,background-color] duration-300',
+          'relative grid items-center gap-2 bg-card py-1.5 transition-colors duration-300',
           rpeEnabled ? SET_GRID_RPE : SET_GRID,
-          set.is_completed && 'bg-accent-soft',
+          set.is_completed && 'bg-set-done',
         )}
-        style={{ transform: `translateX(${offset}px)` }}
-        onTouchStart={(e) => {
-          touchStart.current = e.touches[0].clientX
-        }}
-        onTouchMove={(e) => {
-          if (touchStart.current == null) return
-          const dx = e.touches[0].clientX - touchStart.current
-          setOffset(Math.max(-80, Math.min(0, dx)))
-        }}
-        onTouchEnd={() => {
-          setOffset((o) => (o < -60 ? -80 : 0))
-          touchStart.current = null
-        }}
+        style={{ touchAction: 'pan-y' }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}
       >
         {justDone && (
           <div className="animate-set-flash pointer-events-none absolute inset-0 bg-primary" />

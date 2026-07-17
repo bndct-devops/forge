@@ -43,18 +43,37 @@ function useKeyboardInset(active: boolean): number {
 export default function Sheet({ open, onClose, title, children, full }: SheetProps) {
   const [mounted, setMounted] = useState(open)
   const [shown, setShown] = useState(false)
-  const [dragY, setDragY] = useState(0)
-  const [dragging, setDragging] = useState(false)
   const keyboardInset = useKeyboardInset(open)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const backdropRef = useRef<HTMLDivElement>(null)
   const dragStart = useRef(0)
+  const draggingRef = useRef(false)
+  const dragYRef = useRef(0)
   const lastMove = useRef({ y: 0, t: 0, v: 0 })
+
+  // Drag writes styles straight to the DOM — re-rendering sheet children
+  // (e.g. the 100+ row exercise list) per pointermove is what jank is made of
+  const applyDrag = (dy: number, animate: boolean) => {
+    const panel = panelRef.current
+    const backdrop = backdropRef.current
+    if (panel) {
+      panel.style.transition = animate
+        ? 'transform 0.34s var(--spring), opacity 0.25s ease'
+        : 'none'
+      panel.style.transform = `translateY(${dy - keyboardInset}px)`
+    }
+    if (backdrop) {
+      backdrop.style.transition = animate ? 'opacity 0.3s ease' : 'none'
+      backdrop.style.opacity = String(Math.max(0, 1 - dy / 420))
+    }
+  }
 
   // Mount → two frames later flip to shown so the enter transition runs;
   // open=false → play the exit transition, then unmount.
   useEffect(() => {
     if (open) {
       setMounted(true)
-      setDragY(0)
+      dragYRef.current = 0
       const raf = requestAnimationFrame(() => requestAnimationFrame(() => setShown(true)))
       return () => cancelAnimationFrame(raf)
     }
@@ -82,36 +101,45 @@ export default function Sheet({ open, onClose, title, children, full }: SheetPro
       // capture can fail if the pointer is already gone — drag still works
     }
     dragStart.current = e.clientY
+    draggingRef.current = true
     lastMove.current = { y: e.clientY, t: performance.now(), v: 0 }
-    setDragging(true)
   }
 
   const onDragMove = (e: ReactPointerEvent) => {
-    if (!dragging) return
+    if (!draggingRef.current) return
     const dy = Math.max(0, e.clientY - dragStart.current)
     const now = performance.now()
     const dt = now - lastMove.current.t
     if (dt > 0) {
       lastMove.current = { y: e.clientY, t: now, v: (e.clientY - lastMove.current.y) / dt }
     }
-    setDragY(dy)
+    dragYRef.current = dy
+    applyDrag(dy, false)
   }
 
   const onDragEnd = () => {
-    if (!dragging) return
-    setDragging(false)
+    if (!draggingRef.current) return
+    draggingRef.current = false
+    const dragY = dragYRef.current
     // A pause before release means the flick is over — distance decides alone
     const stale = performance.now() - lastMove.current.t > 80
     const velocity = stale ? 0 : lastMove.current.v
     if (dragY > DISMISS_DISTANCE || velocity > DISMISS_VELOCITY) {
+      // Hand control back to the CSS exit transition — the inline
+      // transition:none from dragging would make the dismissal snap
+      if (panelRef.current) panelRef.current.style.transition = ''
+      if (backdropRef.current) {
+        backdropRef.current.style.transition = ''
+        backdropRef.current.style.opacity = ''
+      }
       onClose() // exit transition continues from the current drag position
     } else {
-      setDragY(0) // spring back
+      dragYRef.current = 0
+      applyDrag(0, true) // spring back
     }
   }
 
   const state = shown && open ? 'open' : 'closed'
-  const backdropOpacity = dragging || dragY > 0 ? Math.max(0, 1 - dragY / 420) : undefined
 
   return (
     <div
@@ -119,9 +147,9 @@ export default function Sheet({ open, onClose, title, children, full }: SheetPro
       style={{ height: 'var(--app-h, 100dvh)', pointerEvents: open ? 'auto' : 'none' }}
     >
       <div
+        ref={backdropRef}
         data-state={state}
         className="sheet-backdrop absolute inset-0 bg-black/50"
-        style={backdropOpacity != null ? { opacity: backdropOpacity, transition: 'none' } : undefined}
         onClick={onClose}
       />
       <div
@@ -130,11 +158,11 @@ export default function Sheet({ open, onClose, title, children, full }: SheetPro
           'sheet-panel relative flex w-full max-w-lg flex-col rounded-t-2xl bg-popover shadow-2xl md:rounded-2xl md:border',
           full ? 'h-[92dvh] md:h-[80dvh]' : 'max-h-[85dvh] md:max-h-[80dvh]',
         )}
+        ref={panelRef}
         style={{
           ...(state === 'open' && {
-            transform: `translateY(${dragY - keyboardInset}px)`,
+            transform: `translateY(${-keyboardInset}px)`,
           }),
-          ...(dragging && { transition: 'none' }),
           ...(keyboardInset > 0 && {
             height: full ? `calc(92dvh - ${keyboardInset}px)` : undefined,
             maxHeight: `calc(92dvh - ${keyboardInset}px)`,
