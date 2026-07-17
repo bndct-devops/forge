@@ -10,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { restLabel } from '../lib/format'
 import { disableRestPush, enableRestPush, pushEnabled, pushSupported } from '../lib/push'
 import { isRpeEnabled, setRpeEnabled } from '../lib/prefs'
+import { toast } from '../lib/toast'
 import { isTimerSoundEnabled, setTimerSoundEnabled } from '../lib/timer'
 import { applyTheme, getStoredTheme, THEMES, type ThemeId } from '../lib/theme'
 import type { User } from '../lib/types'
@@ -174,6 +175,11 @@ export default function SettingsPage() {
   const [updateInfo, setUpdateInfo] = useState<{ latest: string | null; update_available: boolean } | null>(null)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [upToDate, setUpToDate] = useState(false)
+  const [backupInfo, setBackupInfo] = useState<{
+    nightly_enabled: boolean
+    keep: number
+    latest: string | null
+  } | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -190,6 +196,13 @@ export default function SettingsPage() {
       .then(setUpdateInfo)
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (!user?.is_admin) return
+    api<{ nightly_enabled: boolean; keep: number; latest: string | null }>('/backup/settings')
+      .then(setBackupInfo)
+      .catch(() => {})
+  }, [user?.is_admin])
 
   if (!user) return null
 
@@ -380,6 +393,28 @@ export default function SettingsPage() {
             </button>
           </div>
         </Row>
+        <Row label="Training nudges">
+          <Segmented<'on' | 'off'>
+            options={[
+              { value: 'on', label: 'On' },
+              { value: 'off', label: 'Off' },
+            ]}
+            value={user.gap_nudges ? 'on' : 'off'}
+            onChange={(v) => updateUser({ gap_nudges: v === 'on' }).catch(() => {})}
+            className="w-32"
+          />
+        </Row>
+        <Row label="Deload hints">
+          <Segmented<'on' | 'off'>
+            options={[
+              { value: 'on', label: 'On' },
+              { value: 'off', label: 'Off' },
+            ]}
+            value={user.deload_hints ? 'on' : 'off'}
+            onChange={(v) => updateUser({ deload_hints: v === 'on' }).catch(() => {})}
+            className="w-32"
+          />
+        </Row>
         <Row label="Track RPE">
           <Segmented<'on' | 'off'>
             options={[
@@ -498,6 +533,37 @@ export default function SettingsPage() {
           >
             <DatabaseBackup size={18} className="text-muted-foreground" /> Download database backup
           </button>
+        )}
+        {user.is_admin && backupInfo && (
+          <div className="border-t">
+            <Row label="Nightly backups">
+              <Segmented<'on' | 'off'>
+                options={[
+                  { value: 'on', label: 'On' },
+                  { value: 'off', label: 'Off' },
+                ]}
+                value={backupInfo.nightly_enabled ? 'on' : 'off'}
+                onChange={(v) => {
+                  const nightly_enabled = v === 'on'
+                  setBackupInfo({ ...backupInfo, nightly_enabled })
+                  api('/backup/settings', { method: 'PUT', body: { nightly_enabled } }).catch(() =>
+                    toast('Could not save the backup setting'),
+                  )
+                }}
+                className="w-32"
+              />
+            </Row>
+            <p className="px-4 pb-3 text-xs text-muted-foreground">
+              Daily snapshot to <span className="tnum">/data/backups</span>, keeping the last{' '}
+              {backupInfo.keep}.
+              {backupInfo.latest && (
+                <>
+                  {' '}
+                  Latest: <span className="tnum">{backupInfo.latest}</span>
+                </>
+              )}
+            </p>
+          </div>
         )}
       </Section>
 

@@ -85,6 +85,12 @@ def update_me(
         user.default_rest_seconds = body.default_rest_seconds
     if body.weekly_goal is not None:
         user.weekly_goal = body.weekly_goal
+    if body.gap_nudges is not None:
+        user.gap_nudges = body.gap_nudges
+    if body.deload_hints is not None:
+        user.deload_hints = body.deload_hints
+    if "plate_config" in body.model_fields_set:
+        user.plate_config = body.plate_config
     if body.password is not None:
         user.hashed_password = hash_password(body.password)
     db.add(user)

@@ -1,6 +1,8 @@
-import { Check, Trophy } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { Check, Share, Trophy } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { formatDuration, formatRelativeDate, formatVolume } from '../lib/format'
+import { shareWorkoutCard } from '../lib/shareCard'
+import { toast } from '../lib/toast'
 import type { FinishResult } from '../lib/types'
 
 /** Brief ember-toned confetti burst. Hand-rolled — no dependencies, respects
@@ -91,6 +93,16 @@ interface FinishScreenProps {
 }
 
 export default function FinishScreen({ summary, unit, onDone }: FinishScreenProps) {
+  const [sharing, setSharing] = useState(false)
+  const doShare = async () => {
+    setSharing(true)
+    try {
+      await shareWorkoutCard(summary, unit)
+    } catch {
+      toast('Could not create the share image')
+    }
+    setSharing(false)
+  }
   return (
     <div className="safe-top safe-bottom relative flex h-full flex-col">
       <Confetti />
@@ -187,10 +199,17 @@ export default function FinishScreen({ summary, unit, onDone }: FinishScreenProp
         )}
       </div>
 
-      <div className="shrink-0 px-4 pb-4">
+      <div className="flex shrink-0 gap-2 px-4 pb-4">
+        <button
+          onClick={doShare}
+          disabled={sharing}
+          className="touch-feedback flex h-13 items-center justify-center gap-2 rounded-xl bg-secondary px-5 py-3.5 text-base font-semibold text-secondary-foreground disabled:opacity-60"
+        >
+          <Share size={18} /> {sharing ? 'Rendering…' : 'Share'}
+        </button>
         <button
           onClick={onDone}
-          className="touch-feedback h-13 w-full rounded-xl bg-primary py-3.5 text-base font-semibold text-primary-foreground"
+          className="touch-feedback h-13 flex-1 rounded-xl bg-primary py-3.5 text-base font-semibold text-primary-foreground"
         >
           Done
         </button>

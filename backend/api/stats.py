@@ -100,6 +100,7 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
     trained_weeks: set[date] = set()
     split: dict[str, int] = defaultdict(int)
     split_since = today - timedelta(days=SPLIT_DAYS)
+    last_by_group: dict[str, date] = {}
     muscle_weeks: dict[str, dict] = defaultdict(lambda: defaultdict(int))
     trend_since = _week_start(today) - timedelta(weeks=MUSCLE_TREND_WEEKS - 1)
 
@@ -116,16 +117,20 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
         volume_by_week[week] += totals["total_volume"]
         workouts_by_week[week] += 1
 
-        if day >= split_since or week >= trend_since:
-            for we in w.exercises:
-                exercise = exercises.get(we.exercise_id)
-                if exercise is None:
-                    continue
-                working_sets = sum(1 for s in we.sets if s.is_completed and not s.is_warmup)
-                if day >= split_since:
-                    split[exercise.muscle_group] += working_sets
-                if week >= trend_since:
-                    muscle_weeks[exercise.muscle_group][week] += working_sets
+        for we in w.exercises:
+            exercise = exercises.get(we.exercise_id)
+            if exercise is None:
+                continue
+            working_sets = sum(1 for s in we.sets if s.is_completed and not s.is_warmup)
+            if working_sets == 0:
+                continue
+            prev = last_by_group.get(exercise.muscle_group)
+            if prev is None or day > prev:
+                last_by_group[exercise.muscle_group] = day
+            if day >= split_since:
+                split[exercise.muscle_group] += working_sets
+            if week >= trend_since:
+                muscle_weeks[exercise.muscle_group][week] += working_sets
 
     # Streak: consecutive trained weeks ending at the current week — or the
     # previous one, so the streak isn't "broken" before this week's session
@@ -154,7 +159,22 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
             }
         )
 
+    # Gap nudges: groups in the user's actual rotation (trained in the last
+    # 60 days) that have gone quiet for 9+ days. Silent when the user hasn't
+    # trained at all recently — the streak UI covers absence.
+    nudges = []
+    if user.gap_nudges and last_by_group:
+        most_recent = max(last_by_group.values())
+        if (today - most_recent).days <= 14:
+            for group, last in last_by_group.items():
+                days = (today - last).days
+                if 9 <= days and last >= today - timedelta(days=60):
+                    nudges.append({"group": group, "days": days})
+            nudges.sort(key=lambda n: -n["days"])
+            nudges = nudges[:2]
+
     return {
+        "nudges": nudges,
         "totals": {
             "workouts": len(workouts),
             "volume": round(total_volume, 1),

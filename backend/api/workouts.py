@@ -124,6 +124,52 @@ def list_workouts(
     return result
 
 
+
+def _recent_session_sets(
+    db: Session, user_id: int, exercise_id: int, n: int = 3
+) -> list[list[tuple[float, int]]]:
+    """Working sets of the last n finished sessions containing the exercise,
+    most recent first: [[(weight, reps), ...], ...]."""
+    rows = db.execute(
+        select(Workout.id, Workout.started_at, SetEntry.weight, SetEntry.reps)
+        .join(WorkoutExercise, WorkoutExercise.workout_id == Workout.id)
+        .join(SetEntry, SetEntry.workout_exercise_id == WorkoutExercise.id)
+        .where(
+            Workout.owner_id == user_id,
+            Workout.finished_at.is_not(None),
+            WorkoutExercise.exercise_id == exercise_id,
+            SetEntry.is_completed.is_(True),
+            SetEntry.is_warmup.is_(False),
+            SetEntry.reps.is_not(None),
+        )
+        .order_by(Workout.started_at.desc())
+    ).all()
+    sessions: dict[int, list[tuple[float, int]]] = {}
+    order: list[int] = []
+    for wid, _started, weight, reps in rows:
+        if wid not in sessions:
+            if len(order) >= n:
+                continue
+            sessions[wid] = []
+            order.append(wid)
+        sessions[wid].append((weight or 0.0, reps or 0))
+    return [sessions[w] for w in order]
+
+
+def _stalled(sessions: list[list[tuple[float, int]]], rep_max: int) -> float | None:
+    """Three sessions at the same top weight, none completing the rep target
+    on every set -> return that weight, else None."""
+    if len(sessions) < 3:
+        return None
+    tops = [max((w for w, _ in sess), default=0.0) for sess in sessions]
+    if tops[0] <= 0 or any(abs(t - tops[0]) > 0.01 for t in tops):
+        return None
+    for sess in sessions:
+        if all(reps >= rep_max for _, reps in sess):
+            return None  # at least one session hit the target across the board
+    return tops[0]
+
+
 @router.post("")
 def start_workout(
     body: WorkoutStart,
@@ -142,6 +188,7 @@ def start_workout(
         name = name or routine.name
         for re_ in routine.exercises:
             suggestion = None
+            kind = None
             if re_.rep_max:
                 # Double progression: every previous working set hit rep_max
                 # -> suggest last weight + increment
@@ -151,6 +198,16 @@ def start_workout(
                     top_weight = max((x["weight"] or 0) for x in working)
                     if all(x["reps"] >= re_.rep_max for x in working) and top_weight > 0:
                         suggestion = top_weight + (re_.increment or 2.5)
+                        kind = "progress"
+                    elif user.deload_hints:
+                        # Three straight sessions stuck at the same weight
+                        # without hitting the target -> suggest ~10% off
+                        sessions = _recent_session_sets(db, user.id, re_.exercise_id)
+                        stall_weight = _stalled(sessions, re_.rep_max)
+                        if stall_weight is not None:
+                            step = re_.increment or 2.5
+                            suggestion = max(step, round(stall_weight * 0.9 / step) * step)
+                            kind = "deload"
             we = WorkoutExercise(
                 exercise_id=re_.exercise_id,
                 position=re_.position,
@@ -159,6 +216,7 @@ def start_workout(
                 rep_min=re_.rep_min,
                 rep_max=re_.rep_max,
                 suggested_weight=suggestion,
+                suggestion_kind=kind,
             )
             we.sets = [SetEntry(position=i) for i in range(re_.set_count)]
             exercises.append(we)

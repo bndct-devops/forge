@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Integer, String
+from sqlalchemy import Boolean, DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.core.clock import utcnow
@@ -18,6 +18,12 @@ class User(Base):
     unit: Mapped[str] = mapped_column(String(4), default="kg")  # kg | lb
     default_rest_seconds: Mapped[int] = mapped_column(Integer, default=120)
     weekly_goal: Mapped[int] = mapped_column(Integer, default=3)
+    # Insight toggles — on by default, individually switchable
+    gap_nudges: Mapped[bool] = mapped_column(Boolean, default=True)
+    deload_hints: Mapped[bool] = mapped_column(Boolean, default=True)
+    # JSON blob for the plate calculator: {"bar": kg, "plates": [...]}; NULL =
+    # plates-only math on the tracked weight (bar 0, standard plates)
+    plate_config: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=utcnow
     )

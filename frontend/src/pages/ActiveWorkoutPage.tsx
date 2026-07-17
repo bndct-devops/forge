@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Calculator, Check, ChevronDown, CloudOff, Flag, Flame, GripVertical, Link2, MoreHorizontal, Plus, StickyNote, Timer, Trash2, TrendingUp, Unlink2, X } from 'lucide-react'
+import { ArrowLeftRight, Calculator, Check, ChevronDown, CloudOff, Flag, Flame, GripVertical, Link2, MoreHorizontal, Plus, StickyNote, Timer, Trash2, TrendingDown, TrendingUp, Unlink2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ConfirmSheet from '../components/ConfirmSheet'
@@ -290,13 +290,20 @@ export default function ActiveWorkoutPage() {
                     </div>
                   </div>
 
-                  {we.suggested_weight != null && (
-                    <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-primary">
-                      <TrendingUp size={13} className="shrink-0" />
-                      Progression: {we.suggested_weight} {user?.unit ?? 'kg'} suggested
-                      {we.rep_min != null && we.rep_max != null && ` · target ${we.rep_min}–${we.rep_max} reps`}
-                    </p>
-                  )}
+                  {we.suggested_weight != null &&
+                    (we.suggestion_kind === 'deload' ? (
+                      <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-warning">
+                        <TrendingDown size={13} className="shrink-0" />
+                        Deload: {we.suggested_weight} {user?.unit ?? 'kg'} suggested after 3 stalled
+                        sessions
+                      </p>
+                    ) : (
+                      <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-primary">
+                        <TrendingUp size={13} className="shrink-0" />
+                        Progression: {we.suggested_weight} {user?.unit ?? 'kg'} suggested
+                        {we.rep_min != null && we.rep_max != null && ` · target ${we.rep_min}–${we.rep_max} reps`}
+                      </p>
+                    ))}
                   {we.note && (
                     <p className="mt-1 flex items-start gap-1.5 text-xs text-muted-foreground">
                       <StickyNote size={13} className="mt-0.5 shrink-0" />

@@ -46,6 +46,8 @@ class WorkoutExercise(Base):
     rep_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
     rep_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
     suggested_weight: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # 'progress' (add weight) or 'deload' (back off after repeated stalls)
+    suggestion_kind: Mapped[str | None] = mapped_column(String(12), nullable=True)
 
     sets: Mapped[List["SetEntry"]] = relationship(
         cascade="all, delete-orphan", order_by="SetEntry.position"

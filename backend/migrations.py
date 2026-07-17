@@ -39,3 +39,9 @@ def run_migrations() -> None:
     _ensure_column("workout_exercises", "suggested_weight", "suggested_weight FLOAT")
     # 'drop' | 'failure' | NULL (normal working set)
     _ensure_column("set_entries", "set_type", "set_type VARCHAR(16)")
+    _ensure_column("users", "gap_nudges", "gap_nudges BOOLEAN NOT NULL DEFAULT 1")
+    _ensure_column("users", "deload_hints", "deload_hints BOOLEAN NOT NULL DEFAULT 1")
+    _ensure_column("users", "plate_config", "plate_config TEXT")
+    _ensure_column(
+        "workout_exercises", "suggestion_kind", "suggestion_kind VARCHAR(12)"
+    )

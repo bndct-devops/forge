@@ -40,6 +40,7 @@ def startup():
         seed_exercises(db)
     finally:
         db.close()
+    backup.start_backup_scheduler()
 
 
 @app.get("/api/health")

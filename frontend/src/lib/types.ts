@@ -5,6 +5,9 @@ export interface User {
   unit: 'kg' | 'lb'
   default_rest_seconds: number
   weekly_goal: number
+  gap_nudges: boolean
+  deload_hints: boolean
+  plate_config: string | null
 }
 
 export interface Exercise {
@@ -79,6 +82,7 @@ export interface WorkoutExercise {
   rep_min: number | null
   rep_max: number | null
   suggested_weight: number | null
+  suggestion_kind?: 'progress' | 'deload' | null
   sets: SetEntry[]
   previous_sets: PastSet[]
 }

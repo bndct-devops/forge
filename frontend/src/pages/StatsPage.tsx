@@ -1,4 +1,4 @@
-import { Flame, Ruler, Trophy } from 'lucide-react'
+import { Flame, Moon, Ruler, Trophy } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import {
   Bar,
@@ -19,6 +19,7 @@ import { formatShortDate, formatVolume } from '../lib/format'
 import { cn } from '../lib/utils'
 
 interface StatsData {
+  nudges: { group: string; days: number }[]
   totals: { workouts: number; volume: number; sets: number; prs: number; since: string | null }
   streak_weeks: number
   calendar: { date: string; workouts: number }[]
@@ -165,6 +166,18 @@ export default function StatsPage() {
               </div>
             </div>
           </div>
+
+          {(stats.nudges ?? []).map((n) => (
+            <div
+              key={n.group}
+              className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 text-sm"
+            >
+              <Moon size={17} className="shrink-0 text-muted-foreground" />
+              <span>
+                No <span className="font-semibold">{n.group}</span> work in {n.days} days
+              </span>
+            </div>
+          ))}
 
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
             <StatTile label="Workouts" value={String(stats.totals.workouts)} />

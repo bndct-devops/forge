@@ -140,6 +140,7 @@ def serialize_workout(db: Session, workout: Workout, with_previous: bool = True)
                 "rep_min": we.rep_min,
                 "rep_max": we.rep_max,
                 "suggested_weight": we.suggested_weight,
+                "suggestion_kind": we.suggestion_kind,
                 "sets": [
                     {
                         "id": s.id,
