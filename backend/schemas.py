@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -81,6 +83,10 @@ class RoutineIn(BaseModel):
     exercises: list[RoutineExerciseIn] = []
 
 
+class RoutineOrder(BaseModel):
+    routine_ids: list[int]  # in the desired home-screen order
+
+
 # ── Workouts ─────────────────────────────────────────────────────────────────
 
 class WorkoutStart(BaseModel):
@@ -115,6 +121,7 @@ class WorkoutExerciseAdd(BaseModel):
 class WorkoutExerciseUpdate(BaseModel):
     rest_seconds: int | None = Field(default=None, ge=0, le=3600)
     superset_with_next: bool | None = None
+    exercise_id: int | None = None
 
 
 class SetUpdate(BaseModel):
@@ -122,6 +129,19 @@ class SetUpdate(BaseModel):
     reps: int | None = Field(default=None, ge=0)
     is_completed: bool | None = None
     is_warmup: bool | None = None
+    set_type: Literal["drop", "failure"] | None = None
+    rpe: float | None = Field(default=None, ge=1, le=10)
+
+
+class SetRestore(BaseModel):
+    """Undo payload — re-create a just-deleted set at its old position."""
+
+    position: int | None = Field(default=None, ge=0)
+    weight: float | None = Field(default=None, ge=0)
+    reps: int | None = Field(default=None, ge=0)
+    is_completed: bool = False
+    is_warmup: bool = False
+    set_type: Literal["drop", "failure"] | None = None
     rpe: float | None = Field(default=None, ge=1, le=10)
 
 

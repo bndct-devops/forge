@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from backend.core.database import get_db
 from backend.core.security import get_current_user
 from backend.models import Exercise, Routine, RoutineExercise, User, Workout
-from backend.schemas import RoutineIn
+from backend.schemas import RoutineIn, RoutineOrder
 
 router = APIRouter(prefix="/routines", tags=["routines"])
 
@@ -91,6 +91,27 @@ def create_routine(
     db.add(routine)
     db.commit()
     return _serialize(db, routine)
+
+
+# Static route before /{routine_id} so "order" never parses as an id
+@router.put("/order")
+def reorder_routines(
+    body: RoutineOrder,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    owned = {
+        r.id: r
+        for r in db.execute(select(Routine).where(Routine.owner_id == user.id)).scalars()
+    }
+    pos = 0
+    for rid in body.routine_ids:
+        routine = owned.get(rid)
+        if routine is not None:
+            routine.position = pos
+            pos += 1
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/{routine_id}")

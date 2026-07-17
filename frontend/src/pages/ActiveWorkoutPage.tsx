@@ -1,4 +1,4 @@
-import { Calculator, ChevronDown, CloudOff, Flag, GripVertical, Link2, MoreHorizontal, Plus, StickyNote, Timer, Trash2, TrendingUp, Unlink2, X } from 'lucide-react'
+import { ArrowLeftRight, Calculator, Check, ChevronDown, CloudOff, Flag, Flame, GripVertical, Link2, MoreHorizontal, Plus, StickyNote, Timer, Trash2, TrendingUp, Unlink2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ConfirmSheet from '../components/ConfirmSheet'
@@ -17,7 +17,8 @@ import { formatClock, formatRelativeDate, formatSetWeight, formatVolume, parseUT
 import { useOutboxSize } from '../lib/outbox'
 import { restTimer } from '../lib/timer'
 import { moveItem, useDragReorder } from '../lib/useDragReorder'
-import type { FinishResult, WorkoutExercise } from '../lib/types'
+import type { FinishResult, SetEntry, WorkoutExercise } from '../lib/types'
+import { cn } from '../lib/utils'
 
 const REST_OPTIONS = [0, 30, 45, 60, 90, 120, 150, 180, 240, 300]
 const BARBELL_EQUIPMENT = new Set(['Barbell', 'EZ Bar', 'Trap Bar'])
@@ -28,6 +29,33 @@ function plateWeightFor(we: WorkoutExercise): number | null {
   if (filled.length) return Math.max(...filled)
   const previous = we.previous_sets.map((s) => s.weight ?? 0).filter((w) => w > 0)
   return previous.length ? Math.max(...previous) : null
+}
+
+/** Working weight the warm-up ramp builds toward: what's typed today, else
+ *  the progression suggestion, else last session's top weight. */
+function warmupTarget(we: WorkoutExercise): number | null {
+  if (we.equipment === 'Bodyweight') return null
+  const filled = we.sets.map((s) => s.weight ?? 0).filter((w) => w > 0)
+  if (filled.length) return Math.max(...filled)
+  if (we.suggested_weight != null && we.suggested_weight > 0) return we.suggested_weight
+  const previous = we.previous_sets.map((s) => s.weight ?? 0).filter((w) => w > 0)
+  return previous.length ? Math.max(...previous) : null
+}
+
+/** ~40/60/80% ramp, rounded to the plate step, deduped, always below target. */
+function warmupRamp(target: number, unit: string): { weight: number; reps: number }[] {
+  const step = unit === 'lb' ? 5 : 2.5
+  const ramp = [
+    { pct: 0.4, reps: 10 },
+    { pct: 0.6, reps: 6 },
+    { pct: 0.8, reps: 3 },
+  ].map(({ pct, reps }) => ({
+    weight: Math.max(step, Math.round((target * pct) / step) * step),
+    reps,
+  }))
+  return ramp.filter(
+    (r, i, all) => r.weight < target && all.findIndex((x) => x.weight === r.weight) === i,
+  )
 }
 
 function NameInput({ name, onCommit }: { name: string; onCommit: (name: string) => void }) {
@@ -71,6 +99,7 @@ export default function ActiveWorkoutPage() {
     removeExercise,
     setExerciseRest,
     setSupersetLink,
+    swapExercise,
     addSet,
     updateSet,
     deleteSet,
@@ -80,6 +109,8 @@ export default function ActiveWorkoutPage() {
   } = useWorkout()
   const [pickerOpen, setPickerOpen] = useState(false)
   const [menuExercise, setMenuExercise] = useState<WorkoutExercise | null>(null)
+  const [swapTarget, setSwapTarget] = useState<WorkoutExercise | null>(null)
+  const [markerSet, setMarkerSet] = useState<SetEntry | null>(null)
   const [plateExercise, setPlateExercise] = useState<WorkoutExercise | null>(null)
   const [peekExercise, setPeekExercise] = useState<WorkoutExercise | null>(null)
   const [peekSessions, setPeekSessions] = useState<
@@ -305,7 +336,7 @@ export default function ActiveWorkoutPage() {
                         onRpe={(rpe) => updateSet(set.id, { rpe })}
                         onComplete={(weight, reps) => completeSet(we, set.id, weight, reps)}
                         onUncomplete={() => updateSet(set.id, { is_completed: false })}
-                        onToggleWarmup={() => updateSet(set.id, { is_warmup: !set.is_warmup })}
+                        onMarker={() => setMarkerSet(set)}
                         onDelete={() => deleteSet(we.id, set.id)}
                       />
                     ))}
@@ -351,6 +382,62 @@ export default function ActiveWorkoutPage() {
         }}
       />
 
+      <ExercisePicker
+        open={swapTarget != null}
+        onClose={() => setSwapTarget(null)}
+        onPick={async (exercise) => {
+          const target = swapTarget
+          setSwapTarget(null)
+          if (!target || exercise.id === target.exercise_id) return
+          try {
+            await swapExercise(target.id, exercise.id)
+          } catch {
+            toast('Could not swap the exercise')
+          }
+        }}
+      />
+
+      <Sheet
+        open={markerSet != null}
+        onClose={() => setMarkerSet(null)}
+        title={markerSet ? `Set ${markerSet.position + 1}` : undefined}
+      >
+        {markerSet && (
+          <div className="flex flex-col gap-1 pt-1 pb-2">
+            {(
+              [
+                { label: 'Working set', hint: 'Counts toward PRs and volume', warmup: false, type: null },
+                { label: 'Warm-up', hint: 'Excluded from PRs and volume', warmup: true, type: null },
+                { label: 'Drop set', hint: 'Reduced weight straight after a working set', warmup: false, type: 'drop' as const },
+                { label: 'To failure', hint: 'Taken to technical failure', warmup: false, type: 'failure' as const },
+              ] as const
+            ).map((opt) => {
+              const active =
+                markerSet.is_warmup === opt.warmup && (markerSet.set_type ?? null) === opt.type
+              return (
+                <button
+                  key={opt.label}
+                  onClick={async () => {
+                    setMarkerSet(null)
+                    await updateSet(markerSet.id, { is_warmup: opt.warmup, set_type: opt.type })
+                  }}
+                  className={cn(
+                    'touch-feedback flex items-center justify-between rounded-lg px-3 py-3 text-left hover:bg-secondary',
+                    active && 'bg-accent-soft',
+                  )}
+                >
+                  <span>
+                    <span className={cn('font-medium', active && 'text-primary')}>{opt.label}</span>
+                    <span className="block text-xs text-muted-foreground">{opt.hint}</span>
+                  </span>
+                  {active && <Check size={18} className="text-primary" />}
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </Sheet>
+
       <Sheet open={menuExercise != null} onClose={() => setMenuExercise(null)} title={menuExercise?.name}>
         {menuExercise && (
           <div className="flex flex-col gap-3 pt-1">
@@ -385,6 +472,49 @@ export default function ActiveWorkoutPage() {
                   : 'Superset with next exercise'}
               </button>
             )}
+            <button
+              onClick={() => {
+                setSwapTarget(menuExercise)
+                setMenuExercise(null)
+              }}
+              className="touch-feedback flex items-center gap-3 rounded-lg px-3 py-3 text-left font-medium hover:bg-secondary"
+            >
+              <ArrowLeftRight size={18} /> Swap exercise
+            </button>
+            {(() => {
+              const target = warmupTarget(menuExercise)
+              const ramp = target != null ? warmupRamp(target, user?.unit ?? 'kg') : []
+              if (ramp.length === 0) return null
+              return (
+                <button
+                  onClick={async () => {
+                    const we = menuExercise
+                    setMenuExercise(null)
+                    try {
+                      let pos = 0
+                      for (const r of ramp) {
+                        await api(`/workouts/${workout!.id}/exercises/${we.id}/sets`, {
+                          method: 'POST',
+                          body: { position: pos++, weight: r.weight, reps: r.reps, is_warmup: true },
+                        })
+                      }
+                      await refresh()
+                    } catch {
+                      toast('Could not add warm-up sets')
+                    }
+                  }}
+                  className="touch-feedback flex items-center gap-3 rounded-lg px-3 py-3 text-left font-medium hover:bg-secondary"
+                >
+                  <Flame size={18} />
+                  <span>
+                    Add warm-up sets
+                    <span className="block text-xs font-normal text-muted-foreground">
+                      {ramp.map((r) => `${formatSetWeight(r.weight, user?.unit ?? 'kg')} × ${r.reps}`).join(' · ')}
+                    </span>
+                  </span>
+                </button>
+              )
+            })()}
             {BARBELL_EQUIPMENT.has(menuExercise.equipment) && (
               <button
                 onClick={() => {

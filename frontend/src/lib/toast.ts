@@ -1,9 +1,12 @@
-/** Minimal global toasts — for failures that would otherwise be silent. */
+/** Minimal global toasts — failures that would otherwise be silent, plus
+ *  undo-style actions. */
 import { useEffect, useState } from 'react'
 
 export interface Toast {
   id: number
   message: string
+  kind: 'warn' | 'info'
+  action?: { label: string; run: () => void }
 }
 
 let nextId = 1
@@ -14,14 +17,20 @@ function notify() {
   listeners.forEach((l) => l())
 }
 
-export function toast(message: string) {
-  const id = nextId++
-  toasts = [...toasts, { id, message }]
+export function dismissToast(id: number) {
+  toasts = toasts.filter((t) => t.id !== id)
   notify()
-  setTimeout(() => {
-    toasts = toasts.filter((t) => t.id !== id)
-    notify()
-  }, 3200)
+}
+
+export function toast(
+  message: string,
+  opts?: { kind?: 'warn' | 'info'; action?: { label: string; run: () => void }; duration?: number },
+): number {
+  const id = nextId++
+  toasts = [...toasts, { id, message, kind: opts?.kind ?? 'warn', action: opts?.action }]
+  notify()
+  setTimeout(() => dismissToast(id), opts?.duration ?? 3200)
+  return id
 }
 
 export function useToasts(): Toast[] {

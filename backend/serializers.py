@@ -148,6 +148,7 @@ def serialize_workout(db: Session, workout: Workout, with_previous: bool = True)
                         "reps": s.reps,
                         "is_completed": s.is_completed,
                         "is_warmup": s.is_warmup,
+                        "set_type": s.set_type,
                         "is_pr": s.is_pr,
                         "rpe": s.rpe,
                     }

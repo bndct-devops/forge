@@ -37,3 +37,5 @@ def run_migrations() -> None:
     _ensure_column("workout_exercises", "rep_min", "rep_min INTEGER")
     _ensure_column("workout_exercises", "rep_max", "rep_max INTEGER")
     _ensure_column("workout_exercises", "suggested_weight", "suggested_weight FLOAT")
+    # 'drop' | 'failure' | NULL (normal working set)
+    _ensure_column("set_entries", "set_type", "set_type VARCHAR(16)")

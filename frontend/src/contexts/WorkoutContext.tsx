@@ -15,11 +15,12 @@ interface WorkoutContextValue {
   removeExercise: (weId: number) => Promise<void>
   setExerciseRest: (weId: number, restSeconds: number | null) => Promise<void>
   setSupersetLink: (weId: number, withNext: boolean) => Promise<void>
+  swapExercise: (weId: number, exerciseId: number) => Promise<void>
   reorderExercises: (weIds: number[]) => Promise<void>
   addSet: (weId: number) => Promise<void>
   updateSet: (
     setId: number,
-    patch: Partial<Pick<SetEntry, 'weight' | 'reps' | 'is_completed' | 'is_warmup' | 'rpe'>>,
+    patch: Partial<Pick<SetEntry, 'weight' | 'reps' | 'is_completed' | 'is_warmup' | 'set_type' | 'rpe'>>,
   ) => Promise<SetEntry>
   deleteSet: (weId: number, setId: number) => Promise<void>
   finish: () => Promise<FinishResult>
@@ -136,6 +137,18 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     [workout],
   )
 
+  const swapExercise = useCallback(
+    async (weId: number, exerciseId: number) => {
+      if (!workout) return
+      const w = await api<Workout>(`/workouts/${workout.id}/exercises/${weId}`, {
+        method: 'PATCH',
+        body: { exercise_id: exerciseId },
+      })
+      setWorkout(w)
+    },
+    [workout],
+  )
+
   const setSupersetLink = useCallback(
     async (weId: number, withNext: boolean) => {
       if (!workout) return
@@ -220,26 +233,61 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     [applySet],
   )
 
-  const deleteSet = useCallback(async (weId: number, setId: number) => {
-    await api(`/sets/${setId}`, { method: 'DELETE' })
-    setWorkout((prev) =>
-      prev
-        ? {
-            ...prev,
-            exercises: prev.exercises.map((we) =>
-              we.id === weId
-                ? {
-                    ...we,
-                    sets: we.sets
-                      .filter((s) => s.id !== setId)
-                      .map((s, i) => ({ ...s, position: i })),
-                  }
-                : we,
-            ),
-          }
-        : prev,
-    )
-  }, [])
+  const deleteSet = useCallback(
+    async (weId: number, setId: number) => {
+      if (!workout) return
+      const workoutId = workout.id
+      const snapshot = workout.exercises
+        .find((we) => we.id === weId)
+        ?.sets.find((s) => s.id === setId)
+      await api(`/sets/${setId}`, { method: 'DELETE' })
+      setWorkout((prev) =>
+        prev
+          ? {
+              ...prev,
+              exercises: prev.exercises.map((we) =>
+                we.id === weId
+                  ? {
+                      ...we,
+                      sets: we.sets
+                        .filter((s) => s.id !== setId)
+                        .map((s, i) => ({ ...s, position: i })),
+                    }
+                  : we,
+              ),
+            }
+          : prev,
+      )
+      if (snapshot) {
+        toast('Set deleted', {
+          kind: 'info',
+          duration: 5000,
+          action: {
+            label: 'Undo',
+            run: async () => {
+              try {
+                const w = await api<Workout>(`/workouts/${workoutId}/exercises/${weId}/sets`, {
+                  method: 'POST',
+                  body: {
+                    position: snapshot.position,
+                    weight: snapshot.weight,
+                    reps: snapshot.reps,
+                    is_completed: snapshot.is_completed,
+                    is_warmup: snapshot.is_warmup,
+                    rpe: snapshot.rpe,
+                  },
+                })
+                setWorkout(w)
+              } catch {
+                toast('Could not restore the set')
+              }
+            },
+          },
+        })
+      }
+    },
+    [workout],
+  )
 
   const finish = useCallback(async () => {
     if (!workout) throw new Error('No active workout')
@@ -272,6 +320,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
         removeExercise,
         setExerciseRest,
         setSupersetLink,
+        swapExercise,
         reorderExercises,
         addSet,
         updateSet,

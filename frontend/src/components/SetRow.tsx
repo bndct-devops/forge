@@ -22,7 +22,7 @@ interface SetRowProps {
   onRpe: (rpe: number | null) => void
   onComplete: (weight: number, reps: number) => void
   onUncomplete: () => void
-  onToggleWarmup: () => void
+  onMarker: () => void
   onDelete: () => void
 }
 
@@ -37,7 +37,7 @@ function parseNum(value: string): number | null {
 }
 
 /** One set line: number | previous ghost | weight | reps | check.
- *  Tap the set number to mark it a warm-up (excluded from PRs and volume).
+ *  Tap the set number to mark the set (warm-up, drop set, failure).
  *  Swipe left to reveal delete, like a native list row. */
 export default function SetRow({
   set,
@@ -50,7 +50,7 @@ export default function SetRow({
   onRpe,
   onComplete,
   onUncomplete,
-  onToggleWarmup,
+  onMarker,
   onDelete,
 }: SetRowProps) {
   const [weight, setWeight] = useState(set.weight != null && set.weight !== 0 ? String(set.weight) : '')
@@ -257,14 +257,18 @@ export default function SetRow({
           <div className="animate-set-flash pointer-events-none absolute inset-0 bg-primary" />
         )}
         <button
-          onClick={onToggleWarmup}
-          aria-label={set.is_warmup ? 'Make working set' : 'Make warm-up set'}
+          onClick={onMarker}
+          aria-label="Mark set"
           className="touch-feedback tnum rounded-md py-1 text-center text-sm font-semibold text-muted-foreground"
         >
           {set.is_pr ? (
             <Trophy size={15} className="mx-auto text-record" />
           ) : set.is_warmup ? (
             <span className="text-warning">W</span>
+          ) : set.set_type === 'drop' ? (
+            <span className="text-primary">D</span>
+          ) : set.set_type === 'failure' ? (
+            <span className="text-destructive">F</span>
           ) : (
             set.position + 1
           )}

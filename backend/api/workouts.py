@@ -18,6 +18,7 @@ from datetime import timedelta, timezone
 from sqlalchemy import func
 
 from backend.schemas import (
+    SetRestore,
     SetUpdate,
     WorkoutExerciseAdd,
     WorkoutExerciseOrder,
@@ -436,6 +437,13 @@ def update_workout_exercise(
         we.rest_seconds = body.rest_seconds
     if body.superset_with_next is not None:
         we.superset_with_next = body.superset_with_next
+    if body.exercise_id is not None and body.exercise_id != we.exercise_id:
+        # Swap: keep logged sets, drop the old exercise's progression targets
+        _visible_exercise(db, user, body.exercise_id)
+        we.exercise_id = body.exercise_id
+        we.rep_min = None
+        we.rep_max = None
+        we.suggested_weight = None
     db.add(we)
     db.commit()
     return serialize_workout(db, workout)
@@ -464,6 +472,7 @@ def remove_exercise(
 def add_set(
     workout_id: int,
     we_id: int,
+    body: SetRestore | None = None,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -471,7 +480,27 @@ def add_set(
     we = next((x for x in workout.exercises if x.id == we_id), None)
     if we is None:
         raise HTTPException(status_code=404, detail="Exercise not in workout")
-    we.sets.append(SetEntry(position=len(we.sets)))
+    if body is None:
+        we.sets.append(SetEntry(position=len(we.sets)))
+    else:
+        # Undo of a deletion: slot the set back where it was
+        pos = body.position if body.position is not None else len(we.sets)
+        pos = min(pos, len(we.sets))
+        for s in we.sets:
+            if s.position >= pos:
+                s.position += 1
+        we.sets.append(
+            SetEntry(
+                position=pos,
+                weight=body.weight,
+                reps=body.reps,
+                is_completed=body.is_completed,
+                is_warmup=body.is_warmup,
+                set_type=body.set_type,
+                rpe=body.rpe,
+                completed_at=utcnow() if body.is_completed else None,
+            )
+        )
     db.add(we)
     db.commit()
     return serialize_workout(db, workout)
@@ -508,6 +537,8 @@ def update_set(
         set_entry.completed_at = utcnow() if body.is_completed else None
     if body.is_warmup is not None:
         set_entry.is_warmup = body.is_warmup
+    if "set_type" in body.model_fields_set:
+        set_entry.set_type = body.set_type
     if "rpe" in body.model_fields_set:
         set_entry.rpe = body.rpe
     db.add(set_entry)
@@ -519,6 +550,7 @@ def update_set(
         "reps": set_entry.reps,
         "is_completed": set_entry.is_completed,
         "is_warmup": set_entry.is_warmup,
+        "set_type": set_entry.set_type,
         "is_pr": set_entry.is_pr,
         "rpe": set_entry.rpe,
     }

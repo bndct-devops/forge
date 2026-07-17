@@ -1,4 +1,4 @@
-import { Copy, LibraryBig, MoreVertical, Pencil, Play, Plus, Trash2 } from 'lucide-react'
+import { Copy, GripVertical, LibraryBig, MoreVertical, Pencil, Play, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ConfirmSheet from '../components/ConfirmSheet'
@@ -8,7 +8,26 @@ import { CardListSkeleton } from '../components/Skeleton'
 import { useWorkout } from '../contexts/WorkoutContext'
 import { api } from '../lib/api'
 import type { Plan, Routine } from '../lib/types'
-import { formatRelativeDate, restLabel } from '../lib/format'
+import { formatRelativeDate, parseUTC, restLabel } from '../lib/format'
+import { moveItem, useDragReorder } from '../lib/useDragReorder'
+
+const UP_NEXT_WINDOW_DAYS = 14
+
+/** The home-screen template order IS the rotation: up next = the template
+ *  after the most recently performed one — but only when templates are in
+ *  active use (something performed within the window). */
+function upNextId(routines: Routine[]): number | null {
+  if (routines.length < 2) return null
+  const dated = routines.filter((r) => r.last_performed)
+  if (dated.length === 0) return null
+  const recent = dated.reduce((a, b) =>
+    parseUTC(a.last_performed!) > parseUTC(b.last_performed!) ? a : b,
+  )
+  const days = (Date.now() - parseUTC(recent.last_performed!).getTime()) / 86_400_000
+  if (days > UP_NEXT_WINDOW_DAYS) return null
+  const idx = routines.findIndex((r) => r.id === recent.id)
+  return routines[(idx + 1) % routines.length].id
+}
 
 function PlansSheet({
   open,
@@ -84,6 +103,14 @@ export default function WorkoutHomePage() {
   const [plansOpen, setPlansOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const { handleProps, itemProps } = useDragReorder(routines.length, (from, to) => {
+    const next = moveItem(routines, from, to)
+    setRoutines(next)
+    api('/routines/order', { method: 'PUT', body: { routine_ids: next.map((r) => r.id) } }).catch(
+      () => {},
+    )
+  })
+  const nextUp = upNextId(routines)
 
   useEffect(() => {
     api<Routine[]>('/routines')
@@ -183,18 +210,37 @@ export default function WorkoutHomePage() {
           {routines.map((routine, i) => (
             <div
               key={routine.id}
+              {...itemProps(i)}
               className="animate-card-appear flex flex-col rounded-xl border bg-card p-4"
-              style={{ animationDelay: `${i * 40}ms` }}
+              style={{ animationDelay: `${i * 40}ms`, ...itemProps(i).style }}
             >
               <div className="flex items-start justify-between gap-2">
-                <h3 className="text-lg">{routine.name}</h3>
-                <button
-                  onClick={() => setMenuRoutine(routine)}
-                  className="touch-feedback -mt-1 -mr-1 rounded-full p-2 text-muted-foreground"
-                  aria-label="Template options"
-                >
-                  <MoreVertical size={18} />
-                </button>
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <h3 className="truncate text-lg">{routine.name}</h3>
+                  {routine.id === nextUp && (
+                    <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-semibold text-primary">
+                      Up next
+                    </span>
+                  )}
+                </div>
+                <div className="flex shrink-0 items-center">
+                  {routines.length > 1 && (
+                    <button
+                      {...handleProps(i)}
+                      className="-mt-1 rounded-full p-2 text-muted-foreground/60"
+                      aria-label="Reorder template"
+                    >
+                      <GripVertical size={18} />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setMenuRoutine(routine)}
+                    className="touch-feedback -mt-1 -mr-1 rounded-full p-2 text-muted-foreground"
+                    aria-label="Template options"
+                  >
+                    <MoreVertical size={18} />
+                  </button>
+                </div>
               </div>
               <p className="mt-1 line-clamp-2 flex-1 text-sm text-muted-foreground">
                 {routine.exercises.map((e) => `${e.set_count} × ${e.name}`).join(', ') ||

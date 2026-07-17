@@ -53,6 +53,7 @@ export interface SetEntry {
   reps: number | null
   is_completed: boolean
   is_warmup: boolean
+  set_type?: 'drop' | 'failure' | null
   is_pr: boolean
   rpe?: number | null
 }
