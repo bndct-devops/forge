@@ -23,11 +23,16 @@ interface Family {
  *  "Lat Pulldown (Wide Grip)" reads as "Wide Grip". Falls back to the full
  *  name when stripping the base leaves nothing sensible. */
 export function variantLabel(name: string, baseName: string): string {
-  let label = name.replace(baseName, '').replace(/\s{2,}/g, ' ').trim()
-  label = label.replace(/^[-–—]\s*/, '').trim()
-  // Unwrap only a fully parenthesized label — never eat one side of a pair
-  if (/^\(.*\)$/.test(label)) label = label.slice(1, -1).trim()
-  return label || name
+  // "Base (Wide Grip)" -> "Wide Grip"
+  if (name.startsWith(`${baseName} (`) && name.endsWith(')')) {
+    return name.slice(baseName.length + 2, -1).trim() || name
+  }
+  // "Paused Base" -> "Paused" — only when the base is a clean word-boundary
+  // suffix, so "Single-Leg Extension" under "Leg Extension" stays whole
+  if (name.endsWith(` ${baseName}`)) {
+    return name.slice(0, -(baseName.length + 1)).trim() || name
+  }
+  return name
 }
 
 /** The distinctions that matter at a glance: how the movement is loaded. */
@@ -292,7 +297,7 @@ export default function ExercisePicker({ open, onClose, onPick }: ExercisePicker
         />
       ) : (
         <>
-          <div className="sticky top-0 z-10 -mx-5 bg-popover px-5 pb-2">
+          <div className="sticky top-0 z-10 -mx-5 bg-popover px-5 pt-1 pb-2">
             <div className="relative">
               <Search size={18} className="absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground" />
               <input
