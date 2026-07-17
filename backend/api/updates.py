@@ -43,13 +43,15 @@ def _fetch_latest_tag() -> str | None:
 
 
 @router.get("")
-def update_check(user: User = Depends(get_current_user)):
+def update_check(force: bool = False, user: User = Depends(get_current_user)):
     current = os.environ.get("FORGE_VERSION", "dev")
     if not re.fullmatch(r"v\d+\.\d+\.\d+", current):
         return {"current": current, "latest": None, "update_available": False}
 
     with _lock:
-        if time.time() - _cache["at"] > CACHE_SECONDS:
+        # a manual check bypasses the cache, throttled to once a minute
+        max_age = 60 if force else CACHE_SECONDS
+        if time.time() - _cache["at"] > max_age:
             try:
                 _cache["latest"] = _fetch_latest_tag()
             except Exception:

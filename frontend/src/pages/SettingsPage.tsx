@@ -172,6 +172,8 @@ export default function SettingsPage() {
   const [resetPassword, setResetPassword] = useState('')
   const [serverVersion, setServerVersion] = useState('')
   const [updateInfo, setUpdateInfo] = useState<{ latest: string | null; update_available: boolean } | null>(null)
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const [upToDate, setUpToDate] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -194,6 +196,24 @@ export default function SettingsPage() {
   const changeTheme = (t: ThemeId) => {
     setTheme(t)
     applyTheme(t)
+  }
+
+  const checkForUpdates = async () => {
+    setCheckingUpdate(true)
+    setUpToDate(false)
+    try {
+      const info = await api<{ latest: string | null; update_available: boolean }>(
+        '/update-check?force=true',
+      )
+      setUpdateInfo(info)
+      if (!info.update_available) {
+        setUpToDate(true)
+        setTimeout(() => setUpToDate(false), 4000)
+      }
+    } catch {
+      // offline or dev build — nothing to report
+    }
+    setCheckingUpdate(false)
   }
 
   const adjustRest = (delta: number) => {
@@ -575,6 +595,19 @@ export default function SettingsPage() {
       <p className="mt-8 text-center text-xs text-muted-foreground">
         Forge {serverVersion && serverVersion !== 'dev' ? serverVersion : ''} · self-hosted iron tracking · build {__BUILD__}
       </p>
+      <button
+        onClick={checkForUpdates}
+        disabled={checkingUpdate}
+        className="touch-feedback mx-auto mt-1 block rounded-md px-3 py-1.5 text-center text-xs font-medium text-primary"
+      >
+        {checkingUpdate
+          ? 'Checking…'
+          : updateInfo?.update_available
+            ? `${updateInfo.latest} is available`
+            : upToDate
+              ? "You're on the latest version"
+              : 'Check for updates'}
+      </button>
       <ViewportDebug />
 
       <ConfirmSheet
