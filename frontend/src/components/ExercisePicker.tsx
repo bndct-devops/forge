@@ -1,4 +1,5 @@
-import { ChevronDown, History, Plus, Search, SlidersHorizontal } from 'lucide-react'
+import { ChevronDown, Plus, Search, SlidersHorizontal } from 'lucide-react'
+import EquipmentGlyph from './EquipmentGlyph'
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../lib/api'
 import { fetchExercises, getCachedExercises } from '../lib/exerciseCache'
@@ -343,7 +344,7 @@ export default function ExercisePicker({ open, onClose, onPick }: ExercisePicker
                       onClick={() => onPick(e)}
                       className="touch-feedback flex w-full items-center gap-2.5 px-2 py-2.5 text-left"
                     >
-                      <History size={15} className="shrink-0 text-muted-foreground" />
+                      <EquipmentGlyph equipment={e.equipment} size={16} className="shrink-0 text-muted-foreground" />
                       <span className="min-w-0 truncate font-medium">{e.name}</span>
                       <span className="ml-auto shrink-0 text-xs text-muted-foreground">
                         {e.muscle_group}
@@ -367,8 +368,13 @@ export default function ExercisePicker({ open, onClose, onPick }: ExercisePicker
                   <div className="flex items-center">
                     <button
                       onClick={() => onPick(head)}
-                      className="touch-feedback flex min-w-0 flex-1 items-center justify-between py-3 pl-2 text-left"
+                      className="touch-feedback flex min-w-0 flex-1 items-center gap-2.5 py-3 pl-2 text-left"
                     >
+                      <EquipmentGlyph
+                        equipment={head.equipment}
+                        size={18}
+                        className="shrink-0 text-muted-foreground"
+                      />
                       <span className="min-w-0">
                         <span className="block truncate font-medium">{head.name}</span>
                         <span className="block text-sm text-muted-foreground">

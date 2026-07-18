@@ -16,11 +16,33 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import MuscleMap from '../components/MuscleMap'
 import Segmented from '../components/Segmented'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
+import type { MuscleRegion } from '../lib/bodyPaths'
 import { formatRelativeDate, formatSetWeight, formatShortDate, formatVolume, parseUTC } from '../lib/format'
+import { musclesFor } from '../lib/muscles'
 import type { ExerciseStats } from '../lib/types'
+
+const MUSCLE_LABEL: Record<MuscleRegion, string> = {
+  chest: 'Chest',
+  'front-delts': 'Front delts',
+  'rear-delts': 'Rear delts',
+  biceps: 'Biceps',
+  triceps: 'Triceps',
+  forearms: 'Forearms',
+  abs: 'Abs',
+  obliques: 'Obliques',
+  traps: 'Traps',
+  lats: 'Lats',
+  'lower-back': 'Lower back',
+  glutes: 'Glutes',
+  quads: 'Quads',
+  hamstrings: 'Hamstrings',
+  adductors: 'Adductors',
+  calves: 'Calves',
+}
 
 type Metric = 'best_1rm' | 'best_weight' | 'best_reps' | 'volume'
 
@@ -107,6 +129,26 @@ export default function ExerciseDetailPage() {
     .filter((c) => parseUTC(c.date).getTime() >= rangeCutoff)
     .map((c) => ({ ...c, label: formatShortDate(c.date) }))
   const rpeOverlay = metric === 'best_1rm' && data.some((c) => c.avg_rpe != null)
+  const worked = musclesFor(exercise.name, exercise.muscle_group)
+  const muscleCard = worked.primary.length > 0 && (
+    <section className="mt-4 rounded-xl border bg-card p-4">
+      <h2 className="mb-3 text-base">Muscles worked</h2>
+      <MuscleMap primary={worked.primary} secondary={worked.secondary} />
+      <p className="mt-3 text-sm">
+        <span className="text-muted-foreground">Primary</span>{' '}
+        <span className="font-semibold">
+          {worked.primary.map((m) => MUSCLE_LABEL[m]).join(', ')}
+        </span>
+        {worked.secondary.length > 0 && (
+          <>
+            <br />
+            <span className="text-muted-foreground">Secondary</span>{' '}
+            {worked.secondary.map((m) => MUSCLE_LABEL[m]).join(', ')}
+          </>
+        )}
+      </p>
+    </section>
+  )
 
   const tooltipStyle = {
     backgroundColor: 'var(--popover)',
@@ -204,11 +246,14 @@ export default function ExerciseDetailPage() {
       )}
 
       {records.times_performed === 0 ? (
-        <div className="mt-4">
-          <EmptyState title="No sets logged yet">
-            Records and progress will appear once you train this exercise.
-          </EmptyState>
-        </div>
+        <>
+          {muscleCard}
+          <div className="mt-4">
+            <EmptyState title="No sets logged yet">
+              Records and progress will appear once you train this exercise.
+            </EmptyState>
+          </div>
+        </>
       ) : (
         <>
           <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
@@ -240,6 +285,8 @@ export default function ExerciseDetailPage() {
             )}
             <StatTile label="Workouts" value={String(records.times_performed)} />
           </div>
+
+          {muscleCard}
 
           <section className="mt-4 rounded-xl border bg-card p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
