@@ -45,10 +45,39 @@ interface StatsTrends {
     avg_density: number | null
   } | null
   relative: { names: string[]; weeks: Record<string, string | number | null>[] } | null
+  blocks: {
+    days: number
+    current: { volume: number; workouts: number }
+    previous: { volume: number; workouts: number }
+    groups: { group: string; current: number; previous: number }[]
+    lifts: { name: string; current: number; previous: number }[]
+  } | null
+  times: { bucket: string; workouts: number; avg_volume: number; index: number | null }[] | null
+  forecast: {
+    name: string
+    current: number
+    slope: number
+    milestone: number | null
+    eta: string | null
+  }[]
+}
+
+interface YearReview {
+  year: number
+  workouts: number
+  volume: number
+  sets: number
+  prs: number
+  longest_streak_weeks: number
+  top_exercise: { name: string; sessions: number } | null
+  busiest_month: { name: string; volume: number }
+  months: { month: string; volume: number }[]
+  biggest_pr: { name: string; weight: number; reps: number } | null
 }
 
 interface StatsData {
   stalls: { exercise_id: number; name: string; weight: number; sessions: number; last_day: string }[]
+  year: YearReview | null
   nudges: { group: string; days: number }[]
   extras: StatsExtras | null
   trends: StatsTrends
@@ -216,7 +245,7 @@ export default function StatsPage() {
   const unit = user?.unit ?? 'kg'
 
   useEffect(() => {
-    api<StatsData>('/stats')
+    api<StatsData>(`/stats?tz_offset=${-new Date().getTimezoneOffset()}`)
       .then((s) => {
         setPageCache('stats', s)
         setStats(s)
@@ -250,6 +279,31 @@ export default function StatsPage() {
   }))
   const hasRpe = trend.some((w) => w.avg_rpe != null)
   const maxSets = Math.max(1, ...stats.muscle_groups.map((g) => g.sets))
+
+  // Push/pull balance derives from the muscle split. Arms and Core stay out —
+  // they mix both patterns, so counting them would blur the signal.
+  const groupSets = (name: string) => stats.muscle_groups.find((g) => g.group === name)?.sets ?? 0
+  const press = groupSets('Chest') + groupSets('Shoulders')
+  const pull = groupSets('Back')
+  const legsSets = groupSets('Legs')
+  const balance =
+    press + pull > 0
+      ? {
+          rows: [
+            { label: 'Press', sets: press },
+            { label: 'Pull', sets: pull },
+            { label: 'Legs', sets: legsSets },
+          ],
+          max: Math.max(1, press, pull, legsSets),
+          ratio: pull > 0 ? (press / pull).toFixed(1) : '∞',
+          note:
+            pull === 0 || press / pull > 1.5
+              ? 'pressing-heavy — your shoulders would thank you for more rows and pulldowns'
+              : pull > 0 && press / pull < 0.67
+                ? 'pull-heavy — room for more pressing if that is not deliberate'
+                : null,
+        }
+      : null
 
   return (
     <div className="safe-top px-4 pb-8">
@@ -455,6 +509,67 @@ export default function StatsPage() {
             <CalendarHeatmap days={stats.calendar} />
           </section>
 
+          {stats.year && (
+            <section className="rounded-xl border bg-card p-4">
+              <h2 className="mb-3 text-base">{stats.year.year} so far</h2>
+              <div className="mb-1 grid grid-cols-2 gap-2 md:grid-cols-4">
+                <StatTile label="Workouts" value={String(stats.year.workouts)} />
+                <StatTile label="Volume" value={formatVolume(stats.year.volume, unit)} />
+                <StatTile label="Working sets" value={String(stats.year.sets)} />
+                <StatTile label="PRs" value={String(stats.year.prs)} />
+              </div>
+              <div className="grid md:grid-cols-2 md:gap-x-6">
+                {stats.year.biggest_pr && (
+                  <HighlightRow
+                    icon={Trophy}
+                    label="Biggest PR"
+                    value={`${stats.year.biggest_pr.weight} ${unit} × ${stats.year.biggest_pr.reps}`}
+                    hint={`· ${stats.year.biggest_pr.name}`}
+                  />
+                )}
+                {stats.year.top_exercise && (
+                  <HighlightRow
+                    icon={Dumbbell}
+                    label="Most trained"
+                    value={stats.year.top_exercise.name}
+                    hint={`· ${stats.year.top_exercise.sessions} sessions`}
+                  />
+                )}
+                <HighlightRow
+                  icon={Flame}
+                  label="Longest streak"
+                  value={`${stats.year.longest_streak_weeks} week${stats.year.longest_streak_weeks === 1 ? '' : 's'}`}
+                />
+                <HighlightRow
+                  icon={CalendarDays}
+                  label="Biggest month"
+                  value={stats.year.busiest_month.name}
+                  hint={`· ${formatVolume(stats.year.busiest_month.volume, unit)}`}
+                />
+              </div>
+              {stats.year.months.length > 1 && (
+                <div className="mt-2 flex h-16 items-end gap-1">
+                  {stats.year.months.map((m) => {
+                    const max = Math.max(1, ...stats.year!.months.map((x) => x.volume))
+                    return (
+                      <div key={m.month} className="flex flex-1 flex-col items-center gap-0.5">
+                        <div
+                          className="w-full rounded-t-[3px]"
+                          style={{
+                            height: `${Math.max(2, (m.volume / max) * 44)}px`,
+                            backgroundColor:
+                              m.volume > 0 ? 'var(--chart-accent)' : 'var(--secondary)',
+                          }}
+                        />
+                        <span className="text-[9px] text-muted-foreground">{m.month}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </section>
+          )}
+
             </>
           )}
 
@@ -535,6 +650,76 @@ export default function StatsPage() {
               </ResponsiveContainer>
             </div>
           </section>
+
+          {stats.trends.blocks && (
+            <section className="rounded-xl border bg-card p-4">
+              <h2 className="mb-1 text-base">This block vs last</h2>
+              <p className="mb-3 text-xs text-muted-foreground">
+                {stats.trends.blocks.days}-day training blocks, sets per muscle group
+              </p>
+              <div className="mb-3 grid grid-cols-2 gap-2">
+                <StatTile
+                  label="Volume"
+                  value={formatVolume(stats.trends.blocks.current.volume, unit)}
+                  hint={
+                    stats.trends.blocks.previous.volume > 0
+                      ? `${stats.trends.blocks.current.volume >= stats.trends.blocks.previous.volume ? '+' : ''}${Math.round(((stats.trends.blocks.current.volume - stats.trends.blocks.previous.volume) / stats.trends.blocks.previous.volume) * 100)}% vs last block`
+                      : undefined
+                  }
+                />
+                <StatTile
+                  label="Workouts"
+                  value={String(stats.trends.blocks.current.workouts)}
+                  hint={`vs ${stats.trends.blocks.previous.workouts} last block`}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                {stats.trends.blocks.groups.map((g) => (
+                  <div key={g.group} className="flex items-center gap-3 text-sm">
+                    <span className="w-20 shrink-0 font-medium">{g.group}</span>
+                    <span className="tnum flex-1 text-right text-muted-foreground">
+                      {g.previous} → {g.current}
+                    </span>
+                    <span
+                      className={cn(
+                        'tnum w-12 shrink-0 text-right text-xs font-semibold',
+                        g.current > g.previous
+                          ? 'text-success'
+                          : g.current < g.previous
+                            ? 'text-destructive'
+                            : 'text-muted-foreground',
+                      )}
+                    >
+                      {g.current === g.previous
+                        ? '±0'
+                        : `${g.current > g.previous ? '+' : ''}${g.current - g.previous}`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {stats.trends.blocks.lifts.length > 0 && (
+                <div className="mt-3 flex flex-col gap-2 border-t pt-3">
+                  {stats.trends.blocks.lifts.map((l) => (
+                    <div key={l.name} className="flex items-center gap-3 text-sm">
+                      <span className="min-w-0 flex-1 truncate font-medium">{l.name}</span>
+                      <span className="tnum text-muted-foreground">
+                        {l.previous} → {l.current} {unit}
+                      </span>
+                      <span
+                        className={cn(
+                          'tnum w-14 shrink-0 text-right text-xs font-semibold',
+                          l.current >= l.previous ? 'text-success' : 'text-destructive',
+                        )}
+                      >
+                        {`${l.current >= l.previous ? '+' : ''}${(l.current - l.previous).toFixed(1)}`}
+                      </span>
+                    </div>
+                  ))}
+                  <p className="text-[10px] text-muted-foreground">best estimated 1RM per block</p>
+                </div>
+              )}
+            </section>
+          )}
 
           {stats.trends.top_lifts.names.length > 0 && (
             <section className="rounded-xl border bg-card p-4">
@@ -653,6 +838,40 @@ export default function StatsPage() {
                     ))}
                   </LineChart>
                 </ResponsiveContainer>
+              </div>
+            </section>
+          )}
+
+          {(stats.trends.forecast ?? []).length > 0 && (
+            <section className="rounded-xl border bg-card p-4">
+              <h2 className="mb-1 text-base">Trajectory</h2>
+              <p className="mb-3 text-xs text-muted-foreground">
+                straight-line fit through 12 weeks of estimated 1RM — a compass, not a promise
+              </p>
+              <div className="flex flex-col gap-2.5">
+                {stats.trends.forecast.map((f) => (
+                  <div key={f.name} className="flex items-center gap-3 text-sm">
+                    <span className="min-w-0 flex-1 truncate font-medium">{f.name}</span>
+                    {f.milestone && f.eta ? (
+                      <span className="tnum shrink-0 text-muted-foreground">
+                        {f.slope > 0 && (
+                          <span className="mr-2 text-xs text-success">
+                            +{f.slope} {unit}/wk
+                          </span>
+                        )}
+                        {f.milestone} {unit} ≈{' '}
+                        {new Date(f.eta).toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </span>
+                    ) : (
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        holding steady at {f.current} {unit}
+                      </span>
+                    )}
+                  </div>
+                ))}
               </div>
             </section>
           )}
@@ -798,6 +1017,41 @@ export default function StatsPage() {
             </section>
           </div>
 
+          {stats.trends.times && stats.trends.times.length >= 2 && (
+            <section className="rounded-xl border bg-card p-4">
+              <h2 className="mb-1 text-base">Time of day</h2>
+              <p className="mb-3 text-xs text-muted-foreground">
+                strength index: your session 1RMs vs that lift's average — 100 is your normal
+              </p>
+              <div className="flex flex-col gap-2.5">
+                {stats.trends.times.map((t) => (
+                  <div key={t.bucket} className="flex items-center gap-3">
+                    <span className="w-20 shrink-0 text-sm font-medium">{t.bucket}</span>
+                    <div className="h-4 flex-1 overflow-hidden rounded-full bg-secondary">
+                      {t.index != null && (
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${Math.min(100, Math.max(4, ((t.index - 85) / 30) * 100))}%`,
+                            backgroundColor:
+                              t.index >= 100 ? 'var(--chart-accent)' : 'var(--secondary-foreground)',
+                            opacity: t.index >= 100 ? 1 : 0.35,
+                          }}
+                        />
+                      )}
+                    </div>
+                    <span className="tnum w-8 shrink-0 text-right text-sm font-semibold">
+                      {t.index ?? '—'}
+                    </span>
+                    <span className="tnum w-16 shrink-0 text-right text-xs text-muted-foreground">
+                      {t.workouts}×
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           <section className="rounded-xl border bg-card p-4">
             <h2 className="mb-3 text-base">PRs per month</h2>
             <div className="h-36">
@@ -888,6 +1142,38 @@ export default function StatsPage() {
               )}
             </div>
           </section>
+
+          {balance && (
+            <section className="rounded-xl border bg-card p-4">
+              <h2 className="mb-1 text-base">Push / pull balance</h2>
+              <p className="mb-3 text-xs text-muted-foreground">
+                Chest + Shoulders vs Back — working sets, last {stats.split_days} days
+              </p>
+              <div className="flex flex-col gap-2.5">
+                {balance.rows.map((r) => (
+                  <div key={r.label} className="flex items-center gap-3">
+                    <span className="w-20 shrink-0 text-sm font-medium">{r.label}</span>
+                    <div className="h-4 flex-1 overflow-hidden rounded-full bg-secondary">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${(r.sets / balance.max) * 100}%`,
+                          backgroundColor: 'var(--chart-accent)',
+                        }}
+                      />
+                    </div>
+                    <span className="tnum w-8 shrink-0 text-right text-sm text-muted-foreground">
+                      {r.sets}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                {balance.note ??
+                  `press : pull = ${balance.ratio} : 1 — a reasonable balance`}
+              </p>
+            </section>
+          )}
             </>
           )}
         </div>

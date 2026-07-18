@@ -24,6 +24,11 @@ SPLIT_DAYS = 30
 REST_MIN_SECONDS = 15
 REST_MAX_SECONDS = 600
 STALL_WINDOW_DAYS = 45
+BLOCK_DAYS = 28
+TIME_BUCKET_DAYS = 180
+# Forecast guardrails: enough points to mean anything, near enough to believe
+FORECAST_MIN_POINTS = 4
+FORECAST_MAX_WEEKS = 26
 
 
 def _week_start(d: date) -> date:
@@ -83,7 +88,11 @@ def records(user: User = Depends(get_current_user), db: Session = Depends(get_db
 
 
 @router.get("")
-def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def stats(
+    tz_offset: int = 0,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     workouts = (
         db.execute(
             select(Workout)
@@ -122,6 +131,24 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
     density_by_week: dict[date, list[float]] = defaultdict(list)
     # Chronological per-exercise session summaries, for stall detection
     stall_sessions: dict[int, list[dict]] = defaultdict(list)
+    # Block comparison: last 28 days vs the 28 before
+    block_since = today - timedelta(days=BLOCK_DAYS - 1)
+    prev_block_since = block_since - timedelta(days=BLOCK_DAYS)
+    block_group_sets: dict[str, list[int]] = defaultdict(lambda: [0, 0])  # [current, prev]
+    block_totals = {"current": [0.0, 0], "previous": [0.0, 0]}  # volume, workouts
+    block_lift_e1rm: dict[int, list[float]] = defaultdict(lambda: [0.0, 0.0])
+    # Time-of-day: session e1RMs normalized per exercise, bucketed by local hour
+    time_since = today - timedelta(days=TIME_BUCKET_DAYS)
+    time_counts: dict[str, int] = defaultdict(int)
+    time_volume: dict[str, float] = defaultdict(float)
+    time_session_e1rm: list[tuple[int, str, float]] = []  # (exercise_id, bucket, e1rm)
+    # Year in review
+    year = today.year
+    year_data = {
+        "workouts": 0, "volume": 0.0, "sets": 0, "prs": 0,
+        "month_volume": defaultdict(float), "sessions_by_exercise": defaultdict(int),
+        "biggest_pr": None, "weeks": set(),
+    }
 
     for w in workouts:
         totals = workout_totals(w)
@@ -140,6 +167,27 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
         weekday_counts[day.weekday()] += 1
         if week >= e1rm_since and duration >= 60 and totals["total_volume"] > 0:
             density_by_week[week].append(totals["total_volume"] / (duration / 60))
+
+        block_idx = 0 if day >= block_since else 1 if day >= prev_block_since else None
+        if block_idx is not None:
+            key = "current" if block_idx == 0 else "previous"
+            block_totals[key][0] += totals["total_volume"]
+            block_totals[key][1] += 1
+        time_bucket = None
+        if day >= time_since:
+            local_hour = (w.started_at + timedelta(minutes=tz_offset)).hour
+            time_bucket = (
+                "Morning" if local_hour < 12 else "Afternoon" if local_hour < 17 else "Evening"
+            )
+            time_counts[time_bucket] += 1
+            time_volume[time_bucket] += totals["total_volume"]
+        if day.year == year:
+            year_data["workouts"] += 1
+            year_data["volume"] += totals["total_volume"]
+            year_data["sets"] += totals["total_sets"]
+            year_data["prs"] += totals["pr_count"]
+            year_data["month_volume"][day.month] += totals["total_volume"]
+            year_data["weeks"].add(week)
         volume_by_month[day.strftime("%Y-%m")] += totals["total_volume"]
         month_key = day.strftime("%Y-%m")
         for we in w.exercises:
@@ -149,6 +197,14 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
             for st in working:
                 if st.is_pr:
                     prs_by_month[month_key] += 1
+                    if day.year == year and (st.weight or 0) > 0:
+                        best = year_data["biggest_pr"]
+                        if best is None or st.weight > best["weight"]:
+                            year_data["biggest_pr"] = {
+                                "exercise_id": we.exercise_id,
+                                "weight": st.weight,
+                                "reps": st.reps,
+                            }
                 if st.rpe is not None and week >= e1rm_since:
                     rpe_by_week[week].append(st.rpe)
                 if day >= split_since and st.reps:
@@ -169,6 +225,14 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
                 best_e1rm = max(
                     (epley_1rm(s.weight or 0, s.reps or 0) for s in working), default=0.0
                 )
+                if day.year == year:
+                    year_data["sessions_by_exercise"][we.exercise_id] += 1
+                if best_e1rm > 0:
+                    if block_idx is not None:
+                        cur = block_lift_e1rm[we.exercise_id]
+                        cur[block_idx] = max(cur[block_idx], best_e1rm)
+                    if time_bucket is not None:
+                        time_session_e1rm.append((we.exercise_id, time_bucket, best_e1rm))
                 stall_sessions[we.exercise_id].append(
                     {
                         "day": day,
@@ -202,6 +266,8 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
                 split[exercise.muscle_group] += working_sets
             if week >= trend_since:
                 muscle_weeks[exercise.muscle_group][week] += working_sets
+            if block_idx is not None:
+                block_group_sets[exercise.muscle_group][block_idx] += working_sets
 
     # Streak: consecutive trained weeks ending at the current week — or the
     # previous one, so the streak isn't "broken" before this week's session
@@ -412,8 +478,152 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
         stalls.sort(key=lambda s: -s["sessions"])
         stalls = stalls[:5]
 
+    # Block comparison: needs both windows trained, else there is no "vs"
+    blocks = None
+    if block_totals["current"][1] > 0 and block_totals["previous"][1] > 0:
+        groups_cmp = [
+            {"group": g, "current": v[0], "previous": v[1]}
+            for g, v in block_group_sets.items()
+            if v[0] or v[1]
+        ]
+        groups_cmp.sort(key=lambda x: -(x["current"] + x["previous"]))
+        lifts_cmp = []
+        for eid in top_ids:
+            cur, prev = block_lift_e1rm.get(eid, [0.0, 0.0])
+            if eid in exercises and cur > 0 and prev > 0:
+                lifts_cmp.append(
+                    {"name": exercises[eid].name, "current": round(cur, 1), "previous": round(prev, 1)}
+                )
+        blocks = {
+            "days": BLOCK_DAYS,
+            "current": {
+                "volume": round(block_totals["current"][0], 1),
+                "workouts": block_totals["current"][1],
+            },
+            "previous": {
+                "volume": round(block_totals["previous"][0], 1),
+                "workouts": block_totals["previous"][1],
+            },
+            "groups": groups_cmp[:8],
+            "lifts": lifts_cmp,
+        }
+
+    # Time of day: each lift's session e1RM normalized against its own mean,
+    # so "index 103" means you lift 3% above your average in that slot
+    times = None
+    if len([b for b in ("Morning", "Afternoon", "Evening") if time_counts.get(b)]) >= 2:
+        by_ex: dict[int, list[tuple[str, float]]] = defaultdict(list)
+        for eid, bucket, v in time_session_e1rm:
+            by_ex[eid].append((bucket, v))
+        norm_by_bucket: dict[str, list[float]] = defaultdict(list)
+        for eid, entries in by_ex.items():
+            if len({b for b, _ in entries}) < 2:
+                continue  # a lift trained in only one slot says nothing comparative
+            ex_mean = sum(v for _, v in entries) / len(entries)
+            for b, v in entries:
+                norm_by_bucket[b].append(v / ex_mean)
+        times = [
+            {
+                "bucket": b,
+                "workouts": time_counts[b],
+                "avg_volume": round(time_volume[b] / time_counts[b], 1),
+                "index": (
+                    round(100 * sum(norm_by_bucket[b]) / len(norm_by_bucket[b]))
+                    if len(norm_by_bucket.get(b, [])) >= 3
+                    else None
+                ),
+            }
+            for b in ("Morning", "Afternoon", "Evening")
+            if time_counts.get(b)
+        ]
+
+    # Trajectory: least-squares slope over the weekly e1RM points; next
+    # round-number milestone only when it lands inside a believable horizon
+    forecast = []
+    for eid in top_ids:
+        if eid not in exercises:
+            continue
+        pts = sorted(e1rm_weeks.get(eid, {}).items())
+        if len(pts) < FORECAST_MIN_POINTS:
+            continue
+        xs = [(d - pts[0][0]).days / 7 for d, _ in pts]
+        ys = [v for _, v in pts]
+        if xs[-1] - xs[0] < 4:
+            continue
+        n = len(xs)
+        mx, my = sum(xs) / n, sum(ys) / n
+        denom = sum((x - mx) ** 2 for x in xs)
+        if denom == 0:
+            continue
+        slope = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / denom
+        current = max(ys)
+        entry = {
+            "name": exercises[eid].name,
+            "current": round(current, 1),
+            "slope": round(slope, 2),
+            "milestone": None,
+            "eta": None,
+        }
+        if slope >= 0.05:
+            milestone = (int(current // 10) + 1) * 10
+            weeks_to = (milestone - current) / slope
+            if weeks_to <= FORECAST_MAX_WEEKS:
+                entry["milestone"] = milestone
+                entry["eta"] = (today + timedelta(weeks=weeks_to)).isoformat()
+        forecast.append(entry)
+
+    year_review = None
+    if year_data["workouts"]:
+        top_eid = max(
+            year_data["sessions_by_exercise"],
+            key=year_data["sessions_by_exercise"].get,
+            default=None,
+        )
+        longest_year = run = 0
+        prev_week = None
+        for wk in sorted(year_data["weeks"]):
+            run = run + 1 if prev_week is not None and wk - prev_week == timedelta(weeks=1) else 1
+            longest_year = max(longest_year, run)
+            prev_week = wk
+        busiest = max(year_data["month_volume"], key=year_data["month_volume"].get)
+        bp = year_data["biggest_pr"]
+        pr_ex = exercises.get(bp["exercise_id"]) if bp else None
+        year_review = {
+            "year": year,
+            "workouts": year_data["workouts"],
+            "volume": round(year_data["volume"], 1),
+            "sets": year_data["sets"],
+            "prs": year_data["prs"],
+            "longest_streak_weeks": longest_year,
+            "top_exercise": (
+                {
+                    "name": exercises[top_eid].name,
+                    "sessions": year_data["sessions_by_exercise"][top_eid],
+                }
+                if top_eid and top_eid in exercises
+                else None
+            ),
+            "busiest_month": {
+                "name": date(year, busiest, 1).strftime("%B"),
+                "volume": round(year_data["month_volume"][busiest], 1),
+            },
+            "months": [
+                {
+                    "month": date(year, m, 1).strftime("%b"),
+                    "volume": round(year_data["month_volume"].get(m, 0.0), 1),
+                }
+                for m in range(1, today.month + 1)
+            ],
+            "biggest_pr": (
+                {"name": pr_ex.name, "weight": bp["weight"], "reps": bp["reps"]}
+                if bp and pr_ex
+                else None
+            ),
+        }
+
     return {
         "stalls": stalls,
+        "year": year_review,
         "nudges": nudges,
         "extras": extras,
         "trends": {
@@ -423,6 +633,9 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
             "top_lifts": {"names": top_names, "weeks": top_lift_weeks},
             "pacing": pacing,
             "relative": relative,
+            "blocks": blocks,
+            "times": times,
+            "forecast": forecast,
         },
         "totals": {
             "workouts": len(workouts),

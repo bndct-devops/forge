@@ -38,7 +38,10 @@ surfaces, OKLCH tokens, Onest + Bricolage Grotesque), its own ember accent.
   after the fact (sets, exercises, date — PRs recompute chronologically)
 - **Records & progress** — per-exercise best weight, estimated 1RM (Epley),
   best set volume, rep records, and charts over time
-- **Stats** — weekly streak, training calendar, weekly volume, muscle split
+- **Stats** — weekly streak, training calendar, weekly volume with RPE trend,
+  muscle split, push/pull balance, block-over-block comparison, measured rest
+  & session density, relative strength (e1RM ÷ bodyweight), time-of-day
+  strength index, stalled-lift alerts, PR trajectory, year in review
 - **Body measurements** — weight, body fat, circumferences with trend charts
 - **Training plans** — StrongLifts 5×5, PPL, Upper/Lower, Full Body, one tap
   to adopt into your templates
