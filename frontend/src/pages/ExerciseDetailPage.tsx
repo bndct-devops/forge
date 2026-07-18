@@ -31,6 +31,8 @@ const METRIC_LABEL: Record<Metric, string> = {
   volume: 'Volume',
 }
 
+const RPE_COLOR = '#6d87ab'
+
 function StatTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-xl border bg-card p-3">
@@ -104,6 +106,7 @@ export default function ExerciseDetailPage() {
   const data = chart
     .filter((c) => parseUTC(c.date).getTime() >= rangeCutoff)
     .map((c) => ({ ...c, label: formatShortDate(c.date) }))
+  const rpeOverlay = metric === 'best_1rm' && data.some((c) => c.avg_rpe != null)
 
   const tooltipStyle = {
     backgroundColor: 'var(--popover)',
@@ -305,7 +308,7 @@ export default function ExerciseDetailPage() {
                     />
                   </BarChart>
                 ) : (
-                  <LineChart data={data} margin={{ top: 6, right: 12, bottom: 0, left: -18 }}>
+                  <LineChart data={data} margin={{ top: 6, right: rpeOverlay ? -12 : 12, bottom: 0, left: -18 }}>
                     <CartesianGrid vertical={false} stroke="var(--border)" />
                     <XAxis
                       dataKey="label"
@@ -320,13 +323,28 @@ export default function ExerciseDetailPage() {
                       axisLine={false}
                       width={46}
                     />
+                    {rpeOverlay && (
+                      <YAxis
+                        yAxisId="rpe"
+                        orientation="right"
+                        domain={[5, 10]}
+                        tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+                        tickLine={false}
+                        axisLine={false}
+                        width={30}
+                      />
+                    )}
                     <Tooltip
                       cursor={{ stroke: 'var(--muted-foreground)', strokeDasharray: '3 3' }}
                       contentStyle={tooltipStyle}
-                      formatter={(value) => [
-                        metric === 'best_reps' ? `${value} reps` : `${value} ${unit}`,
-                        METRIC_LABEL[metric],
-                      ]}
+                      formatter={(value, name) =>
+                        name === 'Avg RPE'
+                          ? [String(value), 'Avg RPE']
+                          : [
+                              metric === 'best_reps' ? `${value} reps` : `${value} ${unit}`,
+                              METRIC_LABEL[metric],
+                            ]
+                      }
                     />
                     <Line
                       type="monotone"
@@ -336,10 +354,29 @@ export default function ExerciseDetailPage() {
                       dot={{ r: 3, fill: 'var(--chart-accent)', strokeWidth: 0 }}
                       activeDot={{ r: 5, fill: 'var(--chart-accent)', stroke: 'var(--card)', strokeWidth: 2 }}
                     />
+                    {rpeOverlay && (
+                      <Line
+                        yAxisId="rpe"
+                        type="monotone"
+                        dataKey="avg_rpe"
+                        name="Avg RPE"
+                        stroke={RPE_COLOR}
+                        strokeWidth={2}
+                        strokeDasharray="5 4"
+                        dot={{ r: 3, fill: RPE_COLOR, strokeWidth: 0 }}
+                        connectNulls
+                      />
+                    )}
                   </LineChart>
                 )}
               </ResponsiveContainer>
             </div>
+            {rpeOverlay && (
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                <span style={{ color: RPE_COLOR }}>– –</span> average RPE per session — rising 1RM at
+                flat RPE is real strength; flat 1RM at rising RPE is strain
+              </p>
+            )}
           </section>
 
           {records.best_1rm && (

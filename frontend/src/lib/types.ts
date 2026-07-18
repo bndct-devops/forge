@@ -162,7 +162,7 @@ export interface ExerciseStats {
     total_volume: number
     times_performed: number
   }
-  chart: { date: string; best_1rm: number; best_weight: number; best_reps: number; volume: number }[]
+  chart: { date: string; best_1rm: number; best_weight: number; best_reps: number; volume: number; avg_rpe: number | null }[]
   history: {
     workout_id: number
     workout_name: string

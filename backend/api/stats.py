@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from backend.core.clock import utcnow
 from backend.core.database import get_db
 from backend.core.security import get_current_user
-from backend.models import Exercise, SetEntry, User, Workout, WorkoutExercise
+from backend.models import Exercise, Measurement, SetEntry, User, Workout, WorkoutExercise
 from backend.serializers import epley_1rm, workout_totals
 
 router = APIRouter(prefix="/stats", tags=["stats"])
@@ -19,6 +19,11 @@ CALENDAR_WEEKS = 52  # a GitHub-style year, Monday-aligned
 MUSCLE_TREND_WEEKS = 8
 TREND_WEEKS = 12
 SPLIT_DAYS = 30
+# Gaps between set completions outside this band are drop-sets / interruptions,
+# not rest, and would poison the averages
+REST_MIN_SECONDS = 15
+REST_MAX_SECONDS = 600
+STALL_WINDOW_DAYS = 45
 
 
 def _week_start(d: date) -> date:
@@ -112,6 +117,11 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
     e1rm_since = _week_start(today) - timedelta(weeks=TREND_WEEKS - 1)
     muscle_weeks: dict[str, dict] = defaultdict(lambda: defaultdict(int))
     trend_since = _week_start(today) - timedelta(weeks=MUSCLE_TREND_WEEKS - 1)
+    rpe_by_week: dict[date, list[float]] = defaultdict(list)
+    rest_by_week: dict[date, list[float]] = defaultdict(list)
+    density_by_week: dict[date, list[float]] = defaultdict(list)
+    # Chronological per-exercise session summaries, for stall detection
+    stall_sessions: dict[int, list[dict]] = defaultdict(list)
 
     for w in workouts:
         totals = workout_totals(w)
@@ -125,8 +135,11 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
         trained_weeks.add(week)
         volume_by_week[week] += totals["total_volume"]
         workouts_by_week[week] += 1
-        total_time += int((w.finished_at - w.started_at).total_seconds())
+        duration = int((w.finished_at - w.started_at).total_seconds())
+        total_time += duration
         weekday_counts[day.weekday()] += 1
+        if week >= e1rm_since and duration >= 60 and totals["total_volume"] > 0:
+            density_by_week[week].append(totals["total_volume"] / (duration / 60))
         volume_by_month[day.strftime("%Y-%m")] += totals["total_volume"]
         month_key = day.strftime("%Y-%m")
         for we in w.exercises:
@@ -136,6 +149,8 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
             for st in working:
                 if st.is_pr:
                     prs_by_month[month_key] += 1
+                if st.rpe is not None and week >= e1rm_since:
+                    rpe_by_week[week].append(st.rpe)
                 if day >= split_since and st.reps:
                     reps = st.reps
                     bucket = (
@@ -143,6 +158,27 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
                         else "11–15" if reps <= 15 else "16+"
                     )
                     rep_buckets[bucket] += 1
+            if week >= e1rm_since and working:
+                stamps = sorted(s.completed_at for s in working if s.completed_at is not None)
+                for a, b in zip(stamps, stamps[1:]):
+                    gap = (b - a).total_seconds()
+                    if REST_MIN_SECONDS <= gap <= REST_MAX_SECONDS:
+                        rest_by_week[week].append(gap)
+            if working:
+                top = max((s.weight or 0.0) for s in working)
+                best_e1rm = max(
+                    (epley_1rm(s.weight or 0, s.reps or 0) for s in working), default=0.0
+                )
+                stall_sessions[we.exercise_id].append(
+                    {
+                        "day": day,
+                        "top": top,
+                        "best": best_e1rm,
+                        "has_target": bool(we.rep_max),
+                        "hit": bool(we.rep_max)
+                        and all((s.reps or 0) >= we.rep_max for s in working),
+                    }
+                )
             if week >= e1rm_since and working:
                 best = max(
                     (epley_1rm(st.weight or 0, st.reps or 0) for st in working),
@@ -188,11 +224,13 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
     weeks = []
     for i in range(TREND_WEEKS - 1, -1, -1):
         week = this_week - timedelta(weeks=i)
+        rpes = rpe_by_week.get(week)
         weeks.append(
             {
                 "week_start": week.isoformat(),
                 "volume": round(volume_by_week.get(week, 0.0), 1),
                 "workouts": workouts_by_week.get(week, 0),
+                "avg_rpe": round(sum(rpes) / len(rpes), 1) if rpes else None,
             }
         )
 
@@ -204,6 +242,8 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
         most_recent = max(last_by_group.values())
         if (today - most_recent).days <= 14:
             for group, last in last_by_group.items():
+                if group == "Other":  # catch-all bucket, not a body part to balance
+                    continue
                 days = (today - last).days
                 if 9 <= days and last >= today - timedelta(days=60):
                     nudges.append({"group": group, "days": days})
@@ -277,7 +317,103 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
                 row[exercises[eid].name] = round(value, 1) if value else None
         top_lift_weeks.append(row)
 
+    # Pacing: measured rest between sets (completed_at deltas) and volume/min
+    pacing = None
+    if rest_by_week or density_by_week:
+        pacing_weeks = []
+        for i in range(TREND_WEEKS - 1, -1, -1):
+            wk = this_week - timedelta(weeks=i)
+            rests = rest_by_week.get(wk)
+            dens = density_by_week.get(wk)
+            pacing_weeks.append(
+                {
+                    "week_start": wk.isoformat(),
+                    "avg_rest_seconds": round(sum(rests) / len(rests)) if rests else None,
+                    "density": round(sum(dens) / len(dens), 1) if dens else None,
+                }
+            )
+        all_rests = [g for v in rest_by_week.values() for g in v]
+        all_dens = [d for v in density_by_week.values() for d in v]
+        pacing = {
+            "weeks": pacing_weeks,
+            "avg_rest_seconds": round(sum(all_rests) / len(all_rests)) if all_rests else None,
+            "avg_density": round(sum(all_dens) / len(all_dens), 1) if all_dens else None,
+        }
+
+    # Relative strength: top-lift e1RM over bodyweight at that week's end,
+    # carrying the latest measurement forward between weigh-ins
+    relative = None
+    if top_ids:
+        bodyweights = (
+            db.execute(
+                select(Measurement)
+                .where(Measurement.user_id == user.id, Measurement.kind == "Weight")
+                .order_by(Measurement.measured_at)
+            )
+            .scalars()
+            .all()
+        )
+        if bodyweights:
+            def bw_at(d: date) -> float:
+                value = bodyweights[0].value
+                for m in bodyweights:
+                    if m.measured_at.date() <= d:
+                        value = m.value
+                    else:
+                        break
+                return value
+
+            rel_weeks = []
+            for i in range(TREND_WEEKS - 1, -1, -1):
+                wk = this_week - timedelta(weeks=i)
+                row = {"week_start": wk.isoformat()}
+                bw = bw_at(wk + timedelta(days=6))
+                for eid in top_ids:
+                    if eid in exercises:
+                        value = e1rm_weeks[eid].get(wk)
+                        row[exercises[eid].name] = (
+                            round(value / bw, 2) if value and bw > 0 else None
+                        )
+                rel_weeks.append(row)
+            relative = {"names": top_names, "weeks": rel_weeks}
+
+    # Stalled lifts: same top weight three sessions running without hitting the
+    # rep target (or, with no target, without the estimated 1RM moving)
+    stalls = []
+    if user.deload_hints:
+        for eid, sess in stall_sessions.items():
+            exercise = exercises.get(eid)
+            if exercise is None or len(sess) < 3:
+                continue
+            if (today - sess[-1]["day"]).days > STALL_WINDOW_DAYS:
+                continue
+            last3 = sess[-3:]
+            top = last3[-1]["top"]
+            if top <= 0 or any(abs(s["top"] - top) > 0.01 for s in last3):
+                continue
+            if any(s["hit"] for s in last3):
+                continue
+            if not any(s["has_target"] for s in last3) and last3[-1]["best"] > last3[0]["best"] + 0.01:
+                continue
+            run = 0
+            for s in reversed(sess):
+                if abs(s["top"] - top) > 0.01:
+                    break
+                run += 1
+            stalls.append(
+                {
+                    "exercise_id": eid,
+                    "name": exercise.name,
+                    "weight": top,
+                    "sessions": run,
+                    "last_day": sess[-1]["day"].isoformat(),
+                }
+            )
+        stalls.sort(key=lambda s: -s["sessions"])
+        stalls = stalls[:5]
+
     return {
+        "stalls": stalls,
         "nudges": nudges,
         "extras": extras,
         "trends": {
@@ -285,6 +421,8 @@ def stats(user: User = Depends(get_current_user), db: Session = Depends(get_db))
             "rep_ranges": [{"range": k, "sets": v} for k, v in rep_buckets.items()],
             "prs_by_month": prs_monthly,
             "top_lifts": {"names": top_names, "weeks": top_lift_weeks},
+            "pacing": pacing,
+            "relative": relative,
         },
         "totals": {
             "workouts": len(workouts),

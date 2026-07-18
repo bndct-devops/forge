@@ -351,6 +351,8 @@ def exercise_stats(
                 "best_weight": 0.0,
                 "best_reps": 0,
                 "volume": 0.0,
+                "rpe_sum": 0.0,
+                "rpe_n": 0,
             },
         )
         entry["sets"].append(
@@ -360,6 +362,9 @@ def exercise_stats(
         entry["best_weight"] = max(entry["best_weight"], weight)
         entry["best_reps"] = max(entry["best_reps"], set_entry.reps)
         entry["volume"] = round(entry["volume"] + set_volume, 1)
+        if set_entry.rpe is not None:
+            entry["rpe_sum"] += set_entry.rpe
+            entry["rpe_n"] += 1
 
     workouts = sorted(by_workout.values(), key=lambda w: w["date"])
     chart = [
@@ -369,9 +374,12 @@ def exercise_stats(
             "best_weight": w["best_weight"],
             "best_reps": w["best_reps"],
             "volume": w["volume"],
+            "avg_rpe": round(w["rpe_sum"] / w["rpe_n"], 1) if w["rpe_n"] else None,
         }
         for w in workouts
     ]
+    for w in workouts:
+        del w["rpe_sum"], w["rpe_n"]
 
     base_id = exercise.variant_of_id or exercise.id
     family_members = db.execute(

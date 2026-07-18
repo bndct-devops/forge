@@ -1,9 +1,10 @@
-import { CalendarDays, Dumbbell, Flame, Hourglass, Moon, Repeat, Ruler, Timer, TrendingUp, Trophy, Weight } from 'lucide-react'
+import { CalendarDays, Dumbbell, Flame, Hourglass, Moon, Repeat, Ruler, Timer, TrendingDown, TrendingUp, Trophy, Weight } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import {
   Bar,
   BarChart,
   CartesianGrid,
+  ComposedChart,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -38,16 +39,23 @@ interface StatsTrends {
   rep_ranges: { range: string; sets: number }[]
   prs_by_month: { month: string; prs: number }[]
   top_lifts: { names: string[]; weeks: Record<string, string | number | null>[] }
+  pacing: {
+    weeks: { week_start: string; avg_rest_seconds: number | null; density: number | null }[]
+    avg_rest_seconds: number | null
+    avg_density: number | null
+  } | null
+  relative: { names: string[]; weeks: Record<string, string | number | null>[] } | null
 }
 
 interface StatsData {
+  stalls: { exercise_id: number; name: string; weight: number; sessions: number; last_day: string }[]
   nudges: { group: string; days: number }[]
   extras: StatsExtras | null
   trends: StatsTrends
   totals: { workouts: number; volume: number; sets: number; prs: number; since: string | null }
   streak_weeks: number
   calendar: { date: string; workouts: number }[]
-  weeks: { week_start: string; volume: number; workouts: number }[]
+  weeks: { week_start: string; volume: number; workouts: number; avg_rpe: number | null }[]
   muscle_groups: { group: string; sets: number }[]
   muscle_trend: Record<string, { week_start: string; sets: number }[]>
   split_days: number
@@ -77,6 +85,13 @@ function heatColor(workouts: number): string {
 const LABEL_COL = 30 // px, weekday labels
 
 const SERIES_COLORS = ['var(--chart-accent)', '#6d87ab', '#5a9367']
+const RPE_COLOR = '#6d87ab'
+
+function formatRest(seconds: number): string {
+  const m = Math.floor(seconds / 60)
+  const s = Math.round(seconds % 60)
+  return `${m}:${String(s).padStart(2, '0')}`
+}
 
 function HighlightRow({
   icon: Icon,
@@ -233,6 +248,7 @@ export default function StatsPage() {
     ...w,
     label: formatShortDate(w.week_start + 'T00:00:00'),
   }))
+  const hasRpe = trend.some((w) => w.avg_rpe != null)
   const maxSets = Math.max(1, ...stats.muscle_groups.map((g) => g.sets))
 
   return (
@@ -307,6 +323,35 @@ export default function StatsPage() {
               </span>
             </div>
           ))}
+
+          {(stats.stalls ?? []).length > 0 && (
+            <section className="rounded-xl border bg-card px-4 py-2">
+              <div className="flex items-center gap-2 pt-2 pb-1">
+                <TrendingDown size={15} className="text-muted-foreground" />
+                <h2 className="text-sm font-semibold">Stalled lifts</h2>
+              </div>
+              {stats.stalls.map((s) => (
+                <button
+                  key={s.exercise_id}
+                  onClick={() => navigate(`/exercises/${s.exercise_id}`, { viewTransition: true })}
+                  className="touch-feedback flex w-full items-center justify-between gap-3 py-2 text-left text-sm"
+                >
+                  <span className="min-w-0 truncate">
+                    <span className="font-semibold">{s.name}</span>{' '}
+                    <span className="text-muted-foreground">
+                      stuck at {s.weight} {unit}
+                    </span>
+                  </span>
+                  <span className="tnum shrink-0 text-xs text-muted-foreground">
+                    {s.sessions} sessions
+                  </span>
+                </button>
+              ))}
+              <p className="pb-2 pt-1 text-[11px] text-muted-foreground">
+                same top weight, rep target missed — a deload or variation may help
+              </p>
+            </section>
+          )}
 
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
             <StatTile label="Workouts" value={String(stats.totals.workouts)} />
@@ -416,10 +461,22 @@ export default function StatsPage() {
           {tab === 'trends' && (
             <>
           <section className="rounded-xl border bg-card p-4">
-            <h2 className="mb-3 text-base">Weekly volume</h2>
+            <h2 className={cn('text-base', hasRpe ? 'mb-1' : 'mb-3')}>Weekly volume</h2>
+            {hasRpe && (
+              <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1">
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: 'var(--chart-accent)' }} />
+                  Volume
+                </span>
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: RPE_COLOR }} />
+                  Avg RPE
+                </span>
+              </div>
+            )}
             <div className="h-44 md:h-56">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={trend} margin={{ top: 6, right: 12, bottom: 0, left: -14 }}>
+                <ComposedChart data={trend} margin={{ top: 6, right: hasRpe ? -8 : 12, bottom: 0, left: -14 }}>
                   <CartesianGrid vertical={false} stroke="var(--border)" />
                   <XAxis
                     dataKey="label"
@@ -435,6 +492,17 @@ export default function StatsPage() {
                     width={44}
                     tickFormatter={(v: number) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))}
                   />
+                  {hasRpe && (
+                    <YAxis
+                      yAxisId="rpe"
+                      orientation="right"
+                      domain={[5, 10]}
+                      tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={false}
+                      width={30}
+                    />
+                  )}
                   <Tooltip
                     cursor={{ fill: 'var(--accent-soft)' }}
                     contentStyle={{
@@ -444,11 +512,26 @@ export default function StatsPage() {
                       color: 'var(--popover-foreground)',
                       fontSize: '13px',
                     }}
-                    formatter={(value) => [`${value} ${unit}`, 'Volume']}
+                    formatter={(value, name) =>
+                      name === 'Avg RPE' ? [String(value), 'Avg RPE'] : [`${value} ${unit}`, 'Volume']
+                    }
                     labelFormatter={(label) => `Week of ${label}`}
                   />
                   <Bar dataKey="volume" fill="var(--chart-accent)" radius={[4, 4, 0, 0]} maxBarSize={22} />
-                </BarChart>
+                  {hasRpe && (
+                    <Line
+                      yAxisId="rpe"
+                      type="monotone"
+                      dataKey="avg_rpe"
+                      name="Avg RPE"
+                      stroke={RPE_COLOR}
+                      strokeWidth={2}
+                      strokeDasharray="5 4"
+                      dot={{ r: 3, fill: RPE_COLOR, strokeWidth: 0 }}
+                      connectNulls
+                    />
+                  )}
+                </ComposedChart>
               </ResponsiveContainer>
             </div>
           </section>
@@ -514,6 +597,137 @@ export default function StatsPage() {
                   </LineChart>
                 </ResponsiveContainer>
               </div>
+            </section>
+          )}
+
+          {stats.trends.relative && stats.trends.relative.names.length > 0 && (
+            <section className="rounded-xl border bg-card p-4">
+              <h2 className="mb-1 text-base">Relative strength</h2>
+              <p className="mb-3 text-xs text-muted-foreground">
+                estimated 1RM ÷ bodyweight — honest progress while cutting or bulking
+              </p>
+              <div className="h-48 md:h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={stats.trends.relative.weeks}
+                    margin={{ top: 6, right: 12, bottom: 0, left: -14 }}
+                  >
+                    <CartesianGrid vertical={false} stroke="var(--border)" />
+                    <XAxis
+                      dataKey="week_start"
+                      tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={{ stroke: 'var(--border)' }}
+                      tickFormatter={(v: string) => formatShortDate(v)}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis
+                      tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={false}
+                      width={44}
+                      domain={['auto', 'auto']}
+                      tickFormatter={(v: number) => `${v}×`}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'var(--popover)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '10px',
+                        color: 'var(--popover-foreground)',
+                        fontSize: '13px',
+                      }}
+                      formatter={(value, name) => [`${value}× bodyweight`, name]}
+                      labelFormatter={(label) => `Week of ${formatShortDate(String(label))}`}
+                    />
+                    {stats.trends.relative.names.map((name, i) => (
+                      <Line
+                        key={name}
+                        type="monotone"
+                        dataKey={name}
+                        stroke={SERIES_COLORS[i]}
+                        strokeWidth={2}
+                        dot={{ r: 3, fill: SERIES_COLORS[i], strokeWidth: 0 }}
+                        connectNulls
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+          )}
+
+          {stats.trends.pacing && (
+            <section className="rounded-xl border bg-card p-4">
+              <h2 className="mb-1 text-base">Pacing</h2>
+              <p className="mb-3 text-xs text-muted-foreground">
+                measured rest between sets and how densely you train
+              </p>
+              <div className="mb-3 grid grid-cols-2 gap-2">
+                <StatTile
+                  label="Avg rest"
+                  value={
+                    stats.trends.pacing.avg_rest_seconds != null
+                      ? `${formatRest(stats.trends.pacing.avg_rest_seconds)} min`
+                      : '—'
+                  }
+                />
+                <StatTile
+                  label="Density"
+                  value={
+                    stats.trends.pacing.avg_density != null
+                      ? `${stats.trends.pacing.avg_density} ${unit}/min`
+                      : '—'
+                  }
+                />
+              </div>
+              {stats.trends.pacing.weeks.some((w) => w.avg_rest_seconds != null) && (
+                <div className="h-36">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={stats.trends.pacing.weeks}
+                      margin={{ top: 6, right: 12, bottom: 0, left: -14 }}
+                    >
+                      <CartesianGrid vertical={false} stroke="var(--border)" />
+                      <XAxis
+                        dataKey="week_start"
+                        tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+                        tickLine={false}
+                        axisLine={{ stroke: 'var(--border)' }}
+                        tickFormatter={(v: string) => formatShortDate(v)}
+                        interval="preserveStartEnd"
+                      />
+                      <YAxis
+                        tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+                        tickLine={false}
+                        axisLine={false}
+                        width={44}
+                        domain={['auto', 'auto']}
+                        tickFormatter={(v: number) => formatRest(v)}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'var(--popover)',
+                          border: '1px solid var(--border)',
+                          borderRadius: '10px',
+                          color: 'var(--popover-foreground)',
+                          fontSize: '13px',
+                        }}
+                        formatter={(value) => [`${formatRest(Number(value))} min`, 'Avg rest']}
+                        labelFormatter={(label) => `Week of ${formatShortDate(String(label))}`}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="avg_rest_seconds"
+                        stroke="var(--chart-accent)"
+                        strokeWidth={2}
+                        dot={{ r: 3, fill: 'var(--chart-accent)', strokeWidth: 0 }}
+                        connectNulls
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </section>
           )}
 
