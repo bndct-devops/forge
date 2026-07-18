@@ -27,6 +27,7 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-accent-soft: var(--accent-soft);
+  --color-set-done: var(--set-done);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -63,6 +64,9 @@
   /* Chart accent validated against the light surface (contrast >= 3:1). */
   --chart-accent: oklch(0.55 0.14 48);
   --accent-soft: oklch(0.48 0.13 45 / 0.12);
+  /* Opaque accent-soft-over-card: completed set rows must fully cover the
+     swipe-to-delete layer mounted beneath them. */
+  --set-done: color-mix(in oklch, oklch(0.48 0.13 45) 12%, var(--card));
 }
 
 /* Dark — near-neutral warm charcoal + glowing ember. The default look:
@@ -94,6 +98,7 @@
      dark-mode lightness band (L 0.48-0.67), buttons can run brighter. */
   --chart-accent: oklch(0.65 0.13 50);
   --accent-soft: oklch(0.70 0.13 50 / 0.16);
+  --set-done: color-mix(in oklch, oklch(0.70 0.13 50) 16%, var(--card));
 }
 
 /* Black — true-black OLED, same ember identity. Applied alongside .dark. */
@@ -107,6 +112,7 @@
   --primary: oklch(0.72 0.13 50);
   --ring: oklch(0.72 0.13 50);
   --accent-soft: oklch(0.72 0.13 50 / 0.18);
+  --set-done: color-mix(in oklch, oklch(0.72 0.13 50) 18%, var(--card));
   --border: oklch(1 0 0 / 17%);
   --input: oklch(1 0 0 / 21%);
 }
