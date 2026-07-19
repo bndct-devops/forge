@@ -1,0 +1,39 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+import SectionHero from '../../components/SectionHero.astro'
+import DocsMeta from '../../components/DocsMeta.astro'
+import Callout from '../../components/Callout.astro'
+---
+<DocsLayout title="Import & export" description="Bring your history from Strong or Hevy; leave any time with full JSON or Strong-compatible CSV.">
+  <SectionHero section="integrations" />
+  <h1>Import &amp; export</h1>
+  <p>Lock-in is a business model, not a feature. Forge imports your past and exports your everything.</p>
+  <DocsMeta />
+
+  <h2>Importing</h2>
+  <ul>
+    <li><strong>Strong CSV</strong> — Settings → Data → Import from Strong. Full history: workouts, sets, exercise names.</li>
+    <li><strong>Hevy CSV</strong> — same flow, Hevy's export format.</li>
+  </ul>
+  <p>
+    Imported exercises are matched to the built-in library by name; unknown ones become
+    custom exercises (fix their muscle groups in bulk with <strong>Re-categorize</strong>).
+    PRs recompute chronologically after import, so your trophies reflect the true timeline —
+    imported history included.
+  </p>
+
+  <h2>Exporting</h2>
+  <ul>
+    <li><strong>Full JSON</strong> — <code>GET /api/export/json</code>: every workout, set,
+      exercise, routine and measurement in one structured document. The canonical backup of record.</li>
+    <li><strong>Strong-compatible CSV</strong> — <code>GET /api/export/strong</code>: take your
+      history to any app that reads Strong's format.</li>
+    <li><strong>Database backup</strong> — admins can download the SQLite file directly, and
+      enable nightly snapshots to <code>/data/backups</code>.</li>
+  </ul>
+
+  <Callout variant="tip" title="Timestamps are UTC">
+    Exported timestamps carry a <code>Z</code> suffix — they're UTC. Convert to your local
+    timezone when analysing externally, or your 22:06 session will look like a 20:06 one.
+  </Callout>
+</DocsLayout>

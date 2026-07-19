@@ -1,0 +1,40 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+import SectionHero from '../../components/SectionHero.astro'
+import DocsMeta from '../../components/DocsMeta.astro'
+import Callout from '../../components/Callout.astro'
+---
+<DocsLayout title="Configuration & backups" description="Settings that live on the server vs the device, multi-user administration, and what to back up.">
+  <SectionHero section="reference" />
+  <h1>Configuration &amp; backups</h1>
+  <DocsMeta />
+
+  <h2>Where settings live</h2>
+  <p>
+    Account settings (unit, default rest, weekly goal, nudge and deload toggles, plate
+    config, webhook) are stored <strong>on the server</strong> and follow you across devices.
+    A few are deliberately per-device: theme, timer sound, RPE column visibility.
+  </p>
+
+  <h2>Multi-user</h2>
+  <p>
+    The first account is the admin. Admins create further users in <strong>Settings → Users</strong>
+    (or let <a href="/docs/sso">OIDC</a> provision them). Every user's training data is fully
+    separate; there is no sharing between accounts.
+  </p>
+
+  <h2>Backups</h2>
+  <ul>
+    <li><strong>The volume is the backup.</strong> <code>/data</code> contains the SQLite
+      database (WAL mode), JWT secret, and push keys. Snapshot that directory and you have everything.</li>
+    <li><strong>Nightly snapshots</strong> — Settings → Data (admin): rotating copies into
+      <code>/data/backups</code> with a configurable keep count.</li>
+    <li><strong>Logical export</strong> — <code>GET /api/export/json</code> as a
+      format-independent second copy.</li>
+  </ul>
+
+  <Callout variant="warning" title="Restoring">
+    To restore, stop the container, replace <code>/data/forge.db</code> with the snapshot,
+    and start again. Restore-from-UI is on the roadmap.
+  </Callout>
+</DocsLayout>

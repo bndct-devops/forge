@@ -1,0 +1,66 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+import SectionHero from '../../components/SectionHero.astro'
+import DocsMeta from '../../components/DocsMeta.astro'
+import Callout from '../../components/Callout.astro'
+import { withBase } from '../../lib/path'
+---
+<DocsLayout title="API reference" description="Scoped tokens, one-call workout logging, full CRUD, stats and export endpoints — with interactive OpenAPI docs on your own instance.">
+  <SectionHero section="integrations" />
+  <h1>API reference</h1>
+  <p>
+    Everything the app does goes through the JSON API under <code>/api</code> — and you can
+    use it too. Interactive OpenAPI docs live at <code>/api/docs</code> on your instance;
+    this page is the practical quickstart.
+  </p>
+  <DocsMeta />
+
+  <h2>Authentication</h2>
+  <p>Create a token in <strong>Settings → API → Create API token</strong>. Two scopes:</p>
+  <ul>
+    <li><strong>Full access</strong> — everything your account can do.</li>
+    <li><strong>Read-only</strong> — GETs only; safe for dashboards and analysis scripts.</li>
+  </ul>
+  <pre><code>export FORGE=https://forge.example.com
+export TOKEN=forge_pat_...
+
+curl -H "Authorization: Bearer $TOKEN" $FORGE/api/workouts</code></pre>
+  <p>Tokens are shown once at creation and can be revoked any time.</p>
+
+  <h2>Log a workout in one call</h2>
+  <p>
+    <code>POST /api/workouts/log</code> creates a complete, finished workout. Exercises
+    resolve by <code>exercise_id</code> or by <code>name</code>; unknown names create custom
+    exercises. PRs recompute chronologically, so backdating works.
+  </p>
+  <pre><code>{'{'}
+  "name": "Push Day",
+  "started_at": "2026-07-17T17:30:00Z",
+  "duration_seconds": 3600,
+  "exercises": [
+    {'{'} "name": "Bench Press", "sets": [
+      {'{'}"weight": 60, "reps": 10, "is_warmup": true{'}'},
+      {'{'}"weight": 80, "reps": 8{'}'},
+      {'{'}"weight": 80, "reps": 7, "set_type": "failure", "rpe": 9{'}'}
+    ]{'}'}
+  ]
+{'}'}</code></pre>
+
+  <h2>The surface</h2>
+  <table>
+    <thead><tr><th>Area</th><th>Endpoints</th></tr></thead>
+    <tbody>
+      <tr><td>Workouts</td><td><code>GET/POST /workouts</code>, <code>GET/PUT/PATCH/DELETE /workouts/{'{'}id{'}'}</code>, <code>POST /workouts/log</code></td></tr>
+      <tr><td>Exercises</td><td><code>GET/POST /exercises</code>, <code>PATCH/DELETE /exercises/{'{'}id{'}'}</code>, <code>GET /exercises/{'{'}id{'}'}/stats</code></td></tr>
+      <tr><td>Stats</td><td><code>GET /stats</code> (the full analysis payload), <code>GET /stats/records</code></td></tr>
+      <tr><td>Export</td><td><code>GET /export/json</code>, <code>GET /export/strong</code></td></tr>
+      <tr><td>Ops</td><td><code>GET /metrics</code> (Prometheus), webhooks on workout finish</td></tr>
+    </tbody>
+  </table>
+
+  <Callout variant="tip" title="The stats payload is the analysis engine">
+    <code>GET /api/stats</code> returns everything documented in
+    <a href={withBase('/docs/the-math')}>the math</a> as structured JSON — form &amp; fatigue
+    series, standards scores, recovery buckets. Build your own dashboard on it.
+  </Callout>
+</DocsLayout>

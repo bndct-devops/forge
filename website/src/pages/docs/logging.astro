@@ -1,0 +1,59 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+import SectionHero from '../../components/SectionHero.astro'
+import DocsMeta from '../../components/DocsMeta.astro'
+import Callout from '../../components/Callout.astro'
+import { withBase } from '../../lib/path'
+---
+<DocsLayout title="Logging workouts" description="The live workout screen: ghosts, warm-up ramps, RPE, set types, offline queueing, and editing history after the fact.">
+  <SectionHero section="training" />
+  <h1>Logging workouts</h1>
+  <p>
+    The live workout screen is the heart of Forge, and it is built around one goal: between
+    sets, you should be resting, not fiddling with a phone.
+  </p>
+  <DocsMeta />
+  <div class="docs-shot-bare"><img src={withBase('/shots/workout.png')} alt="A live workout: set rows with previous-workout ghosts, checkmarks and the rest timer" style="max-width: 380px; border-radius: 16px; border: 1px solid var(--border)" /></div>
+
+  <h2>Ghosts</h2>
+  <p>
+    Every set row shows what you did last time — <em>40 kg × 12</em> in faint text. It is
+    tap-to-accept: matching last session is one touch, beating it is two. Ghosts come from the
+    most recent finished workout containing that exercise.
+  </p>
+
+  <h2>Warm-up ramps</h2>
+  <p>
+    The exercise menu offers <strong>Add warm-up sets</strong>: roughly 40 / 60 / 80% of your
+    target weight (the progression suggestion, or your top working weight), rounded to your
+    plate step, at descending reps. Warm-up sets are marked <strong>W</strong> and are excluded
+    from PRs, volume, and every statistic — <a href={withBase('/docs/the-math')}>the math</a>
+    never counts them.
+  </p>
+
+  <h2>Set types &amp; RPE</h2>
+  <p>
+    Any set can be marked warm-up, <strong>drop set</strong>, or <strong>to failure</strong>.
+    With <strong>Track RPE</strong> enabled in Settings, each set takes an optional 1–10 effort
+    score — the fuel for the effort analytics. You do not need to tag everything: the last
+    working set of each exercise is plenty.
+  </p>
+
+  <h2>Offline-tolerant</h2>
+  <p>
+    Set logging applies instantly and queues through gym dead zones, syncing when the
+    connection returns. An indicator shows when you are running on the queue.
+  </p>
+
+  <h2>Editing history</h2>
+  <p>
+    Every workout stays fully editable afterwards — sets, exercises, even the date. Personal
+    records recompute chronologically on every edit, so fixing an old typo can never leave a
+    phantom PR behind.
+  </p>
+
+  <Callout variant="tip" title="Bodyweight exercises">
+    Exercises with Bodyweight equipment complete on reps alone — no weight needed. Add weight
+    anyway for weighted pull-ups and dips.
+  </Callout>
+</DocsLayout>

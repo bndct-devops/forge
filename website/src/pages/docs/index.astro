@@ -1,0 +1,45 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+import SectionHero from '../../components/SectionHero.astro'
+import DocsMeta from '../../components/DocsMeta.astro'
+import Callout from '../../components/Callout.astro'
+import { withBase } from '../../lib/path'
+---
+<DocsLayout title="Welcome" description="What Forge is, what it deliberately is not, and where to go next.">
+  <SectionHero section="getting-started" />
+  <h1>Welcome to Forge</h1>
+  <p>
+    Forge is a self-hosted workout tracker for weight training: templates, set/rep/weight
+    logging with previous-workout ghosts, rest timers, supersets, personal records, and a
+    stats engine that goes well past streaks and volume charts. It runs as a single Docker
+    container with a single SQLite volume on your own server. Your training data never
+    leaves your box.
+  </p>
+  <DocsMeta />
+
+  <h2>The two ideas behind it</h2>
+  <p>
+    <strong>Own your data.</strong> Everything Forge stores is yours to take: full JSON export,
+    Strong-compatible CSV, a documented REST API with scoped tokens, webhooks, and Prometheus
+    metrics. Import your history from Strong or Hevy; leave any time with everything.
+  </p>
+  <p>
+    <strong>No black boxes.</strong> Every number in the app — estimated 1RMs, PR detection,
+    progression suggestions, form &amp; fatigue, strength standards — is computed by a documented
+    formula. <a href={withBase('/docs/the-math')}>The math</a> page lists all of them, with
+    thresholds and the honesty gates that keep charts hidden until your data can support them.
+  </p>
+
+  <Callout variant="note" title="No cardio, by design">
+    Forge tracks lifting. There is no run tracker, no step counter, no calorie guessing.
+    Tools that try to do everything tend to do logging badly, and logging is the whole game.
+  </Callout>
+
+  <h2>Where to go next</h2>
+  <ul>
+    <li><a href={withBase('/docs/installation')}>Installation</a> — one compose file, up in a minute.</li>
+    <li><a href={withBase('/docs/logging')}>Logging workouts</a> — the live workout screen, ghosts, RPE, warm-ups.</li>
+    <li><a href={withBase('/docs/routines')}>Routines &amp; progression</a> — how the double-progression engine decides what to suggest.</li>
+    <li><a href={withBase('/docs/the-math')}>The math</a> — every formula in the app, in one place.</li>
+  </ul>
+</DocsLayout>

@@ -1,0 +1,185 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+import SectionHero from '../../components/SectionHero.astro'
+import DocsMeta from '../../components/DocsMeta.astro'
+import Callout from '../../components/Callout.astro'
+---
+<DocsLayout title="The math" description="Every formula Forge uses — e1RM, PRs, streaks, progression, form & fatigue, standards, recovery, detraining, trajectory — with thresholds and data gates.">
+  <SectionHero section="insights" />
+  <h1>The math</h1>
+  <p>
+    This page is the contract: every number Forge shows you, computed exactly as described
+    here, deterministically, from your own sets. No machine learning, no cloud calls, no
+    adjustments you can't see. When something is an approximation, it says so.
+  </p>
+  <p>
+    One rule applies everywhere first: <strong>warm-up sets never count</strong>. Not toward
+    volume, not toward PRs, not toward any statistic. A "working set" below always means a
+    completed, non-warm-up set with recorded reps.
+  </p>
+  <DocsMeta />
+
+  <h2>Estimated one-rep max (e1RM)</h2>
+  <p>The Epley formula:</p>
+  <pre><code>e1RM = weight × (1 + reps / 30)      // reps = 1 → e1RM = weight</code></pre>
+  <p>
+    Applied per set; an exercise's session e1RM is the best set of that session. Epley is an
+    estimate — most accurate under ~10 reps and increasingly optimistic beyond that. Forge
+    uses it consistently everywhere, so <em>trends</em> in e1RM are meaningful even where the
+    absolute number is soft. Bodyweight sets (no load) get no e1RM; they chart by reps instead.
+  </p>
+
+  <h2>Personal records</h2>
+  <p>Three kinds, detected per exercise the moment you finish a workout:</p>
+  <ul>
+    <li><strong>Weight PR</strong> — heaviest weight ever lifted on that exercise.</li>
+    <li><strong>e1RM PR</strong> — highest estimated 1RM ever, so 80 kg × 10 can out-PR 90 kg × 1.</li>
+    <li><strong>Reps PR</strong> — for unloaded bodyweight exercises, most reps in a set.</li>
+  </ul>
+  <p>
+    PRs are <strong>recomputed chronologically</strong> whenever history changes — editing an
+    old workout, backdating an import. A fixed typo can never leave a phantom trophy behind.
+  </p>
+
+  <h2>Streaks &amp; gap nudges</h2>
+  <ul>
+    <li>A week counts as trained if it contains ≥ 1 finished workout (weeks start Monday).</li>
+    <li>The streak is consecutive trained weeks ending at this week — or last week, so the
+      streak isn't "broken" before your first session of the current week.</li>
+    <li>Gap nudges only watch muscle groups <em>in your rotation</em> (trained in the last 60
+      days), fire at 9+ quiet days, show at most 2, and stay silent if you haven't trained at
+      all in 14 days — the streak UI covers absence. The catch-all "Other" group never nudges.</li>
+  </ul>
+
+  <h2>Progression &amp; deload suggestions</h2>
+  <p>For a routine exercise with a rep range (e.g. 6–10):</p>
+  <pre><code>all working sets of last session ≥ rep_max  →  suggest top_weight + increment (default 2.5)
+
+else, with deload hints on:
+  last 3 sessions share the same top weight
+  AND none completed rep_max on every set   →  stalled
+  suggestion = round(stalled_weight × 0.9 to increment)</code></pre>
+  <p>
+    The same stall detector drives the <strong>Stalled lifts</strong> card. Without a rep
+    target, a lift instead counts as stalled when three sessions share a top weight and the
+    session e1RM hasn't moved.
+  </p>
+
+  <h2>Warm-up ramp generator</h2>
+  <pre><code>targets ≈ 40% × 10 reps · 60% × 6 · 80% × 3   (of the suggested or top working weight)</code></pre>
+  <p>Rounded to your plate step; regenerated every session as the target moves.</p>
+
+  <h2>Form &amp; fatigue</h2>
+  <p>
+    The lifting version of the endurance world's performance-management chart. Daily training
+    load = that day's total working volume. Two exponentially-weighted averages run over it:
+  </p>
+  <pre><code>fitness += (load − fitness) / 42      // long-term, slow
+fatigue += (load − fatigue) / 7       // short-term, fast
+form     = fitness − fatigue</code></pre>
+  <p>Status, with <code>form% = form / fitness</code>:</p>
+  <ul>
+    <li><strong>Fresh</strong> — form% &gt; +10%: fatigue is low relative to your base; a good stretch to push.</li>
+    <li><strong>Productive</strong> — between the two: normal training.</li>
+    <li><strong>Overreaching</strong> — form% &lt; −30%: recent load far exceeds your base; plan an easier day.</li>
+  </ul>
+  <p><em>Gate: 14 days since your first workout. The chart shows the last 90 days.</em></p>
+
+  <h2>Recovery sweet spot</h2>
+  <pre><code>baseline    = mean(best e1RM of previous 3 sessions of the lift)
+performance = session e1RM / baseline
+bucketed by rest days before the session: 1 · 2 · 3 · 4+  (gaps ≤ 10 days)</code></pre>
+  <p>
+    The card shows the average deviation per bucket — "+2.3% after 2 rest days" — pooled
+    across your lifts. <em>Gate: a bucket needs ≥ 3 samples, at least two buckets must
+    qualify, and ≥ 12 samples total.</em>
+  </p>
+
+  <h2>Strength standards</h2>
+  <p>
+    Your best-ever e1RM ÷ current bodyweight, scored against commonly-cited population
+    thresholds. <strong>Barbell lifts only</strong> (incl. trap/EZ bar) — machine leverage
+    varies too much for the comparison to be honest. You hold a level once you've met its
+    threshold:
+  </p>
+  <table>
+    <thead><tr><th>Lift</th><th>Untrained</th><th>Novice</th><th>Intermediate</th><th>Advanced</th><th>Elite</th></tr></thead>
+    <tbody>
+      <tr><td>Bench Press</td><td>0.50×BW</td><td>0.75×</td><td>1.00×</td><td>1.50×</td><td>2.00×</td></tr>
+      <tr><td>Squat</td><td>0.75×</td><td>1.00×</td><td>1.50×</td><td>2.00×</td><td>2.50×</td></tr>
+      <tr><td>Deadlift</td><td>1.00×</td><td>1.25×</td><td>1.75×</td><td>2.25×</td><td>2.75×</td></tr>
+      <tr><td>Overhead Press</td><td>0.35×</td><td>0.55×</td><td>0.80×</td><td>1.05×</td><td>1.30×</td></tr>
+      <tr><td>Barbell Row</td><td>0.50×</td><td>0.75×</td><td>1.00×</td><td>1.25×</td><td>1.50×</td></tr>
+    </tbody>
+  </table>
+  <Callout variant="note" title="Approximate, on purpose">
+    Population standards vary by source, sex, age and bodyweight class; these are rounded,
+    unisex-leaning reference points, not a judgement. Treat the <em>direction</em> (your row
+    lags your bench) as the signal, not the label.
+  </Callout>
+  <p><em>Gate: a bodyweight measurement and at least one matching barbell lift.</em></p>
+
+  <h2>Detraining</h2>
+  <pre><code>for each gap ≥ 14 days on a lift:
+  loss %/week = (1 − e1RM_after / e1RM_before) × 100 / (gap_days / 7)</code></pre>
+  <p>
+    Averaged across all such events; values outside ±10%/week are discarded as exercise or
+    form changes rather than detraining. <em>Gate: ≥ 3 events.</em>
+  </p>
+
+  <h2>Trajectory</h2>
+  <p>
+    An ordinary least-squares line through your weekly best e1RM over the last 12 weeks. The
+    card shows the slope and the next round-number milestone (next multiple of 10) with its
+    projected date. <em>Gates: ≥ 4 weekly points spanning ≥ 4 weeks, slope ≥ 0.05/week, and
+    the milestone must land within 26 weeks — beyond that, extrapolation is astrology, so
+    the card says "holding steady" instead.</em>
+  </p>
+
+  <h2>Time of day</h2>
+  <pre><code>index = session e1RM / that lift's mean e1RM × 100    // 100 = your normal</code></pre>
+  <p>
+    Sessions bucket into morning (&lt; 12:00), afternoon (&lt; 17:00) and evening by your local
+    clock, over the last 180 days. Only lifts trained in ≥ 2 different slots contribute — a
+    lift you only ever do in the evening says nothing comparative. <em>Gate: ≥ 3
+    contributing sessions per bucket for that bucket's index.</em>
+  </p>
+
+  <h2>Pacing</h2>
+  <ul>
+    <li><strong>Measured rest</strong> — gaps between consecutive set-completion timestamps
+      within the same exercise. Gaps under 15 s (drop sets, rapid taps) and over 10 min
+      (interruptions) are discarded so they can't poison the average.</li>
+    <li><strong>Density</strong> — working volume ÷ session minutes, for sessions ≥ 1 minute.</li>
+  </ul>
+
+  <h2>Balance, split, blocks</h2>
+  <ul>
+    <li><strong>Push/pull balance</strong> — working sets, last 30 days: press = Chest + Shoulders,
+      pull = Back. Arms and Core sit out — they mix both patterns. Flagged outside the
+      0.67–1.5 press:pull band.</li>
+    <li><strong>Muscle split</strong> — working sets per muscle group, last 30 days, with an
+      8-week per-group trend.</li>
+    <li><strong>Blocks</strong> — the last 28 days vs the 28 before: volume, workouts,
+      per-group sets, and per-lift best e1RM. Shown only when both blocks contain training.</li>
+  </ul>
+
+  <h2>Muscle map regions</h2>
+  <p>
+    Primary and secondary regions resolve from a pattern table over the exercise name —
+    "…row" lights lats/traps with biceps and rear delts faded; "…curl" lights biceps unless
+    it's a leg curl; every one of the 278 catalog names has been reviewed against the table.
+    Unmatched names fall back to lighting their whole muscle group: coarse, but never wrong.
+    The table lives in <code>frontend/src/lib/muscles.ts</code> if you want to argue with it —
+    and the anatomy artwork is MIT-licensed from react-native-body-highlighter.
+  </p>
+
+  <h2>Where the code lives</h2>
+  <p>
+    Almost everything on this page is implemented in
+    <code>backend/api/stats.py</code>, <code>backend/serializers.py</code> and
+    <code>backend/api/workouts.py</code> — a few hundred lines of commented Python, no
+    dependencies beyond the standard library. Reading it is encouraged; catching a
+    discrepancy between the code and this page is a bug report we want.
+  </p>
+</DocsLayout>

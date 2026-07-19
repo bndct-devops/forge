@@ -1,0 +1,41 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+import SectionHero from '../../components/SectionHero.astro'
+import DocsMeta from '../../components/DocsMeta.astro'
+import Steps from '../../components/Steps.astro'
+---
+<DocsLayout title="HTTPS & push alerts" description="A secure origin unlocks lock-screen rest-timer alerts and the offline app shell. Caddy or Tailscale get you there in minutes.">
+  <SectionHero section="integrations" />
+  <h1>HTTPS &amp; push alerts</h1>
+  <p>Plain HTTP works fine on your LAN, but a secure context unlocks the full PWA:</p>
+  <ul>
+    <li><strong>Rest-timer push with the screen locked</strong> — the killer feature. iOS 16.4+
+      delivers Web Push to installed home-screen apps; Forge schedules a push for the exact
+      second your rest ends.</li>
+    <li>Offline app shell — the UI loads with no network.</li>
+  </ul>
+  <DocsMeta />
+
+  <h2>Quickest path: Caddy</h2>
+  <pre><code># Caddyfile
+forge.example.org {'{'}
+    reverse_proxy 127.0.0.1:8081
+{'}'}</code></pre>
+  <p>Caddy obtains and renews certificates automatically. Point a domain (or DuckDNS name) at your server and TLS is handled.</p>
+
+  <h2>Alternatives</h2>
+  <ul>
+    <li><strong>Tailscale Serve/Funnel</strong> — <code>tailscale serve https / http://127.0.0.1:8081</code>
+      gives a trusted <code>*.ts.net</code> URL with zero certificate work.</li>
+    <li><strong>nginx / Traefik / Pangolin</strong> — any TLS-terminating reverse proxy works; Forge needs no special headers.</li>
+  </ul>
+
+  <h2>After switching to HTTPS</h2>
+  <Steps>
+    <ol>
+      <li>Open the HTTPS URL and re-add Forge to your home screen (the PWA identity is per-origin).</li>
+      <li>Enable <strong>Settings → Training → Rest alerts</strong> and grant the notification permission.</li>
+      <li>Check off a set, lock the phone, and let the timer prove it.</li>
+    </ol>
+  </Steps>
+</DocsLayout>

@@ -1,0 +1,52 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+import SectionHero from '../../components/SectionHero.astro'
+import DocsMeta from '../../components/DocsMeta.astro'
+import Callout from '../../components/Callout.astro'
+import { withBase } from '../../lib/path'
+---
+<DocsLayout title="Routines & progression" description="Templates with rep targets, and the exact rules behind Forge's double-progression and deload suggestions.">
+  <SectionHero section="training" />
+  <h1>Routines &amp; progression</h1>
+  <p>
+    A routine is a template: exercises in order, target set counts, rep ranges, rest times,
+    and superset links. Start a workout from one and the progression engine fills in what it
+    thinks you should lift today. The rules are below — all of them.
+  </p>
+  <DocsMeta />
+
+  <h2>Templates carry structure, history carries weights</h2>
+  <p>
+    Routines deliberately do not store weights. When you start a workout, each exercise pulls
+    last session's sets as ghosts, and — when the routine sets a rep range — a computed
+    suggestion. Weights are state, and the engine updates them every session; a weight frozen
+    in a template would be wrong within three weeks.
+  </p>
+
+  <h2>Double progression, exactly</h2>
+  <p>When a routine exercise has a rep range (say 6–10), starting a workout runs this check:</p>
+  <ol>
+    <li>Take every working set from your previous session of that exercise.</li>
+    <li>If <strong>all</strong> of them hit the top of the rep range, suggest
+      <em>last top weight + increment</em> (2.5 by default, configurable per exercise).</li>
+    <li>Otherwise, no suggestion — finish filling out the range first.</li>
+  </ol>
+
+  <h2>Deload detection, exactly</h2>
+  <p>With <strong>Deload hints</strong> enabled in Settings, a second check runs when you have not progressed:</p>
+  <ol>
+    <li>Look at your last three sessions of the exercise.</li>
+    <li>If all three share the same top weight and <strong>none</strong> of them completed the
+      rep target on every set, the lift is stalled.</li>
+    <li>The suggestion becomes ~90% of the stalled weight, rounded to your increment.</li>
+  </ol>
+  <p>
+    The same detector feeds the <strong>Stalled lifts</strong> card on the stats page, so you
+    hear about a stall on your sofa, not mid-set.
+  </p>
+
+  <Callout variant="note" title="Built-in plans">
+    The Plans tab ships StrongLifts 5×5, Push/Pull/Legs, Upper/Lower and Full Body — one tap
+    adopts them into your routines, rep ranges included, so progression works immediately.
+  </Callout>
+</DocsLayout>

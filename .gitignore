@@ -9,3 +9,8 @@ dev-dist/
 *.tsbuildinfo
 deploy.local.yml
 *.local.yml
+
+# docs site
+website/node_modules/
+website/dist/
+website/.astro/

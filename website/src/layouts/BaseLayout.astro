@@ -1,0 +1,101 @@
+---
+import '../styles/global.css'
+import { withBase } from '../lib/path'
+
+interface Props {
+  title: string
+  description?: string
+}
+
+const { title, description = 'Self-hosted workout tracking with transparent math. Your training data, on your server.' } = Astro.props
+// Canonical URL for the current page; falls back to the site root if Astro.site
+// isn't set (e.g. during certain build modes).
+const siteUrl = Astro.site?.toString().replace(/\/$/, '') ?? 'https://forge.bndct.sh'
+const canonicalUrl = new URL(Astro.url.pathname, siteUrl).toString()
+const ogImage = `${siteUrl}${withBase('/og.png')}`
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href={withBase('/favicon.svg')} />
+    <link rel="icon" type="image/png" href={withBase('/favicon-192.png')} sizes="192x192" />
+    <link rel="apple-touch-icon" href={withBase('/favicon-192.png')} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Bricolage+Grotesque:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalUrl} />
+
+    <!-- Open Graph (Slack, Discord, iMessage, LinkedIn, Facebook, …) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Forge" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Forge — self-hosted workout tracking with transparent math." />
+
+    <!-- Twitter / X — use the big-image card layout -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    <!-- Structured data -->
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Forge",
+      "applicationCategory": "HealthApplication",
+      "operatingSystem": "Linux, Docker",
+      "description": description,
+      "url": siteUrl,
+      "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "author": { "@type": "Person", "name": "bndct-devops", "url": "https://github.com/bndct-devops" },
+      "screenshot": `${siteUrl}/shots/home.png`,
+    })} />
+    <!-- No-flash theme init: ?theme=… query param wins (passed from the Forge
+         app so we continue in the same theme), then localStorage, then
+         system pref. After applying, strip the query param for a clean URL. -->
+    <script is:inline>
+      (function () {
+        try {
+          const params = new URLSearchParams(window.location.search)
+          const param = params.get('theme')
+          const validParam = param === 'light' || param === 'dark' || param === 'black'
+          let t
+          if (validParam) {
+            t = param
+            localStorage.setItem('forge_site_theme', t)
+          } else {
+            const stored = localStorage.getItem('forge_site_theme')
+            const valid = stored === 'light' || stored === 'dark' || stored === 'black'
+            t = valid
+              ? stored
+              : 'dark'
+          }
+          document.documentElement.classList.add('theme-' + t)
+          // Strip ?theme= for a clean URL once we've taken it on board.
+          if (validParam && window.history && window.history.replaceState) {
+            params.delete('theme')
+            const search = params.toString()
+            const clean = window.location.pathname + (search ? '?' + search : '') + window.location.hash
+            window.history.replaceState({}, '', clean)
+          }
+        } catch (e) {
+          document.documentElement.classList.add('theme-light')
+        }
+      })()
+    </script>
+  </head>
+  <body class="min-h-screen antialiased">
+    <slot />
+    <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "afaae2d1426d4a4590d23f907dbde198"}'></script>
+  </body>
+</html>

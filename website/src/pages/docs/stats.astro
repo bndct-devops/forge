@@ -1,0 +1,61 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+import SectionHero from '../../components/SectionHero.astro'
+import DocsMeta from '../../components/DocsMeta.astro'
+import Callout from '../../components/Callout.astro'
+import { withBase } from '../../lib/path'
+---
+<DocsLayout title="Stats & insights" description="A tour of every card on the stats page — and the rule that hides a card until your data can honestly support it.">
+  <SectionHero section="insights" />
+  <h1>Stats &amp; insights</h1>
+  <p>
+    The stats page has two tabs. <strong>Overview</strong> is the state of things: streak and
+    weekly goal, gap nudges, stalled lifts, totals, highlights, the training calendar, and the
+    year in review. <strong>Trends</strong> is the analysis: volume and effort over time,
+    block-over-block comparison, form &amp; fatigue, top-lift strength curves, relative
+    strength, standards, trajectory, recovery, pacing, rep ranges, muscle split and balance.
+  </p>
+  <DocsMeta />
+  <div class="docs-shot-bare"><img src={withBase('/shots/stats.png')} alt="The stats overview: streak card, totals and highlights" style="max-width: 380px; border-radius: 16px; border: 1px solid var(--border)" /></div>
+
+  <h2>The honesty rule</h2>
+  <p>
+    Every analysis card has a <em>data gate</em>: a minimum amount of history below which it
+    simply does not render. Form &amp; fatigue needs two weeks; the recovery card needs a
+    dozen comparable sessions; strength standards need a bodyweight measurement and barbell
+    lifts; detraining needs three real training breaks. No placeholders, no charts drawn
+    through two points. The exact gates are listed with each formula in
+    <a href={withBase('/docs/the-math')}>the math</a>.
+  </p>
+
+  <h2>Overview cards</h2>
+  <ul>
+    <li><strong>Streak &amp; weekly goal</strong> — consecutive trained weeks, with this week's progress toward your goal.</li>
+    <li><strong>Gap nudges</strong> — muscle groups <em>in your rotation</em> that have gone quiet 9+ days. Forge only nags about the program you actually run.</li>
+    <li><strong>Stalled lifts</strong> — the deload detector's findings, linked to each exercise.</li>
+    <li><strong>Highlights</strong> — frequency, average session, time under iron, longest streak, most trained lift, busiest day, month-over-month volume.</li>
+    <li><strong>Training calendar</strong> — a GitHub-style year heatmap.</li>
+    <li><strong>Year in review</strong> — totals, biggest PR, longest streak, biggest month, monthly volume bars.</li>
+  </ul>
+
+  <h2>Trends cards</h2>
+  <ul>
+    <li><strong>Weekly volume</strong> — with an average-RPE line once you log effort.</li>
+    <li><strong>This block vs last</strong> — 28-day blocks: volume, workouts, per-muscle sets, per-lift e1RM deltas.</li>
+    <li><strong>Form &amp; fatigue</strong> — 42-day fitness vs 7-day fatigue with a fresh / productive / overreaching read.</li>
+    <li><strong>Top lifts &amp; relative strength</strong> — weekly best e1RM, absolute and ÷ bodyweight.</li>
+    <li><strong>Strength standards</strong> — barbell lifts scored Untrained → Elite.</li>
+    <li><strong>Trajectory</strong> — a straight-line fit to your e1RM trend with the next round-number milestone. A compass, not a promise.</li>
+    <li><strong>Recovery sweet spot</strong> — how strong you show up after 1, 2, 3, 4+ rest days.</li>
+    <li><strong>Pacing</strong> — measured rest between sets and session density.</li>
+    <li><strong>Time of day</strong> — a strength index per morning / afternoon / evening slot.</li>
+    <li><strong>Rep ranges, muscle split, push/pull balance</strong> — where the work actually goes.</li>
+    <li><strong>Detraining</strong> — what a layoff historically costs you per week away.</li>
+  </ul>
+
+  <Callout variant="tip" title="Records & measurements">
+    All-time bests per exercise live under <strong>Records</strong>; bodyweight and
+    circumference tracking under <strong>Measurements</strong> — bodyweight also powers
+    relative strength and the standards card.
+  </Callout>
+</DocsLayout>

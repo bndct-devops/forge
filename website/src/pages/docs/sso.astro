@@ -1,0 +1,50 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+import SectionHero from '../../components/SectionHero.astro'
+import DocsMeta from '../../components/DocsMeta.astro'
+import Callout from '../../components/Callout.astro'
+---
+<DocsLayout title="Single sign-on (OIDC)" description="Sign in through Pocket ID, Authelia, Authentik, Keycloak or any OIDC provider — additive, with a break-glass local admin.">
+  <SectionHero section="integrations" />
+  <h1>Single sign-on (OIDC)</h1>
+  <p>
+    Forge signs users in through any OpenID Connect provider with a discovery document —
+    Pocket ID, Authelia, Authentik, Keycloak, Zitadel, and friends. SSO is <strong>additive</strong>:
+    username/password keeps working, and a local admin account always remains a break-glass
+    login the IdP can't lock out.
+  </p>
+  <DocsMeta />
+
+  <h2>Provider setup</h2>
+  <ul>
+    <li><strong>Callback URL</strong>: <code>https://&lt;your-forge-host&gt;/api/auth/oidc/callback</code> (must match exactly)</li>
+    <li><strong>Grant</strong>: Authorization Code — Forge uses PKCE automatically</li>
+    <li><strong>Scopes</strong>: <code>openid profile email groups</code></li>
+  </ul>
+
+  <h2>Forge configuration</h2>
+  <pre><code>environment:
+  - FORGE_OIDC_ENABLED=true
+  - FORGE_OIDC_ISSUER=https://auth.example.com
+  - FORGE_OIDC_CLIENT_ID=&lt;from IdP&gt;
+  - FORGE_OIDC_CLIENT_SECRET=&lt;from IdP&gt;</code></pre>
+  <table>
+    <thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>FORGE_OIDC_ENABLED</code></td><td><code>false</code></td><td>Master switch</td></tr>
+      <tr><td><code>FORGE_OIDC_ISSUER</code></td><td>–</td><td>IdP base URL (discovery appended)</td></tr>
+      <tr><td><code>FORGE_OIDC_CLIENT_ID</code> / <code>_CLIENT_SECRET</code></td><td>–</td><td>Client credentials</td></tr>
+      <tr><td><code>FORGE_OIDC_REDIRECT_URL</code></td><td>derived</td><td>Explicit callback override behind unusual proxies</td></tr>
+      <tr><td><code>FORGE_OIDC_SCOPES</code></td><td><code>openid profile email groups</code></td><td></td></tr>
+      <tr><td><code>FORGE_OIDC_GROUPS_CLAIM</code></td><td><code>groups</code></td><td>Claim carrying group membership</td></tr>
+      <tr><td><code>FORGE_OIDC_ADMIN_GROUP</code></td><td>–</td><td>Members become Forge admins (IdP-provisioned accounts)</td></tr>
+      <tr><td><code>FORGE_OIDC_ALLOWED_GROUP</code></td><td>–</td><td>If set, required to sign in at all</td></tr>
+      <tr><td><code>FORGE_OIDC_AUTO_CREATE</code></td><td><code>true</code></td><td>Provision unknown IdP users automatically</td></tr>
+      <tr><td><code>FORGE_OIDC_BUTTON_LABEL</code></td><td><code>Sign in with SSO</code></td><td>Login-page button text</td></tr>
+    </tbody>
+  </table>
+
+  <Callout variant="warning" title="HTTPS required in practice">
+    Most IdPs refuse plain-HTTP redirect URLs outside localhost. Put Forge behind TLS first.
+  </Callout>
+</DocsLayout>

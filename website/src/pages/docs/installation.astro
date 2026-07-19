@@ -1,0 +1,53 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+import SectionHero from '../../components/SectionHero.astro'
+import DocsMeta from '../../components/DocsMeta.astro'
+import Callout from '../../components/Callout.astro'
+import { withBase } from '../../lib/path'
+---
+<DocsLayout title="Installation" description="Run Forge with Docker Compose: one container, one volume, first boot in about a minute.">
+  <SectionHero section="getting-started" />
+  <h1>Installation</h1>
+  <p>Forge ships as a single container image on GHCR. The whole deployment is one service and one volume.</p>
+  <DocsMeta />
+
+  <h2>Docker Compose</h2>
+  <pre><code>services:
+  forge:
+    image: ghcr.io/bndct-devops/forge:latest
+    container_name: forge
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped</code></pre>
+  <p>
+    Then <code>docker compose up -d</code> and open <code>http://your-host:8081</code>.
+    The first visit walks you through creating the admin account —
+    see <a href={withBase('/docs/first-run')}>first-run setup</a>.
+  </p>
+
+  <h2>The volume</h2>
+  <p>
+    <code>/data</code> holds the SQLite database (WAL mode), the JWT signing secret, and the
+    Web Push keys. Back up that one directory and you have everything. Optional nightly
+    snapshots land in <code>/data/backups</code> — enable them in
+    <strong>Settings → Data</strong> as an admin.
+  </p>
+
+  <h2>Environment variables</h2>
+  <table>
+    <thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>FORGE_SECRET_KEY</code></td><td>auto-generated, persisted</td><td>JWT signing secret</td></tr>
+      <tr><td><code>FORGE_DATA_DIR</code></td><td><code>/data</code></td><td>SQLite database + keys</td></tr>
+      <tr><td><code>FORGE_PORT</code></td><td><code>8081</code></td><td>HTTP port (dev convenience; the container binds 8081)</td></tr>
+      <tr><td><code>FORGE_OIDC_*</code></td><td>disabled</td><td>Optional single sign-on — see <a href={withBase('/docs/sso')}>SSO</a></td></tr>
+    </tbody>
+  </table>
+
+  <Callout variant="tip" title="Put it behind HTTPS">
+    Forge works fine over plain HTTP on your LAN, but lock-screen rest-timer alerts
+    (Web Push) require a secure origin. See <a href={withBase('/docs/https-push')}>HTTPS &amp; push alerts</a>.
+  </Callout>
+</DocsLayout>

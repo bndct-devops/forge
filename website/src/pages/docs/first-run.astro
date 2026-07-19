@@ -1,0 +1,37 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+import SectionHero from '../../components/SectionHero.astro'
+import DocsMeta from '../../components/DocsMeta.astro'
+import Steps from '../../components/Steps.astro'
+import { withBase } from '../../lib/path'
+---
+<DocsLayout title="First-run setup" description="Create the admin account, set your unit and weekly goal, and log a first workout.">
+  <SectionHero section="getting-started" />
+  <h1>First-run setup</h1>
+  <p>A fresh Forge instance has no accounts. The first visit creates the admin.</p>
+  <DocsMeta />
+  <Steps>
+    <ol>
+      <li>
+        <strong>Create the admin account.</strong> Username and password — that's the whole form.
+        Further users are created by the admin in <strong>Settings → Users</strong>, or arrive
+        via <a href={withBase('/docs/sso')}>OIDC</a>.
+      </li>
+      <li>
+        <strong>Pick your unit and defaults.</strong> <strong>Settings → Training</strong> holds
+        kg/lb, the default rest timer, your weekly workout goal (drives the streak card), and
+        whether to track RPE.
+      </li>
+      <li>
+        <strong>Install it as an app.</strong> Forge is a PWA: on iOS, Share → Add to Home
+        Screen; on Android, the browser offers install. You get a splash screen, full-screen
+        app, and (over HTTPS) lock-screen rest alerts.
+      </li>
+      <li>
+        <strong>Start training.</strong> Start an empty workout, adopt one of the built-in
+        plans (StrongLifts 5×5, PPL, Upper/Lower, Full Body) from the Routines tab, or import
+        your history first — see <a href={withBase('/docs/import-export')}>import &amp; export</a>.
+      </li>
+    </ol>
+  </Steps>
+</DocsLayout>

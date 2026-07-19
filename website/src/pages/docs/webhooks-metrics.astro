@@ -1,0 +1,44 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+import SectionHero from '../../components/SectionHero.astro'
+import DocsMeta from '../../components/DocsMeta.astro'
+---
+<DocsLayout title="Webhooks & metrics" description="A signed webhook on every finished workout, and a Prometheus endpoint for your monitoring stack.">
+  <SectionHero section="integrations" />
+  <h1>Webhooks &amp; metrics</h1>
+  <DocsMeta />
+
+  <h2>Webhooks</h2>
+  <p>
+    Set a URL (and optional signing secret) in <strong>Settings → API</strong>. When a workout
+    is finished — in the app or via the API — Forge POSTs:
+  </p>
+  <pre><code>{'{'}
+  "event": "workout.finished",
+  "source": "app",
+  "workout": {'{'}
+    "id": 123, "name": "Push Day",
+    "started_at": "2026-07-17T17:30:00Z",
+    "finished_at": "2026-07-17T18:35:00Z",
+    "duration_seconds": 3900,
+    "total_volume": 5480.0, "total_sets": 18, "pr_count": 1
+  {'}'}
+{'}'}</code></pre>
+  <p>
+    With a secret set, requests carry <code>X-Forge-Signature: sha256=&lt;HMAC-SHA256 of the
+    raw body&gt;</code> for verification. Wire it to Home Assistant, n8n, a Discord relay —
+    anything with an HTTP listener.
+  </p>
+
+  <h2>Prometheus metrics</h2>
+  <p><code>GET /api/metrics</code> emits text exposition — lifetime workout/set/volume/PR counters, streak weeks, current-week gauges, last-workout timestamp. Scrape with a read-only token:</p>
+  <pre><code>scrape_configs:
+  - job_name: forge
+    metrics_path: /api/metrics
+    scheme: https
+    authorization:
+      credentials: forge_pat_...
+    static_configs:
+      - targets: ["forge.example.com"]</code></pre>
+  <p>Your streak on the same Grafana wall as your CPU graphs, where it belongs.</p>
+</DocsLayout>

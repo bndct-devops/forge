@@ -1,0 +1,39 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+import SectionHero from '../../components/SectionHero.astro'
+import DocsMeta from '../../components/DocsMeta.astro'
+import Callout from '../../components/Callout.astro'
+---
+<DocsLayout title="Supersets & the rest timer" description="Group-aware rest, two ways to build supersets, and a timer that survives reloads and rings on the lock screen.">
+  <SectionHero section="training" />
+  <h1>Supersets &amp; the rest timer</h1>
+  <DocsMeta />
+
+  <h2>The rest timer</h2>
+  <p>
+    Checking off a set starts the timer automatically — per-exercise override or your account
+    default, ±15 s nudges, skippable, with optional sound and vibration. It survives page
+    reloads and follows you across tabs. Hosted over HTTPS, it also alerts on the phone lock
+    screen, which is where you are actually looking between sets.
+  </p>
+
+  <h2>Supersets</h2>
+  <p>
+    A superset chains an exercise with the next one in the workout. Rest behaves the way
+    supersets are meant to work: no timer between the paired exercises, one full rest after
+    the group's last set. Cards wear an A/B group badge so you can see the pairing at a glance.
+  </p>
+  <p>Two ways to build one:</p>
+  <ul>
+    <li><strong>In the picker</strong> — <em>Add superset</em> in the add-exercise sheet asks for
+      two exercises and adds them pre-linked. Dismissing halfway simply leaves the first pick
+      as a normal exercise.</li>
+    <li><strong>From the card menu</strong> — <em>Superset with next</em> links any exercise with
+      the one below it (drag them adjacent first). Same menu unlinks.</li>
+  </ul>
+
+  <Callout variant="tip" title="Routines remember pairings">
+    The routine editor has the same link toggle per exercise — templates start their workouts
+    with supersets already wired.
+  </Callout>
+</DocsLayout>

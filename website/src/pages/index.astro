@@ -1,0 +1,168 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+import SiteHeader from '../components/SiteHeader.astro'
+import { withBase } from '../lib/path'
+
+const features = [
+  {
+    title: 'Live logging that keeps up',
+    body: 'Previous-workout ghosts you tap to accept, warm-up ramps computed from your working weight, RPE when you want it, drag to reorder, swipe to delete. Set logging queues offline and syncs when the gym wifi gives up.',
+    icon: 'M12 2v4M12 18v4M4.9 4.9l2.9 2.9M16.2 16.2l2.9 2.9M2 12h4M18 12h4M4.9 19.1l2.9-2.9M16.2 7.8l2.9-2.9',
+  },
+  {
+    title: 'A progression engine, not a notebook',
+    body: 'Set rep targets in a routine and Forge runs double progression for you: hit the top of the range everywhere and it suggests more weight; stall three sessions and it suggests the deload. The rules are documented, not vibes.',
+    icon: 'M3 17l6-6 4 4 8-8M14 7h7v7',
+  },
+  {
+    title: 'Supersets & a rest timer that follows you',
+    body: 'Pair exercises in two taps; rest fires after the group, not between partners. The timer survives reloads, follows you across tabs, and rings on your lock screen over HTTPS.',
+    icon: 'M12 6v6l4 2M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z',
+  },
+  {
+    title: 'Analysis no tracker ships',
+    body: 'Form & fatigue (the lifting version of a performance-management chart), recovery sweet spot, strength standards, detraining half-life, push/pull balance, measured rest. All deterministic math on your own sets — no AI, no cloud.',
+    icon: 'M3 3v18h18M7 14l4-4 3 3 5-6',
+  },
+  {
+    title: 'A muscle map on every exercise',
+    body: 'Anatomical front/back figures light up primary and secondary muscles for all 278 catalog movements — and your custom ones. Equipment glyphs make a long picker scannable at 22:00.',
+    icon: 'M12 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM6 10l6 3 6-3M12 13v5M9 22l3-4 3 4',
+  },
+  {
+    title: 'Never locked in',
+    body: 'Strong and Hevy CSV import, full JSON and Strong-compatible export, a documented REST API with scoped tokens, webhooks, and Prometheus metrics. Your history is a curl away, forever.',
+    icon: 'M12 3v12M8 11l4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2',
+  },
+]
+---
+<BaseLayout title="Forge — self-hosted workout tracking" description="Self-hosted workout tracking for weight training. Live logging, an honest progression engine, and analysis with every formula documented. Your data stays on your server.">
+  <SiteHeader />
+
+  <!-- Hero -->
+  <section class="relative overflow-hidden pt-32 pb-20 px-6">
+    <div class="pointer-events-none absolute inset-0" aria-hidden="true">
+      <div class="absolute -top-40 left-1/2 -translate-x-1/2 w-[52rem] h-[36rem] rounded-full opacity-25 blur-3xl" style="background: radial-gradient(closest-side, var(--accent), transparent 70%)"></div>
+    </div>
+    <div class="relative max-w-6xl mx-auto">
+      <div class="max-w-2xl">
+        <p class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium text-[var(--muted)] mb-6">
+          <span class="w-1.5 h-1.5 rounded-full bg-[var(--accent)]"></span>
+          Self-hosted · single container · no cardio, by design
+        </p>
+        <h1 class="text-4xl md:text-6xl font-bold leading-[1.05] mb-6" style="text-wrap: balance">
+          Your training.<br />Your server.<br /><span class="text-[var(--accent)]">Your numbers.</span>
+        </h1>
+        <p class="text-lg text-[var(--muted)] leading-relaxed mb-8 max-w-xl">
+          Forge is a self-hosted tracker for weight training — live set logging with
+          ghosts and rest timers, a progression engine with written-down rules, and
+          training analysis where <a href={withBase('/docs/the-math')} class="underline decoration-[var(--accent)] underline-offset-4 hover:text-[var(--fg)]">every formula is documented</a>.
+          One Docker container, one SQLite volume, zero cloud.
+        </p>
+        <div class="flex flex-wrap items-center gap-3">
+          <a href={withBase('/docs/installation')} class="inline-flex items-center gap-2 rounded-xl bg-[var(--accent)] text-[var(--accent-fg)] px-5 py-3 font-semibold hover:opacity-90 transition-opacity">
+            Self-host it
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </a>
+          <a href="https://github.com/bndct-devops/forge" class="inline-flex items-center gap-2 rounded-xl border px-5 py-3 font-semibold text-[var(--fg)] hover:bg-[var(--card)] transition-colors">
+            GitHub
+          </a>
+        </div>
+      </div>
+
+      <div class="mt-16 grid grid-cols-2 md:grid-cols-3 gap-4 items-start">
+        <img src={withBase('/shots/workout.png')} alt="Live workout logging with set rows, previous-workout ghosts and a running rest timer" class="rounded-2xl border shadow-2xl md:translate-y-6" loading="eager" />
+        <img src={withBase('/shots/home.png')} alt="Workout home with routines and quick start" class="rounded-2xl border shadow-2xl" loading="eager" />
+        <img src={withBase('/shots/stats.png')} alt="Stats page with streak, volume and muscle split" class="rounded-2xl border shadow-2xl md:translate-y-6 hidden md:block" loading="eager" />
+      </div>
+    </div>
+  </section>
+
+  <!-- Transparency -->
+  <section class="px-6 py-20 border-t">
+    <div class="max-w-6xl mx-auto">
+      <h2 class="text-3xl md:text-4xl font-bold mb-3" style="text-wrap: balance">No black boxes</h2>
+      <p class="text-[var(--muted)] max-w-2xl mb-10 leading-relaxed">
+        Every number Forge shows you is computed by a formula you can read — on
+        <a href={withBase('/docs/the-math')} class="underline decoration-[var(--accent)] underline-offset-4 hover:text-[var(--fg)]">one documentation page</a>,
+        with the thresholds, the honesty gates, and the reasons. If a chart is hidden,
+        it is because your data cannot support it yet, and the docs say exactly when it will appear.
+      </p>
+      <div class="grid md:grid-cols-3 gap-4">
+        <div class="rounded-2xl border bg-[var(--card)] p-6">
+          <div class="font-mono text-sm text-[var(--accent)] mb-3">e1RM = w × (1 + r / 30)</div>
+          <h3 class="font-semibold mb-1.5">Estimated one-rep max</h3>
+          <p class="text-sm text-[var(--muted)] leading-relaxed">The Epley formula, applied to your best working set. Singles count as-is, warm-ups never count anywhere.</p>
+        </div>
+        <div class="rounded-2xl border bg-[var(--card)] p-6">
+          <div class="font-mono text-sm text-[var(--accent)] mb-3">fitness₄₂ − fatigue₇ = form</div>
+          <h3 class="font-semibold mb-1.5">Form &amp; fatigue</h3>
+          <p class="text-sm text-[var(--muted)] leading-relaxed">Exponentially-weighted daily load over 42 and 7 days — the endurance world's performance chart, finally applied to lifting.</p>
+        </div>
+        <div class="rounded-2xl border bg-[var(--card)] p-6">
+          <div class="font-mono text-sm text-[var(--accent)] mb-3">stall = 3 × same top weight</div>
+          <h3 class="font-semibold mb-1.5">Deload detection</h3>
+          <p class="text-sm text-[var(--muted)] leading-relaxed">Three sessions stuck at one weight without hitting the rep target flags a stall and suggests ~10% off. Written down, so you can argue with it.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="px-6 py-20 border-t">
+    <div class="max-w-6xl mx-auto">
+      <h2 class="text-3xl md:text-4xl font-bold mb-10">Built for the way lifting actually goes</h2>
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {features.map(f => (
+          <div class="rounded-2xl border bg-[var(--card)] p-6">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style="background: var(--accent-soft); color: var(--accent)">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d={f.icon} /></svg>
+            </div>
+            <h3 class="font-semibold mb-1.5">{f.title}</h3>
+            <p class="text-sm text-[var(--muted)] leading-relaxed">{f.body}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- Self-host -->
+  <section class="px-6 py-20 border-t">
+    <div class="max-w-6xl mx-auto grid lg:grid-cols-2 gap-10 items-center">
+      <div>
+        <h2 class="text-3xl md:text-4xl font-bold mb-3">Runs on your box in a minute</h2>
+        <p class="text-[var(--muted)] leading-relaxed mb-6">
+          One container, one volume. SQLite in WAL mode holds everything — back up a single
+          directory and you own your entire training history. Nightly snapshots, OIDC single
+          sign-on and multi-user come in the box.
+        </p>
+        <a href={withBase('/docs/installation')} class="inline-flex items-center gap-2 font-semibold text-[var(--accent)] hover:underline underline-offset-4">
+          Installation guide
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+      </div>
+      <div class="rounded-2xl border bg-[var(--card)] p-5 font-mono text-sm leading-relaxed overflow-x-auto">
+        <div class="text-[var(--muted)]"># docker-compose.yml</div>
+        <div>services:</div>
+        <div>&nbsp;&nbsp;forge:</div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;image: ghcr.io/bndct-devops/forge:latest</div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;ports: ["8081:8081"]</div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;volumes: ["./data:/data"]</div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;restart: unless-stopped</div>
+        <div class="mt-3 text-[var(--muted)]">$ docker compose up -d</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="px-6 py-10 border-t">
+    <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4 text-sm text-[var(--muted)]">
+      <span>Forge — self-hosted workout tracking. Sibling of <a href="https://tome.bndct.sh" class="underline underline-offset-4 hover:text-[var(--fg)]">Tome</a>.</span>
+      <div class="flex gap-5">
+        <a href={withBase('/docs')} class="hover:text-[var(--fg)]">Docs</a>
+        <a href={withBase('/docs/the-math')} class="hover:text-[var(--fg)]">The math</a>
+        <a href="https://github.com/bndct-devops/forge" class="hover:text-[var(--fg)]">GitHub</a>
+      </div>
+    </div>
+  </footer>
+</BaseLayout>

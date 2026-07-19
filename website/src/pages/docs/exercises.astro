@@ -1,0 +1,49 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+import SectionHero from '../../components/SectionHero.astro'
+import DocsMeta from '../../components/DocsMeta.astro'
+import Callout from '../../components/Callout.astro'
+import { withBase } from '../../lib/path'
+---
+<DocsLayout title="Exercise library & muscle map" description="278 structured exercises, variant families, equipment glyphs, and the anatomical muscle map on every exercise page.">
+  <SectionHero section="training" />
+  <h1>Exercise library &amp; muscle map</h1>
+  <p>
+    Forge ships 278 weight-training exercises organised into <strong>variant families</strong>:
+    a parent movement (defined by movement + loading + setup) with hand-level children —
+    Pull-Up ↔ Chin-Up ↔ wide/neutral grips, the bench family, the deadlift family. Families
+    chart together, so grip experiments do not fragment your history.
+  </p>
+  <DocsMeta />
+  <div class="docs-shot-bare"><img src={withBase('/shots/exercise.png')} alt="An exercise page: records, estimated 1RM chart and history" style="max-width: 380px; border-radius: 16px; border: 1px solid var(--border)" /></div>
+
+  <h2>The muscle map</h2>
+  <p>
+    Every exercise page shows anatomical front/back figures with the primary muscles in full
+    ember and secondaries faded. The anatomy artwork is MIT-licensed
+    (<a href="https://github.com/HichamELBSI/react-native-body-highlighter">react-native-body-highlighter</a>),
+    recoloured with Forge's theme tokens. Regions resolve from a reviewed pattern table over
+    the exercise name, falling back to the muscle group — the exact mapping is in
+    <a href={withBase('/docs/the-math')}>the math</a>.
+  </p>
+
+  <h2>Equipment glyphs</h2>
+  <p>
+    Picker rows carry a small line glyph per equipment type — barbell, dumbbell, weight plate,
+    machine stack, cable, kettlebell, bodyweight — so a long list scans fast. Eleven equipment
+    values fold into seven glyphs (Smith machines read as machines, EZ and trap bars as barbells).
+  </p>
+
+  <h2>Custom exercises &amp; variants</h2>
+  <p>
+    Create your own exercises, or add a variant to an existing family (<em>New variant</em>
+    inside any family) — it inherits the family's charts while tracking its own history.
+    Imported exercises that land without a muscle group can be fixed in bulk with
+    <strong>Settings → Re-categorize</strong>.
+  </p>
+
+  <Callout variant="note" title="Deleting is refused, on purpose">
+    An exercise that appears in logged workouts cannot be deleted — history would be lost.
+    Forge refuses with a count of the workouts involved instead.
+  </Callout>
+</DocsLayout>
