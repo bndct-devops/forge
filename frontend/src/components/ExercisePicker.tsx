@@ -1,6 +1,6 @@
-import { ChevronDown, Plus, Search, SlidersHorizontal } from 'lucide-react'
+import { ChevronDown, Link2, Plus, Search, SlidersHorizontal, X } from 'lucide-react'
 import EquipmentGlyph from './EquipmentGlyph'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../lib/api'
 import { fetchExercises, getCachedExercises } from '../lib/exerciseCache'
 import type { Exercise } from '../lib/types'
@@ -12,6 +12,11 @@ interface ExercisePickerProps {
   open: boolean
   onClose: () => void
   onPick: (exercise: Exercise) => void
+  // Superset flow: the parent owns the state so a mid-flow dismissal simply
+  // leaves the first pick as a normal, unlinked exercise
+  supersetStage?: 'first' | 'second' | null
+  onStartSuperset?: () => void
+  onCancelSuperset?: () => void
 }
 
 interface Family {
@@ -158,9 +163,31 @@ function VariantSheet({
   )
 }
 
-export default function ExercisePicker({ open, onClose, onPick }: ExercisePickerProps) {
+export default function ExercisePicker({
+  open,
+  onClose,
+  onPick,
+  supersetStage,
+  onStartSuperset,
+  onCancelSuperset,
+}: ExercisePickerProps) {
   const [exercises, setExercises] = useState<Exercise[]>(() => getCachedExercises() ?? [])
   const [query, setQuery] = useState('')
+  const supersetBannerRef = useRef<HTMLDivElement>(null)
+
+  // Fresh start for the second pick: old search results would hide the
+  // stage change entirely
+  useEffect(() => {
+    if (supersetStage === 'second') {
+      setQuery('')
+      // After the cleared-query re-render, or the list height shift eats the scroll
+      const t = setTimeout(
+        () => supersetBannerRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }),
+        80,
+      )
+      return () => clearTimeout(t)
+    }
+  }, [supersetStage])
   const [group, setGroup] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
@@ -332,6 +359,32 @@ export default function ExercisePicker({ open, onClose, onPick }: ExercisePicker
           >
             <Plus size={18} /> Create custom exercise
           </button>
+          {onStartSuperset && !supersetStage && (
+            <button
+              onClick={onStartSuperset}
+              className="touch-feedback flex w-full items-center gap-2 rounded-lg px-2 py-2.5 text-left font-medium text-primary"
+            >
+              <Link2 size={18} /> Add superset
+            </button>
+          )}
+          {supersetStage && (
+            <div
+              ref={supersetBannerRef}
+              className="mt-1 mb-1 flex items-center gap-2.5 rounded-xl bg-accent-soft px-3 py-2.5 text-sm font-medium text-primary"
+            >
+              <Link2 size={16} className="shrink-0" />
+              <span className="flex-1">
+                Superset — pick the {supersetStage === 'first' ? 'first' : 'second'} exercise
+              </span>
+              <button
+                onClick={onCancelSuperset}
+                aria-label="Cancel superset"
+                className="touch-feedback -mr-1 rounded-full p-1"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
           {recent.length > 0 && (
             <>
               <h3 className="mt-1 mb-1 px-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">

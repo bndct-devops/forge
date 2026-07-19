@@ -11,7 +11,7 @@ interface WorkoutContextValue {
   start: (from?: { routineId?: number; workoutId?: number; name?: string }) => Promise<Workout>
   rename: (name: string) => Promise<void>
   updateNotes: (notes: string) => Promise<void>
-  addExercise: (exerciseId: number) => Promise<void>
+  addExercise: (exerciseId: number) => Promise<number | undefined>
   removeExercise: (weId: number) => Promise<void>
   setExerciseRest: (weId: number, restSeconds: number | null) => Promise<void>
   setSupersetLink: (weId: number, withNext: boolean) => Promise<void>
@@ -112,6 +112,8 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
         body: { exercise_id: exerciseId },
       })
       setWorkout(w)
+      // The new exercise's id, so callers can e.g. superset-link it
+      return w.exercises[w.exercises.length - 1]?.id
     },
     [workout],
   )

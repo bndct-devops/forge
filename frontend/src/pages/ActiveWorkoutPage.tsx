@@ -1,5 +1,5 @@
 import { ArrowLeftRight, Calculator, Check, ChevronDown, CloudOff, Flag, Flame, GripVertical, Link2, MoreHorizontal, Plus, StickyNote, Timer, Trash2, TrendingDown, TrendingUp, Unlink2, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ConfirmSheet from '../components/ConfirmSheet'
 import ExercisePicker from '../components/ExercisePicker'
@@ -108,6 +108,8 @@ export default function ActiveWorkoutPage() {
     discard,
   } = useWorkout()
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [supersetStage, setSupersetStage] = useState<'first' | 'second' | null>(null)
+  const supersetFirstRef = useRef<number | null>(null)
   const [menuExercise, setMenuExercise] = useState<WorkoutExercise | null>(null)
   const [swapTarget, setSwapTarget] = useState<WorkoutExercise | null>(null)
   const [markerSet, setMarkerSet] = useState<SetEntry | null>(null)
@@ -382,8 +384,42 @@ export default function ActiveWorkoutPage() {
 
       <ExercisePicker
         open={pickerOpen}
-        onClose={() => setPickerOpen(false)}
+        onClose={() => {
+          // Mid-flow dismissal: the first pick stays as a normal exercise
+          setPickerOpen(false)
+          setSupersetStage(null)
+          supersetFirstRef.current = null
+        }}
+        supersetStage={supersetStage}
+        onStartSuperset={() => setSupersetStage('first')}
+        onCancelSuperset={() => {
+          setSupersetStage(null)
+          supersetFirstRef.current = null
+        }}
         onPick={async (exercise) => {
+          if (supersetStage === 'first') {
+            const weId = await addExercise(exercise.id)
+            if (weId != null) {
+              supersetFirstRef.current = weId
+              setSupersetStage('second')
+            }
+            return
+          }
+          if (supersetStage === 'second') {
+            const firstId = supersetFirstRef.current
+            setPickerOpen(false)
+            setSupersetStage(null)
+            supersetFirstRef.current = null
+            await addExercise(exercise.id)
+            if (firstId != null) {
+              try {
+                await setSupersetLink(firstId, true)
+              } catch {
+                toast('Could not link the superset')
+              }
+            }
+            return
+          }
           setPickerOpen(false)
           await addExercise(exercise.id)
         }}
