@@ -1,4 +1,4 @@
-import { CalendarRange, ChevronRight, Minus, Plus, Trash2, X } from 'lucide-react'
+import { CalendarRange, ChevronRight, Plus, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
