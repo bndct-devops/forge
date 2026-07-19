@@ -474,6 +474,10 @@ def finish_workout(
 
     workout.finished_at = utcnow()
     db.add(workout)
+    # Program workouts advance their program's state machine on finish —
+    # never on start, so a cancelled session doesn't burn a slot.
+    from backend.api.programs import advance_program
+    advance_program(db, workout)
     db.commit()
     fire_webhook(user, workout, source="app")
 

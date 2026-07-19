@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse
 from backend.core.database import Base, SessionLocal, engine
 from backend.api import (
     auth,
+    programs,
     metrics,
     oidc,
     tokens,
@@ -76,6 +77,7 @@ app.include_router(workouts.sets_router, prefix="/api")
 app.include_router(import_export.router, prefix="/api")
 app.include_router(stats.router, prefix="/api")
 app.include_router(plans.router, prefix="/api")
+app.include_router(programs.router, prefix="/api")
 app.include_router(push.router, prefix="/api")
 app.include_router(measurements.router, prefix="/api")
 app.include_router(backup.router, prefix="/api")
