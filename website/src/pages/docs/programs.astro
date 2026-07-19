@@ -1,0 +1,72 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+import SectionHero from '../../components/SectionHero.astro'
+import DocsMeta from '../../components/DocsMeta.astro'
+import Callout from '../../components/Callout.astro'
+import { withBase } from '../../lib/path'
+---
+<DocsLayout title="Programs (periodization)" description="5/3/1 and linear-block cycles with self-advancing training maxes — prescriptions prefilled, state advancing only on finished sessions.">
+  <SectionHero section="training" />
+  <h1>Programs (periodization)</h1>
+  <p>
+    Routines with rep ranges give you <a href={withBase('/docs/routines')}>double progression</a> —
+    add weight when you own the range. Programs are the next level up: percentage-based
+    training cycles that wave intensity across weeks and raise your training max each cycle.
+    Forge ships two schemes, and every number they produce is documented in
+    <a href={withBase('/docs/the-math')}>the math</a>.
+  </p>
+  <DocsMeta />
+
+  <h2>How a program works</h2>
+  <ul>
+    <li>A program has a <strong>scheme</strong> (5/3/1 or a linear block), an ordered list of
+      <strong>lifts</strong>, and per-lift <strong>training maxes</strong> (TM). Creating one
+      prefills each TM at 90% of your best estimated 1RM — the conventional starting point.</li>
+    <li><strong>One session = one lift.</strong> The program card always shows what's next —
+      "Week 2 · Bench Press · 84×3 · 96×3 · 108×3+" — and <em>Start session</em> opens a live
+      workout with every prescribed set prefilled: weight <em>and</em> reps, so logging a set
+      is one tap. The last set of 5/3/1's loading weeks is an AMRAP (+): beat the target.</li>
+    <li><strong>State advances only when you finish.</strong> Finishing the session moves the
+      program to the next lift; completing all lifts advances the week; completing the cycle
+      raises every training max by its increment (default +2.5, +5 suggested for lower-body
+      lifts). Cancelling a session changes nothing — no burned slots.</li>
+  </ul>
+
+  <h2>The two schemes</h2>
+  <p><strong>5/3/1</strong> — the classic four-week wave. Percentages of your training max:</p>
+  <table>
+    <thead><tr><th>Week</th><th>Set 1</th><th>Set 2</th><th>Set 3</th></tr></thead>
+    <tbody>
+      <tr><td>1 — 5s</td><td>65% × 5</td><td>75% × 5</td><td>85% × 5+</td></tr>
+      <tr><td>2 — 3s</td><td>70% × 3</td><td>80% × 3</td><td>90% × 3+</td></tr>
+      <tr><td>3 — 5/3/1</td><td>75% × 5</td><td>85% × 3</td><td>95% × 1+</td></tr>
+      <tr><td>4 — deload</td><td>40% × 5</td><td>50% × 5</td><td>60% × 5</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Linear block</strong> — four weeks from volume to intensity, then the TM moves:</p>
+  <table>
+    <thead><tr><th>Week</th><th>Prescription</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>3 × 10 @ 70%</td></tr>
+      <tr><td>2</td><td>3 × 8 @ 75%</td></tr>
+      <tr><td>3</td><td>3 × 6 @ 80%</td></tr>
+      <tr><td>4</td><td>3 × 4 @ 85%</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Weights round to your plate step (2.5 by default) and never round below one step.
+    The raw scheme tables are also served by the API at <code>/api/programs/schemes</code> —
+    the app can never show you numbers that differ from the documentation.
+  </p>
+
+  <Callout variant="tip" title="Warm-ups and assistance">
+    The prescription covers the main work. Use the in-workout warm-up generator before the
+    first set, and add assistance exercises to the session like any other workout — the
+    program only tracks its own lift.
+  </Callout>
+
+  <Callout variant="note" title="Editing mid-cycle">
+    Training maxes, week, and position are all editable (program card → Edit). The state
+    machine is deliberately dumb and transparent — you can always put it where you want it.
+  </Callout>
+</DocsLayout>

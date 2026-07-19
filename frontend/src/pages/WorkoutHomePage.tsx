@@ -5,6 +5,7 @@ import ConfirmSheet from '../components/ConfirmSheet'
 import EmptyState from '../components/EmptyState'
 import Sheet from '../components/Sheet'
 import { CardListSkeleton } from '../components/Skeleton'
+import ProgramsSection from '../components/ProgramsSection'
 import { useWorkout } from '../contexts/WorkoutContext'
 import { api } from '../lib/api'
 import type { Plan, Routine } from '../lib/types'
@@ -181,6 +182,7 @@ export default function WorkoutHomePage() {
       </button>
       {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
 
+
       <div className="mt-8 mb-3 flex items-center justify-between">
         <h2 className="text-xl">Templates</h2>
         <div className="flex items-center gap-1">
@@ -261,6 +263,8 @@ export default function WorkoutHomePage() {
           ))}
         </div>
       )}
+
+      <ProgramsSection />
 
       <ConfirmSheet
         open={deleteRoutineTarget != null}

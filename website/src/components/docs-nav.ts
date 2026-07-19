@@ -17,6 +17,7 @@ export const DOCS_NAV: DocGroup[] = [
     items: [
       { href: '/docs/logging',            title: 'Logging workouts' },
       { href: '/docs/routines',           title: 'Routines & progression' },
+      { href: '/docs/programs',           title: 'Programs (periodization)' },
       { href: '/docs/supersets-and-rest', title: 'Supersets & the rest timer' },
       { href: '/docs/exercises',          title: 'Exercise library & muscle map' },
     ],

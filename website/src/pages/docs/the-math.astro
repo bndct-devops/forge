@@ -65,6 +65,17 @@ else, with deload hints on:
     session e1RM hasn't moved.
   </p>
 
+  <h2>Program schemes</h2>
+  <p>
+    <a href="/docs/programs">Programs</a> prescribe sets as percentages of a per-lift
+    training max (TM), rounded to your plate step, never below one step. 5/3/1:
+    weeks of 65/75/85%, 70/80/90%, 75/85/95% (last set AMRAP), then a 40/50/60% deload.
+    Linear block: 3×10 @ 70%, 3×8 @ 75%, 3×6 @ 80%, 3×4 @ 85%. State advances only on
+    <em>finished</em> sessions: lift pointer → week → cycle, and each completed cycle adds
+    every lift's increment to its TM. The suggested starting TM is 90% of best e1RM.
+    The scheme tables are served verbatim at <code>/api/programs/schemes</code>.
+  </p>
+
   <h2>Warm-up ramp generator</h2>
   <pre><code>targets ≈ 40% × 10 reps · 60% × 6 · 80% × 3   (of the suggested or top working weight)</code></pre>
   <p>Rounded to your plate step; regenerated every session as the target moves.</p>
