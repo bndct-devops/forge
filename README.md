@@ -45,11 +45,17 @@ surfaces, OKLCH tokens, Onest + Bricolage Grotesque), its own ember accent.
 - **Body measurements** — weight, body fat, circumferences with trend charts
 - **Training plans** — StrongLifts 5×5, PPL, Upper/Lower, Full Body, one tap
   to adopt into your templates
+- **Programs (periodization)** — 5/3/1 and linear-block cycles with per-lift
+  training maxes that advance themselves; sessions arrive with every
+  prescribed set prefilled
 - **Plate calculator** — per-side plate breakdown for barbell work
 - **Strong import / CSV export** — bring your full history over; never locked in
 - **Exercise library** — 108 seeded weight exercises with grips and variation
   families (Pull-Up ↔ Chin-Up ↔ wide/neutral, bench family, deadlift family,
   ...), combined family charts, custom exercises, bulk re-categorization
+- **Integrations** — signed webhooks, Prometheus metrics, a dashboard widget
+  endpoint for gethomepage, Apple Health ingest (Health Auto Export), optional
+  MQTT for Home Assistant, and a weekly digest over Web Push
 - **Multi-user** — first-run setup creates the admin; admins manage users in
   Settings; JWT auth
 - **PWA** — installable, launch splash screens, dark (default) / light /
@@ -62,7 +68,8 @@ docker compose up -d --build
 ```
 
 Then open http://localhost:8081 — the first visit walks you through creating
-the admin account.
+the admin account. Full documentation — including every formula behind the
+stats — lives at **https://forge.bndct.sh**.
 
 Environment variables:
 
