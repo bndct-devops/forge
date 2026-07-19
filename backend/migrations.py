@@ -14,6 +14,8 @@ def _ensure_column(table: str, column: str, ddl: str) -> None:
 
 
 def run_migrations() -> None:
+    _ensure_column("users", "weekly_digest", "weekly_digest BOOLEAN NOT NULL DEFAULT 0")
+    _ensure_column("users", "digest_sent_at", "digest_sent_at DATETIME")
     _ensure_column("workouts", "program_id", "program_id INTEGER REFERENCES programs(id)")
     _ensure_column("workouts", "program_lift_id", "program_lift_id INTEGER REFERENCES program_lifts(id)")
     _ensure_column("set_entries", "is_warmup", "is_warmup BOOLEAN NOT NULL DEFAULT 0")

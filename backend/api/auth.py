@@ -89,6 +89,8 @@ def update_me(
         user.gap_nudges = body.gap_nudges
     if body.deload_hints is not None:
         user.deload_hints = body.deload_hints
+    if body.weekly_digest is not None:
+        user.weekly_digest = body.weekly_digest
     if "plate_config" in body.model_fields_set:
         user.plate_config = body.plate_config
     if "webhook_url" in body.model_fields_set:

@@ -26,6 +26,7 @@ class UserOut(BaseModel):
     weekly_goal: int = 3
     gap_nudges: bool = True
     deload_hints: bool = True
+    weekly_digest: bool = False
     plate_config: str | None = None
     oidc_linked: bool = False
     webhook_url: str | None = None
@@ -44,6 +45,7 @@ class UserUpdate(BaseModel):
     weekly_goal: int | None = Field(default=None, ge=1, le=7)
     gap_nudges: bool | None = None
     deload_hints: bool | None = None
+    weekly_digest: bool | None = None
     plate_config: str | None = Field(default=None, max_length=2000)
     webhook_url: str | None = Field(default=None, max_length=512)
     webhook_secret: str | None = Field(default=None, max_length=128)

@@ -34,7 +34,7 @@ export const DOCS_NAV: DocGroup[] = [
     items: [
       { href: '/docs/import-export',      title: 'Import & export' },
       { href: '/docs/api',                title: 'API reference' },
-      { href: '/docs/webhooks-metrics',   title: 'Webhooks & metrics' },
+      { href: '/docs/webhooks-metrics',   title: 'Webhooks & integrations' },
       { href: '/docs/sso',                title: 'Single sign-on (OIDC)' },
       { href: '/docs/https-push',         title: 'HTTPS & push alerts' },
     ],

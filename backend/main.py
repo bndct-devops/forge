@@ -7,6 +7,7 @@ from backend.core.database import Base, SessionLocal, engine
 from backend.api import (
     auth,
     programs,
+    widget,
     metrics,
     oidc,
     tokens,
@@ -58,6 +59,8 @@ def startup():
     finally:
         db.close()
     backup.start_backup_scheduler()
+    from backend.core.digest import start_digest_scheduler
+    start_digest_scheduler()
 
 
 @app.get("/api/health")
@@ -78,6 +81,7 @@ app.include_router(import_export.router, prefix="/api")
 app.include_router(stats.router, prefix="/api")
 app.include_router(plans.router, prefix="/api")
 app.include_router(programs.router, prefix="/api")
+app.include_router(widget.router, prefix="/api")
 app.include_router(push.router, prefix="/api")
 app.include_router(measurements.router, prefix="/api")
 app.include_router(backup.router, prefix="/api")

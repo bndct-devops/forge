@@ -167,10 +167,13 @@ function Section({
   )
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div className="flex min-h-12 items-center justify-between gap-3 px-4 py-2.5">
-      <span className="font-medium">{label}</span>
+      <span className="min-w-0">
+        <span className="block font-medium">{label}</span>
+        {hint && <span className="block text-xs text-muted-foreground">{hint}</span>}
+      </span>
       {children}
     </div>
   )
@@ -542,6 +545,17 @@ export default function SettingsPage() {
             ]}
             value={user.deload_hints ? 'on' : 'off'}
             onChange={(v) => updateUser({ deload_hints: v === 'on' }).catch(() => {})}
+            className="w-32"
+          />
+        </Row>
+        <Row label="Weekly digest" hint="Sunday-evening push: volume, goal, PRs">
+          <Segmented<'on' | 'off'>
+            options={[
+              { value: 'on', label: 'On' },
+              { value: 'off', label: 'Off' },
+            ]}
+            value={user.weekly_digest ? 'on' : 'off'}
+            onChange={(v) => updateUser({ weekly_digest: v === 'on' }).catch(() => {})}
             className="w-32"
           />
         </Row>

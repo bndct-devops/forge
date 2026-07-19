@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -106,3 +106,78 @@ def delete(
     db.delete(m)
     db.commit()
     return {"ok": True}
+
+
+# ——— Health Auto Export ingest ———————————————————————————————————————————
+# The iOS "Health Auto Export" app POSTs HealthKit metrics as JSON on a
+# schedule — the practical bridge for Apple Health data, since Apple offers
+# no server-side API. Documented at /docs/webhooks-metrics.
+
+INGEST_KINDS = {
+    "weight_body_mass": "Weight",
+    "body_fat_percentage": "Body fat",
+    "lean_body_mass": None,  # recognised but not stored (no matching kind)
+}
+
+
+def _parse_ingest_date(raw: str) -> datetime | None:
+    for fmt in ("%Y-%m-%d %H:%M:%S %z", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%d"):
+        try:
+            dt = datetime.strptime(raw, fmt)
+            return dt.astimezone(timezone.utc).replace(tzinfo=None) if dt.tzinfo else dt
+        except ValueError:
+            continue
+    return None
+
+
+@router.post("/ingest")
+def ingest(
+    payload: dict,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Accepts Health Auto Export's JSON shape:
+    {"data": {"metrics": [{"name": "weight_body_mass", "units": "kg",
+                            "data": [{"date": "...", "qty": 82.4}]}]}}
+    Duplicate timestamps (per kind, to the minute) are skipped, so repeated
+    exports are idempotent."""
+    metrics = (payload.get("data") or {}).get("metrics")
+    if not isinstance(metrics, list):
+        raise HTTPException(status_code=400, detail="Expected data.metrics[]")
+
+    added = 0
+    skipped = 0
+    for metric in metrics:
+        kind = INGEST_KINDS.get(str(metric.get("name", "")))
+        if kind is None:
+            skipped += len(metric.get("data") or [])
+            continue
+        for point in metric.get("data") or []:
+            qty = point.get("qty")
+            when = _parse_ingest_date(str(point.get("date", "")))
+            if qty is None or when is None:
+                skipped += 1
+                continue
+            value = float(qty)
+            # Body fat may arrive as a 0–1 fraction; store percent
+            if kind == "Body fat" and value <= 1:
+                value = round(value * 100, 1)
+            window_lo = when - timedelta(minutes=1)
+            window_hi = when + timedelta(minutes=1)
+            exists = db.execute(
+                select(Measurement.id).where(
+                    Measurement.user_id == user.id,
+                    Measurement.kind == kind,
+                    Measurement.measured_at >= window_lo,
+                    Measurement.measured_at <= window_hi,
+                )
+            ).first()
+            if exists:
+                skipped += 1
+                continue
+            db.add(
+                Measurement(user_id=user.id, kind=kind, value=value, measured_at=when)
+            )
+            added += 1
+    db.commit()
+    return {"added": added, "skipped": skipped}

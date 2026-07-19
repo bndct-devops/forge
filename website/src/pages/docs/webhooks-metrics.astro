@@ -3,9 +3,9 @@ import DocsLayout from '../../layouts/DocsLayout.astro'
 import SectionHero from '../../components/SectionHero.astro'
 import DocsMeta from '../../components/DocsMeta.astro'
 ---
-<DocsLayout title="Webhooks & metrics" description="A signed webhook on every finished workout, and a Prometheus endpoint for your monitoring stack.">
+<DocsLayout title="Webhooks, metrics & integrations" description="Signed webhooks, Prometheus metrics, a dashboard widget endpoint, Apple Health ingest, MQTT for Home Assistant, and the weekly digest.">
   <SectionHero section="integrations" />
-  <h1>Webhooks &amp; metrics</h1>
+  <h1>Webhooks, metrics &amp; integrations</h1>
   <DocsMeta />
 
   <h2>Webhooks</h2>
@@ -41,4 +41,65 @@ import DocsMeta from '../../components/DocsMeta.astro'
     static_configs:
       - targets: ["forge.example.com"]</code></pre>
   <p>Your streak on the same Grafana wall as your CPU graphs, where it belongs.</p>
+
+  <h2>Dashboard widget (gethomepage)</h2>
+  <p>
+    <code>GET /api/widget</code> returns an at-a-glance JSON payload — streak, this week's
+    progress vs your goal, week volume, last workout — designed for
+    <a href="https://gethomepage.dev">homepage</a>'s <code>customapi</code> widget with a
+    read-only token:
+  </p>
+  <pre><code>- Forge:
+    icon: mdi-weight-lifter
+    href: https://forge.example.com
+    widget:
+      type: customapi
+      url: https://forge.example.com/api/widget
+      headers:
+        Authorization: Bearer forge_pat_...
+      mappings:
+        - field: streak_weeks
+          label: Streak (wks)
+        - field: week_progress
+          label: This week
+        - field: week_volume
+          label: Volume
+        - field: last_workout
+          label: Last session</code></pre>
+
+  <h2>Apple Health ingest (Health Auto Export)</h2>
+  <p>
+    Apple offers no server-side Health API, so Forge accepts the JSON the iOS
+    <em>Health Auto Export</em> app POSTs on a schedule. Point an automation at
+    <code>POST /api/measurements/ingest</code> with a full-access token; bodyweight
+    (<code>weight_body_mass</code>) and body fat (<code>body_fat_percentage</code>) flow into
+    Measurements — and from there into relative strength and the standards card.
+    Re-exports are idempotent: duplicate timestamps are skipped.
+  </p>
+
+  <h2>MQTT / Home Assistant</h2>
+  <p>Set the broker via environment variables and Forge publishes without any further setup:</p>
+  <table>
+    <thead><tr><th>Variable</th><th>Default</th></tr></thead>
+    <tbody>
+      <tr><td><code>FORGE_MQTT_HOST</code></td><td>unset — feature off</td></tr>
+      <tr><td><code>FORGE_MQTT_PORT</code></td><td><code>1883</code></td></tr>
+      <tr><td><code>FORGE_MQTT_USERNAME</code> / <code>_PASSWORD</code></td><td>none</td></tr>
+      <tr><td><code>FORGE_MQTT_PREFIX</code></td><td><code>forge</code></td></tr>
+    </tbody>
+  </table>
+  <p>
+    Topics: <code>forge/&lt;username&gt;/state</code> (retained JSON mirroring
+    <code>/api/widget</code>, refreshed on every finished workout) and
+    <code>forge/&lt;username&gt;/event/workout_finished</code>. A Home Assistant sensor
+    reads <code>value_json.streak_weeks</code> off the state topic.
+  </p>
+
+  <h2>Weekly digest</h2>
+  <p>
+    <strong>Settings → Insights → Weekly digest</strong> sends a Sunday-evening push
+    notification over the same Web Push channel as rest alerts (HTTPS required):
+    workouts vs goal, week volume with the week-over-week delta, and PRs. Sent once per
+    week per user, only when there was training to report.
+  </p>
 </DocsLayout>

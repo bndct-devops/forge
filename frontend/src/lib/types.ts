@@ -7,6 +7,7 @@ export interface User {
   weekly_goal: number
   gap_nudges: boolean
   deload_hints: boolean
+  weekly_digest: boolean
   plate_config: string | null
   oidc_linked: boolean
   webhook_url: string | null

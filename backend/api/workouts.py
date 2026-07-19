@@ -127,6 +127,29 @@ def list_workouts(
 
 
 
+def _publish_mqtt(db: Session, user: User, workout: Workout) -> None:
+    """Optional Home Assistant/MQTT fan-out — no-op unless configured."""
+    from backend.core import mqtt
+
+    if not mqtt.enabled():
+        return
+    totals = workout_totals(workout)
+    duration = int((workout.finished_at - workout.started_at).total_seconds())
+    mqtt.publish_workout_finished(
+        user.username,
+        {
+            "id": workout.id,
+            "name": workout.name,
+            "finished_at": workout.finished_at.isoformat() + "Z",
+            "duration_seconds": duration,
+            **totals,
+        },
+    )
+    from backend.api.widget import widget as widget_payload
+
+    mqtt.publish_state(user.username, widget_payload(user=user, db=db))
+
+
 def _recent_session_sets(
     db: Session, user_id: int, exercise_id: int, n: int = 3
 ) -> list[list[tuple[float, int]]]:
@@ -480,6 +503,7 @@ def finish_workout(
     advance_program(db, workout)
     db.commit()
     fire_webhook(user, workout, source="app")
+    _publish_mqtt(db, user, workout)
 
     totals = workout_totals(workout)
     duration = int((workout.finished_at - workout.started_at).total_seconds())
