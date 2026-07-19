@@ -1,5 +1,6 @@
 """Training statistics: totals, weekly streak, calendar, volume trend,
 muscle-group split. Warm-up sets never count (same rule as workout totals)."""
+import re
 from collections import defaultdict
 from datetime import date, timedelta
 
@@ -29,6 +30,25 @@ TIME_BUCKET_DAYS = 180
 # Forecast guardrails: enough points to mean anything, near enough to believe
 FORECAST_MIN_POINTS = 4
 FORECAST_MAX_WEEKS = 26
+# Form & fatigue: classic performance-management time constants (days)
+FITNESS_TC = 42
+FATIGUE_TC = 7
+LOAD_CHART_DAYS = 90
+# Detraining: a layoff starts at two weeks off a lift
+DETRAIN_GAP_DAYS = 14
+
+# Strength standards (barbell lifts only — machine numbers against barbell
+# population standards would flatter): e1RM / bodyweight thresholds for
+# Novice / Intermediate / Advanced / Elite, approximate and unisex.
+STANDARD_LEVELS = ["Untrained", "Novice", "Intermediate", "Advanced", "Elite"]
+STANDARDS = [
+    ("Bench Press", r"bench|chest press", [0.50, 0.75, 1.00, 1.50, 2.00]),
+    ("Squat", r"squat", [0.75, 1.00, 1.50, 2.00, 2.50]),
+    ("Deadlift", r"deadlift", [1.00, 1.25, 1.75, 2.25, 2.75]),
+    ("Overhead Press", r"overhead press|shoulder press|military|push press", [0.35, 0.55, 0.80, 1.05, 1.30]),
+    ("Barbell Row", r"row", [0.50, 0.75, 1.00, 1.25, 1.50]),
+]
+STANDARD_EQUIPMENT = {"Barbell", "Trap Bar", "EZ Bar"}
 
 
 def _week_start(d: date) -> date:
@@ -109,6 +129,7 @@ def stats(
     total_sets = 0
     total_prs = 0
     by_day: dict[str, int] = defaultdict(int)
+    volume_by_day: dict[date, float] = defaultdict(float)
     volume_by_week: dict[date, float] = defaultdict(float)
     workouts_by_week: dict[date, int] = defaultdict(int)
     trained_weeks: set[date] = set()
@@ -158,6 +179,7 @@ def stats(
 
         day = w.started_at.date()
         by_day[day.isoformat()] += 1
+        volume_by_day[day] += totals["total_volume"]
         week = _week_start(day)
         trained_weeks.add(week)
         volume_by_week[week] += totals["total_volume"]
@@ -406,19 +428,20 @@ def stats(
             "avg_density": round(sum(all_dens) / len(all_dens), 1) if all_dens else None,
         }
 
+    bodyweights = (
+        db.execute(
+            select(Measurement)
+            .where(Measurement.user_id == user.id, Measurement.kind == "Weight")
+            .order_by(Measurement.measured_at)
+        )
+        .scalars()
+        .all()
+    )
+
     # Relative strength: top-lift e1RM over bodyweight at that week's end,
     # carrying the latest measurement forward between weigh-ins
     relative = None
     if top_ids:
-        bodyweights = (
-            db.execute(
-                select(Measurement)
-                .where(Measurement.user_id == user.id, Measurement.kind == "Weight")
-                .order_by(Measurement.measured_at)
-            )
-            .scalars()
-            .all()
-        )
         if bodyweights:
             def bw_at(d: date) -> float:
                 value = bodyweights[0].value
@@ -572,6 +595,125 @@ def stats(
                 entry["eta"] = (today + timedelta(weeks=weeks_to)).isoformat()
         forecast.append(entry)
 
+    # Form & fatigue: exponentially-weighted daily volume — fitness (42d),
+    # fatigue (7d), form = the gap. The lifting version of a PMC chart.
+    load = None
+    if workouts and (today - workouts[0].started_at.date()).days >= 14:
+        ctl = atl = 0.0
+        chart_since = today - timedelta(days=LOAD_CHART_DAYS - 1)
+        load_days = []
+        d = workouts[0].started_at.date()
+        while d <= today:
+            v = volume_by_day.get(d, 0.0)
+            ctl += (v - ctl) / FITNESS_TC
+            atl += (v - atl) / FATIGUE_TC
+            if d >= chart_since:
+                load_days.append(
+                    {
+                        "date": d.isoformat(),
+                        "fitness": round(ctl, 1),
+                        "fatigue": round(atl, 1),
+                        "form": round(ctl - atl, 1),
+                    }
+                )
+            d += timedelta(days=1)
+        form_pct = (ctl - atl) / ctl if ctl > 0 else 0.0
+        load = {
+            "days": load_days,
+            "status": (
+                "fresh" if form_pct > 0.10 else "overreaching" if form_pct < -0.30 else "productive"
+            ),
+        }
+
+    # Recovery sweet spot: session e1RM vs that lift's recent baseline,
+    # bucketed by how many rest days preceded it
+    recovery = None
+    rec_samples: dict[str, list[float]] = defaultdict(list)
+    for eid, sess in stall_sessions.items():
+        if len(sess) < 4:
+            continue
+        for i in range(3, len(sess)):
+            cur = sess[i]
+            prev3 = [s["best"] for s in sess[i - 3 : i] if s["best"] > 0]
+            if len(prev3) < 3 or cur["best"] <= 0:
+                continue
+            gap = (cur["day"] - sess[i - 1]["day"]).days
+            if not 1 <= gap <= 10:
+                continue
+            bucket = str(gap) if gap <= 3 else "4+"
+            rec_samples[bucket].append(cur["best"] / (sum(prev3) / 3))
+    solid = {b: v for b, v in rec_samples.items() if len(v) >= 3}
+    if len(solid) >= 2 and sum(len(v) for v in solid.values()) >= 12:
+        recovery = [
+            {
+                "bucket": b,
+                "pct": round((sum(v) / len(v) - 1) * 100, 1),
+                "n": len(v),
+            }
+            for b, v in sorted(solid.items(), key=lambda x: (len(x[0]), x[0]))
+        ]
+
+    # Detraining: every layoff is a natural experiment — e1RM lost per week
+    # away, averaged over gaps of two weeks or more
+    detraining = None
+    detrain_events = []
+    for eid, sess in stall_sessions.items():
+        for i in range(1, len(sess)):
+            gap_days = (sess[i]["day"] - sess[i - 1]["day"]).days
+            if gap_days < DETRAIN_GAP_DAYS:
+                continue
+            before, after = sess[i - 1]["best"], sess[i]["best"]
+            if before <= 0 or after <= 0:
+                continue
+            per_week = (1 - after / before) * 100 / (gap_days / 7)
+            if -10 <= per_week <= 10:  # outliers are form/exercise changes, not detraining
+                detrain_events.append(per_week)
+    if len(detrain_events) >= 3:
+        detraining = {
+            "pct_per_week": round(sum(detrain_events) / len(detrain_events), 1),
+            "events": len(detrain_events),
+        }
+
+    # Strength standards: all-time best e1RM per barbell lift family over
+    # current bodyweight, scored against population thresholds
+    standards = None
+    if bodyweights:
+        bw = bodyweights[-1].value
+        best_by_ex: dict[int, float] = {}
+        for eid, sess in stall_sessions.items():
+            best_by_ex[eid] = max(s["best"] for s in sess)
+        rows_std = []
+        for lift, pattern, thresholds in STANDARDS:
+            rx = re.compile(pattern, re.I)
+            best = 0.0
+            for eid, val in best_by_ex.items():
+                ex = exercises.get(eid)
+                if ex and ex.equipment in STANDARD_EQUIPMENT and rx.search(ex.name):
+                    best = max(best, val)
+            if best <= 0 or bw <= 0:
+                continue
+            ratio = best / bw
+            if ratio < thresholds[0]:
+                score = ratio / thresholds[0]
+            elif ratio >= thresholds[-1]:
+                score = 5.0
+            else:
+                score = next(
+                    i + 1 + (ratio - thresholds[i]) / (thresholds[i + 1] - thresholds[i])
+                    for i in range(len(thresholds) - 1)
+                    if thresholds[i] <= ratio < thresholds[i + 1]
+                )
+            rows_std.append(
+                {
+                    "lift": lift,
+                    "ratio": round(ratio, 2),
+                    "score": round(score, 2),
+                    "level": STANDARD_LEVELS[max(0, min(4, int(score) - 1))] if score < 5 else "Elite",
+                }
+            )
+        if rows_std:
+            standards = rows_std
+
     year_review = None
     if year_data["workouts"]:
         top_eid = max(
@@ -636,6 +778,10 @@ def stats(
             "blocks": blocks,
             "times": times,
             "forecast": forecast,
+            "load": load,
+            "recovery": recovery,
+            "detraining": detraining,
+            "standards": standards,
         },
         "totals": {
             "workouts": len(workouts),

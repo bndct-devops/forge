@@ -60,6 +60,19 @@ interface StatsTrends {
     milestone: number | null
     eta: string | null
   }[]
+  load: {
+    days: { date: string; fitness: number; fatigue: number; form: number }[]
+    status: 'fresh' | 'productive' | 'overreaching'
+  } | null
+  recovery: { bucket: string; pct: number; n: number }[] | null
+  detraining: { pct_per_week: number; events: number } | null
+  standards: { lift: string; ratio: number; score: number; level: string }[] | null
+}
+
+const LOAD_STATUS: Record<string, { label: string; hint: string }> = {
+  fresh: { label: 'Fresh', hint: 'fatigue is low — a good stretch to push' },
+  productive: { label: 'Productive', hint: 'building fitness at a sustainable clip' },
+  overreaching: { label: 'Overreaching', hint: 'fatigue is outrunning fitness — plan an easier day' },
 }
 
 interface YearReview {
@@ -721,6 +734,94 @@ export default function StatsPage() {
             </section>
           )}
 
+          {stats.trends.load && (
+            <section className="rounded-xl border bg-card p-4">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <h2 className="text-base">Form &amp; fatigue</h2>
+                <span
+                  className={cn(
+                    'rounded-full px-2.5 py-1 text-xs font-semibold',
+                    stats.trends.load.status === 'overreaching'
+                      ? 'bg-destructive/15 text-destructive'
+                      : 'bg-accent-soft text-primary',
+                  )}
+                >
+                  {LOAD_STATUS[stats.trends.load.status].label}
+                </span>
+              </div>
+              <p className="mb-3 text-xs text-muted-foreground">
+                {LOAD_STATUS[stats.trends.load.status].hint} — 42-day fitness vs 7-day fatigue,
+                from daily training load
+              </p>
+              <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1">
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: 'var(--chart-accent)' }} />
+                  Fitness
+                </span>
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: RPE_COLOR }} />
+                  Fatigue
+                </span>
+              </div>
+              <div className="h-44 md:h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={stats.trends.load.days}
+                    margin={{ top: 6, right: 12, bottom: 0, left: -14 }}
+                  >
+                    <CartesianGrid vertical={false} stroke="var(--border)" />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={{ stroke: 'var(--border)' }}
+                      tickFormatter={(v: string) => formatShortDate(v + 'T00:00:00')}
+                      interval="preserveStartEnd"
+                      minTickGap={40}
+                    />
+                    <YAxis
+                      tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={false}
+                      width={44}
+                      tickFormatter={(v: number) =>
+                        v >= 1000 ? `${(v / 1000).toFixed(1).replace(/\.0$/, '')}k` : String(v)
+                      }
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'var(--popover)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '10px',
+                        color: 'var(--popover-foreground)',
+                        fontSize: '13px',
+                      }}
+                      formatter={(value, name) => [`${value} ${unit}/day`, name]}
+                      labelFormatter={(label) => formatShortDate(String(label) + 'T00:00:00')}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="fitness"
+                      name="Fitness"
+                      stroke="var(--chart-accent)"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="fatigue"
+                      name="Fatigue"
+                      stroke={RPE_COLOR}
+                      strokeWidth={2}
+                      strokeDasharray="5 4"
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+          )}
+
           {stats.trends.top_lifts.names.length > 0 && (
             <section className="rounded-xl border bg-card p-4">
               <h2 className="mb-1 text-base">Top lifts — estimated 1RM</h2>
@@ -842,6 +943,50 @@ export default function StatsPage() {
             </section>
           )}
 
+          {stats.trends.standards && stats.trends.standards.length > 0 && (
+            <section className="rounded-xl border bg-card p-4">
+              <h2 className="mb-1 text-base">Strength standards</h2>
+              <p className="mb-3 text-xs text-muted-foreground">
+                best e1RM ÷ bodyweight vs population standards — barbell lifts only,
+                and standards are approximate
+              </p>
+              <div className="flex flex-col gap-3">
+                {stats.trends.standards.map((s) => (
+                  <div key={s.lift}>
+                    <div className="mb-1 flex items-baseline justify-between gap-2">
+                      <span className="text-sm font-medium">{s.lift}</span>
+                      <span className="text-xs text-muted-foreground">
+                        <span className="font-semibold text-foreground">{s.level}</span>
+                        {' · '}
+                        {s.ratio}×BW
+                      </span>
+                    </div>
+                    <div className="flex gap-1">
+                      {Array.from({ length: 5 }, (_, i) => (
+                        <div key={i} className="h-2 flex-1 overflow-hidden rounded-full bg-secondary">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${Math.min(1, Math.max(0, s.score - i)) * 100}%`,
+                              backgroundColor: 'var(--chart-accent)',
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 flex justify-between text-[10px] text-muted-foreground">
+                <span>Untrained</span>
+                <span>Novice</span>
+                <span>Intermediate</span>
+                <span>Advanced</span>
+                <span>Elite</span>
+              </p>
+            </section>
+          )}
+
           {(stats.trends.forecast ?? []).length > 0 && (
             <section className="rounded-xl border bg-card p-4">
               <h2 className="mb-1 text-base">Trajectory</h2>
@@ -872,6 +1017,66 @@ export default function StatsPage() {
                     )}
                   </div>
                 ))}
+              </div>
+            </section>
+          )}
+
+          {stats.trends.recovery && (
+            <section className="rounded-xl border bg-card p-4">
+              <h2 className="mb-1 text-base">Recovery sweet spot</h2>
+              <p className="mb-3 text-xs text-muted-foreground">
+                session strength vs your recent baseline, by rest days before it
+              </p>
+              <div className="flex flex-col gap-2.5">
+                {(() => {
+                  const maxAbs = Math.max(1, ...stats.trends.recovery!.map((r) => Math.abs(r.pct)))
+                  return stats.trends.recovery!.map((r) => (
+                    <div key={r.bucket} className="flex items-center gap-3">
+                      <span className="w-16 shrink-0 text-sm font-medium">
+                        {r.bucket === '4+' ? '4+ days' : `${r.bucket} day${r.bucket === '1' ? '' : 's'}`}
+                      </span>
+                      <div className="h-4 flex-1 overflow-hidden rounded-full bg-secondary">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${(Math.abs(r.pct) / maxAbs) * 100}%`,
+                            backgroundColor: r.pct >= 0 ? 'var(--chart-accent)' : 'var(--destructive)',
+                            opacity: r.pct >= 0 ? 1 : 0.6,
+                          }}
+                        />
+                      </div>
+                      <span
+                        className={cn(
+                          'tnum w-14 shrink-0 text-right text-sm font-semibold',
+                          r.pct >= 0 ? 'text-success' : 'text-destructive',
+                        )}
+                      >
+                        {r.pct >= 0 ? '+' : ''}
+                        {r.pct}%
+                      </span>
+                      <span className="tnum w-8 shrink-0 text-right text-xs text-muted-foreground">
+                        {r.n}×
+                      </span>
+                    </div>
+                  ))
+                })()}
+              </div>
+            </section>
+          )}
+
+          {stats.trends.detraining && (
+            <section className="flex items-center gap-4 rounded-xl border bg-card p-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-primary">
+                <Hourglass size={20} />
+              </div>
+              <div>
+                <div className="text-sm font-semibold">
+                  Layoffs cost you ~{Math.abs(stats.trends.detraining.pct_per_week)}% strength per week away
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  measured across {stats.trends.detraining.events} training breaks of 2+ weeks
+                  {stats.trends.detraining.pct_per_week < 0 && ' — you actually came back stronger'}
+                </div>
               </div>
             </section>
           )}
