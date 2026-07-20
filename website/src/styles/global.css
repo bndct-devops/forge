@@ -92,7 +92,20 @@ html { scroll-behavior: smooth; }
 }
 .reveal.revealed { opacity: 1; transform: translateY(0); }
 
-/* ── Themed-shot fade-in ── */
+/* ── Themed-shot fade-in + hover lift ── */
+.themed-shot {
+  transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.3s ease;
+  will-change: transform;
+}
+.themed-shot:hover {
+  transform: translateY(-6px) scale(1.015);
+  box-shadow: 0 24px 48px -12px oklch(0 0 0 / 0.45);
+}
+@media (prefers-reduced-motion: reduce) {
+  .themed-shot { transition: none; }
+  .themed-shot:hover { transform: none; }
+}
+
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }

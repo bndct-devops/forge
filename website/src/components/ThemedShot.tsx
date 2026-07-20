@@ -45,7 +45,9 @@ export function ThemedShot({ name, alt, className, fallback = 'dark', clickable 
         alt={alt}
         loading="lazy"
         onClick={clickable ? () => setOpen(true) : undefined}
-        className={['fade-in', clickable ? 'cursor-zoom-in' : '', className].filter(Boolean).join(' ')}
+        className={['fade-in', 'themed-shot', clickable ? 'cursor-zoom-in' : '', className]
+          .filter(Boolean)
+          .join(' ')}
         key={src}
       />
       {open &&
