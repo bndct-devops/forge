@@ -2,6 +2,7 @@
 import DocsLayout from '../../layouts/DocsLayout.astro'
 import SectionHero from '../../components/SectionHero.astro'
 import DocsMeta from '../../components/DocsMeta.astro'
+import { ThemedShot } from '../../components/ThemedShot'
 import Callout from '../../components/Callout.astro'
 import { withBase } from '../../lib/path'
 ---
@@ -13,7 +14,7 @@ import { withBase } from '../../lib/path'
     sets, you should be resting, not fiddling with a phone.
   </p>
   <DocsMeta />
-  <div class="docs-shot-bare"><img src={withBase('/shots/workout.png')} alt="A live workout: set rows with previous-workout ghosts, checkmarks and the rest timer" style="max-width: 380px; border-radius: 16px; border: 1px solid var(--border)" /></div>
+  <div class="docs-shot-bare"><ThemedShot client:load name="workout" alt="A live workout: set rows with previous-workout ghosts, checkmarks and the rest timer" className="mx-auto block" /></div>
 
   <h2>Ghosts</h2>
   <p>

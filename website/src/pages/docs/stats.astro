@@ -2,6 +2,7 @@
 import DocsLayout from '../../layouts/DocsLayout.astro'
 import SectionHero from '../../components/SectionHero.astro'
 import DocsMeta from '../../components/DocsMeta.astro'
+import { ThemedShot } from '../../components/ThemedShot'
 import Callout from '../../components/Callout.astro'
 import { withBase } from '../../lib/path'
 ---
@@ -16,7 +17,7 @@ import { withBase } from '../../lib/path'
     strength, standards, trajectory, recovery, pacing, rep ranges, muscle split and balance.
   </p>
   <DocsMeta />
-  <div class="docs-shot-bare"><img src={withBase('/shots/stats.png')} alt="The stats overview: streak card, totals and highlights" style="max-width: 380px; border-radius: 16px; border: 1px solid var(--border)" /></div>
+  <div class="docs-shot-bare"><ThemedShot client:load name="stats" alt="The stats overview: streak card, totals and highlights" className="mx-auto block" /></div>
 
   <h2>The honesty rule</h2>
   <p>

@@ -446,8 +446,11 @@ html { scroll-behavior: smooth; }
 .docs-shot-bare img {
   display: block;
   width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
   height: auto;
-  border-radius: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
 }
 .docs-shot-caption {
   font-size: 0.85rem;

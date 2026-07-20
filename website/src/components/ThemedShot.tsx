@@ -1,0 +1,78 @@
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { X } from 'lucide-react'
+import { readTheme, subscribe, type Theme } from './theme'
+
+interface Props {
+  name: string
+  alt: string
+  className?: string
+  fallback?: Theme
+  clickable?: boolean // default true — click to open a lightbox
+}
+
+/** An app screenshot that follows the site theme: swaps between
+ *  /shots/{light,dark,black}/<name>.png as the viewer toggles. */
+export function ThemedShot({ name, alt, className, fallback = 'dark', clickable = true }: Props) {
+  const [theme, setTheme] = useState<Theme>(fallback)
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    setTheme(readTheme())
+    return subscribe(setTheme)
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = ''
+    }
+  }, [open])
+
+  const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '')
+  const src = `${base}/shots/${theme}/${name}.png`
+
+  return (
+    <>
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        onClick={clickable ? () => setOpen(true) : undefined}
+        className={['fade-in', clickable ? 'cursor-zoom-in' : '', className].filter(Boolean).join(' ')}
+        key={src}
+      />
+      {open &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="lightbox-backdrop"
+            onClick={() => setOpen(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-label={alt}
+          >
+            <button
+              type="button"
+              className="lightbox-close"
+              aria-label="Close"
+              onClick={(e) => {
+                e.stopPropagation()
+                setOpen(false)
+              }}
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <img src={src} alt={alt} className="lightbox-content" onClick={(e) => e.stopPropagation()} />
+          </div>,
+          document.body,
+        )}
+    </>
+  )
+}
