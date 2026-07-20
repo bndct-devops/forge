@@ -23,6 +23,7 @@
   --accent-fg: oklch(0.98 0.005 85);
   --diagram-accent: var(--accent);
   --diagram-accent-fill: var(--accent-soft);
+  --shot-shadow: 0 24px 48px -12px oklch(0 0 0 / 0.35);
 }
 
 /* Dark (default) — near-neutral warm charcoal + glowing ember, the app's
@@ -38,6 +39,7 @@ html.theme-dark {
   --accent-fg: oklch(0.15 0.02 50);
   --diagram-accent: var(--accent);
   --diagram-accent-fill: var(--accent-soft);
+  --shot-shadow: 0 20px 46px -14px oklch(0.70 0.13 50 / 0.35);
 }
 
 html.theme-black {
@@ -51,6 +53,7 @@ html.theme-black {
   --accent-fg: oklch(0.12 0.02 50);
   --diagram-accent: var(--accent);
   --diagram-accent-fill: var(--accent-soft);
+  --shot-shadow: 0 20px 46px -14px oklch(0.72 0.13 50 / 0.42);
 }
 
 html, body {
@@ -99,7 +102,7 @@ html { scroll-behavior: smooth; }
 }
 .themed-shot:hover {
   transform: translateY(-6px) scale(1.015);
-  box-shadow: 0 24px 48px -12px oklch(0 0 0 / 0.45);
+  box-shadow: var(--shot-shadow);
 }
 @media (prefers-reduced-motion: reduce) {
   .themed-shot { transition: none; }
