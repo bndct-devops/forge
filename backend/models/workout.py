@@ -29,6 +29,9 @@ class Workout(Base):
         ForeignKey("program_lifts.id", ondelete="SET NULL"), nullable=True
     )
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    # Client-generated UUID for offline-created workouts — /workouts/sync
+    # upserts by (owner_id, client_id) so replaying a sync never duplicates.
+    client_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
 
     exercises: Mapped[List["WorkoutExercise"]] = relationship(
         cascade="all, delete-orphan", order_by="WorkoutExercise.position"

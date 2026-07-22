@@ -58,3 +58,4 @@ def run_migrations() -> None:
     _ensure_column("users", "webhook_secret", "webhook_secret VARCHAR(128)")
     _ensure_column("exercises", "grip_width", "grip_width VARCHAR(16)")
     _ensure_column("exercises", "attachment", "attachment VARCHAR(24)")
+    _ensure_column("workouts", "client_id", "client_id VARCHAR(36)")

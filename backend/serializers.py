@@ -168,6 +168,7 @@ def serialize_workout(db: Session, workout: Workout, with_previous: bool = True)
         "notes": workout.notes,
         "started_at": workout.started_at,
         "finished_at": workout.finished_at,
+        "client_id": workout.client_id,
         "exercises": exercises,
     }
 
