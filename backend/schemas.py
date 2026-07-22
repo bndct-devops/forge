@@ -200,6 +200,41 @@ class WorkoutOut(BaseModel):
     exercises: list[WorkoutExerciseOut]
 
 
+class SyncSetIn(BaseModel):
+    position: int = Field(ge=0)
+    weight: float | None = Field(default=None, ge=0)
+    reps: int | None = Field(default=None, ge=0)
+    is_completed: bool = False
+    is_warmup: bool = False
+    set_type: Literal["drop", "failure"] | None = None
+    rpe: float | None = Field(default=None, ge=1, le=10)
+    completed_at: datetime | None = None
+
+
+class SyncExerciseIn(BaseModel):
+    exercise_id: int
+    position: int = Field(ge=0)
+    rest_seconds: int | None = Field(default=None, ge=0, le=3600)
+    superset_with_next: bool = False
+    rep_min: int | None = None
+    rep_max: int | None = None
+    sets: list[SyncSetIn] = Field(max_length=50)
+
+
+class WorkoutSyncIn(BaseModel):
+    """Full active-workout document pushed by an offline-capable client.
+    Upserted by (owner, client_id); a set finished_at runs the finish
+    pipeline, so replaying the same document is always safe."""
+
+    client_id: str = Field(min_length=8, max_length=36)
+    id: int | None = None  # server id when the workout was started online
+    name: str = Field(min_length=1, max_length=128)
+    notes: str | None = None
+    started_at: datetime
+    finished_at: datetime | None = None
+    exercises: list[SyncExerciseIn] = Field(max_length=50)
+
+
 class LogSetIn(BaseModel):
     weight: float | None = Field(default=None, ge=0)
     reps: int = Field(ge=1, le=1000)

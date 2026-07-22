@@ -8,6 +8,7 @@ import { CardListSkeleton } from '../components/Skeleton'
 import ProgramsSection from '../components/ProgramsSection'
 import { useWorkout } from '../contexts/WorkoutContext'
 import { api } from '../lib/api'
+import { getCached, useCachedState } from '../lib/dataCache'
 import type { Plan, Routine } from '../lib/types'
 import { formatRelativeDate, parseUTC, restLabel } from '../lib/format'
 import { moveItem, useDragReorder } from '../lib/useDragReorder'
@@ -39,7 +40,7 @@ function PlansSheet({
   onClose: () => void
   onAdopted: (routines: Routine[]) => void
 }) {
-  const [plans, setPlans] = useState<Plan[]>([])
+  const [plans, setPlans] = useCachedState<Plan[]>('plans', [])
   const [adopting, setAdopting] = useState<string | null>(null)
 
   useEffect(() => {
@@ -98,11 +99,11 @@ function PlansSheet({
 export default function WorkoutHomePage() {
   const navigate = useNavigate()
   const { workout, start } = useWorkout()
-  const [routines, setRoutines] = useState<Routine[]>([])
+  const [routines, setRoutines] = useCachedState<Routine[]>('routines', [])
   const [menuRoutine, setMenuRoutine] = useState<Routine | null>(null)
   const [deleteRoutineTarget, setDeleteRoutineTarget] = useState<Routine | null>(null)
   const [plansOpen, setPlansOpen] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => getCached('routines') == null)
   const [error, setError] = useState('')
   const { handleProps, itemProps } = useDragReorder(routines.length, (from, to) => {
     const next = moveItem(routines, from, to)

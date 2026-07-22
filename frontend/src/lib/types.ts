@@ -64,6 +64,8 @@ export interface SetEntry {
   set_type?: 'drop' | 'failure' | null
   is_pr: boolean
   rpe?: number | null
+  // Stamped client-side so offline sessions keep accurate rest analytics
+  completed_at?: string | null
 }
 
 export interface PastSet {
@@ -98,6 +100,9 @@ export interface Workout {
   notes: string | null
   started_at: string
   finished_at: string | null
+  // Client-generated UUID; /workouts/sync upserts by it so offline
+  // sessions replay without duplicating. Negative id = not yet on the server.
+  client_id?: string | null
   exercises: WorkoutExercise[]
   duration_seconds?: number
   total_volume?: number
@@ -134,6 +139,8 @@ export interface FinishResult {
   workout_number: number
   week_workouts: number
   comparison: { prev_volume: number; prev_sets: number; prev_date: string } | null
+  // True when finished offline: totals are local, PRs arrive after sync
+  pending?: boolean
 }
 
 export interface RecordSet {

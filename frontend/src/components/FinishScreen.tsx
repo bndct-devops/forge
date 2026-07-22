@@ -120,8 +120,14 @@ export default function FinishScreen({ summary, unit, onDone }: FinishScreenProp
           className="animate-card-appear mt-1.5 text-sm text-muted-foreground"
           style={{ animationDelay: '280ms' }}
         >
-          {summary.name} · your {ordinal(summary.workout_number)} workout
-          {summary.week_workouts > 1 && ` · ${ordinal(summary.week_workouts)} this week`}
+          {summary.pending ? (
+            <>{summary.name} · saved offline — syncs when you reconnect</>
+          ) : (
+            <>
+              {summary.name} · your {ordinal(summary.workout_number)} workout
+              {summary.week_workouts > 1 && ` · ${ordinal(summary.week_workouts)} this week`}
+            </>
+          )}
         </p>
 
         <div
@@ -162,6 +168,15 @@ export default function FinishScreen({ summary, unit, onDone }: FinishScreenProp
                 </span>
               )
             })()}
+          </p>
+        )}
+
+        {summary.pending && (
+          <p
+            className="animate-card-appear mt-4 text-sm text-muted-foreground"
+            style={{ animationDelay: '440ms' }}
+          >
+            Personal records will be detected when the workout syncs.
           </p>
         )}
 

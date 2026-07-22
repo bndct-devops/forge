@@ -25,6 +25,7 @@ from backend.schemas import (
     WorkoutExerciseOrder,
     WorkoutExerciseUpdate,
     WorkoutStart,
+    WorkoutSyncIn,
     WorkoutUpdate,
 )
 from backend.core.webhooks import fire_webhook
@@ -77,6 +78,201 @@ def active_workout(user: User = Depends(get_current_user), db: Session = Depends
     if workout is None:
         return None
     return serialize_workout(db, workout)
+
+
+def _finish_summary(db: Session, user: User, workout: Workout, prs: list) -> dict:
+    totals = workout_totals(workout)
+    duration = int((workout.finished_at - workout.started_at).total_seconds())
+
+    # Context for the finish screen: lifetime count + count this week
+    workout_number = db.execute(
+        select(func.count(Workout.id)).where(
+            Workout.owner_id == user.id, Workout.finished_at.is_not(None)
+        )
+    ).scalar()
+    week_start = workout.started_at - timedelta(
+        days=workout.started_at.weekday(),
+        hours=workout.started_at.hour,
+        minutes=workout.started_at.minute,
+        seconds=workout.started_at.second,
+    )
+    week_workouts = db.execute(
+        select(func.count(Workout.id)).where(
+            Workout.owner_id == user.id,
+            Workout.finished_at.is_not(None),
+            Workout.started_at >= week_start,
+        )
+    ).scalar()
+
+    # Compare against the previous finished workout with the same name
+    previous_same = db.execute(
+        select(Workout)
+        .where(
+            Workout.owner_id == user.id,
+            Workout.finished_at.is_not(None),
+            Workout.name == workout.name,
+            Workout.id != workout.id,
+        )
+        .order_by(Workout.started_at.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    comparison = None
+    if previous_same is not None:
+        prev_totals = workout_totals(previous_same)
+        comparison = {
+            "prev_volume": prev_totals["total_volume"],
+            "prev_sets": prev_totals["total_sets"],
+            "prev_date": previous_same.started_at,
+        }
+
+    return {
+        "id": workout.id,
+        "name": workout.name,
+        "duration_seconds": duration,
+        "total_volume": totals["total_volume"],
+        "total_sets": totals["total_sets"],
+        "prs": prs,
+        "workout_number": workout_number,
+        "week_workouts": week_workouts,
+        "comparison": comparison,
+    }
+
+
+def _prs_from_flags(db: Session, workout: Workout) -> list[dict]:
+    """Best-effort PR list rebuilt from stored is_pr flags — used when a
+    finish sync is replayed and the original detection result is gone."""
+    prs = []
+    for we in workout.exercises:
+        exercise = db.get(Exercise, we.exercise_id)
+        name = exercise.name if exercise else "Unknown"
+        for s in we.sets:
+            if s.is_pr and s.reps is not None:
+                kind = "weight" if (s.weight or 0) > 0 else "reps"
+                prs.append(
+                    {
+                        "exercise_name": name,
+                        "kind": kind,
+                        "value": s.weight if kind == "weight" else s.reps,
+                        "reps": s.reps,
+                    }
+                )
+    return prs
+
+
+@router.put("/sync")
+def sync_workout(
+    body: WorkoutSyncIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Upsert a full workout document from an offline-capable client.
+
+    Keyed by (owner, client_id) — or the server id when the workout was
+    started online — so replaying the same document never duplicates.
+    A set finished_at runs the finish pipeline (prune, PRs, program advance,
+    webhook/MQTT); PRs recompute chronologically since offline finishes
+    arrive backdated."""
+    workout = None
+    if body.id is not None and body.id > 0:
+        found = db.get(Workout, body.id)
+        if found is not None and found.owner_id == user.id:
+            workout = found
+    if workout is None:
+        workout = db.execute(
+            select(Workout).where(
+                Workout.owner_id == user.id, Workout.client_id == body.client_id
+            )
+        ).scalar_one_or_none()
+
+    if workout is not None and workout.finished_at is not None:
+        # Already finished server-side. A finish replay returns the summary
+        # again; an active-doc push against it means another device finished
+        # the session — either way the client should drop its local copy.
+        if body.finished_at is not None:
+            return {
+                "workout": None,
+                "finish": _finish_summary(db, user, workout, _prs_from_flags(db, workout)),
+            }
+        return {"workout": None, "finish": None}
+
+    creating = workout is None
+    if creating:
+        workout = Workout(owner_id=user.id, client_id=body.client_id)
+    elif workout.client_id is None:
+        workout.client_id = body.client_id
+    workout.name = body.name.strip()
+    workout.notes = body.notes
+    workout.started_at = body.started_at
+
+    exercises: list[WorkoutExercise] = []
+    for i, ex in enumerate(sorted(body.exercises, key=lambda e: e.position)):
+        _visible_exercise(db, user, ex.exercise_id)
+        we = WorkoutExercise(
+            exercise_id=ex.exercise_id,
+            position=i,
+            rest_seconds=ex.rest_seconds,
+            superset_with_next=ex.superset_with_next,
+            rep_min=ex.rep_min,
+            rep_max=ex.rep_max,
+        )
+        we.sets = [
+            SetEntry(
+                position=j,
+                weight=s.weight,
+                reps=s.reps,
+                is_completed=s.is_completed,
+                is_warmup=s.is_warmup,
+                set_type=s.set_type,
+                rpe=s.rpe,
+                completed_at=s.completed_at
+                or (body.finished_at if s.is_completed else None),
+            )
+            for j, s in enumerate(sorted(ex.sets, key=lambda s: s.position))
+        ]
+        exercises.append(we)
+    workout.exercises = exercises
+
+    if body.finished_at is None:
+        # Still in progress — the single-active-workout rule applies
+        active = _get_active(db, user)
+        if active is not None and active is not workout:
+            raise HTTPException(status_code=409, detail="A workout is already in progress")
+        db.add(workout)
+        db.commit()
+        return {"workout": serialize_workout(db, workout), "finish": None}
+
+    # Finishing: same pruning as /finish — drop incomplete sets, empty exercises
+    for we in list(workout.exercises):
+        we.sets = [s for s in we.sets if s.is_completed]
+        for i, s in enumerate(we.sets):
+            s.position = i
+        if not we.sets:
+            workout.exercises.remove(we)
+    if not workout.exercises:
+        if not creating:
+            db.delete(workout)
+            db.commit()
+            recompute_prs(db, user.id)
+        return {"workout": None, "finish": None}
+
+    db.add(workout)
+    db.flush()
+    prs = []
+    for we in workout.exercises:
+        exercise = db.get(Exercise, we.exercise_id)
+        bests = historical_bests(db, user.id, we.exercise_id, exclude_workout_id=workout.id)
+        prs.extend(detect_prs(exercise.name if exercise else "Unknown", we.sets, bests))
+
+    workout.finished_at = body.finished_at
+    from backend.api.programs import advance_program
+
+    advance_program(db, workout)
+    db.commit()
+    # Offline finishes land backdated — rebuild the flags chronologically
+    recompute_prs(db, user.id)
+    fire_webhook(user, workout, source="app")
+    _publish_mqtt(db, user, workout)
+    return {"workout": None, "finish": _finish_summary(db, user, workout, prs)}
 
 
 @router.get("")
@@ -505,61 +701,7 @@ def finish_workout(
     fire_webhook(user, workout, source="app")
     _publish_mqtt(db, user, workout)
 
-    totals = workout_totals(workout)
-    duration = int((workout.finished_at - workout.started_at).total_seconds())
-
-    # Context for the finish screen: lifetime count + count this week
-    workout_number = db.execute(
-        select(func.count(Workout.id)).where(
-            Workout.owner_id == user.id, Workout.finished_at.is_not(None)
-        )
-    ).scalar()
-    week_start = workout.started_at - timedelta(
-        days=workout.started_at.weekday(),
-        hours=workout.started_at.hour,
-        minutes=workout.started_at.minute,
-        seconds=workout.started_at.second,
-    )
-    week_workouts = db.execute(
-        select(func.count(Workout.id)).where(
-            Workout.owner_id == user.id,
-            Workout.finished_at.is_not(None),
-            Workout.started_at >= week_start,
-        )
-    ).scalar()
-
-    # Compare against the previous finished workout with the same name
-    previous_same = db.execute(
-        select(Workout)
-        .where(
-            Workout.owner_id == user.id,
-            Workout.finished_at.is_not(None),
-            Workout.name == workout.name,
-            Workout.id != workout.id,
-        )
-        .order_by(Workout.started_at.desc())
-        .limit(1)
-    ).scalar_one_or_none()
-    comparison = None
-    if previous_same is not None:
-        prev_totals = workout_totals(previous_same)
-        comparison = {
-            "prev_volume": prev_totals["total_volume"],
-            "prev_sets": prev_totals["total_sets"],
-            "prev_date": previous_same.started_at,
-        }
-
-    return {
-        "id": workout.id,
-        "name": workout.name,
-        "duration_seconds": duration,
-        "total_volume": totals["total_volume"],
-        "total_sets": totals["total_sets"],
-        "prs": prs,
-        "workout_number": workout_number,
-        "week_workouts": week_workouts,
-        "comparison": comparison,
-    }
+    return _finish_summary(db, user, workout, prs)
 
 
 @router.put("/{workout_id}/exercise-order")

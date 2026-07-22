@@ -14,6 +14,7 @@ import Sheet from '../components/Sheet'
 import Skeleton from '../components/Skeleton'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
+import { useCachedState } from '../lib/dataCache'
 import { formatRelativeDate, formatShortDate, toDatetimeLocal } from '../lib/format'
 
 interface KindSummary {
@@ -37,7 +38,7 @@ function unitFor(kind: string, weightUnit: string): string {
 export function MeasureListPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const [kinds, setKinds] = useState<KindSummary[] | null>(null)
+  const [kinds, setKinds] = useCachedState<KindSummary[] | null>('measurements', null)
 
   useEffect(() => {
     api<KindSummary[]>('/measurements').then(setKinds).catch(() => {})
