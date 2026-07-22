@@ -5,6 +5,8 @@ import Toaster from './components/Toaster'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { WorkoutProvider } from './contexts/WorkoutContext'
 import { api } from './lib/api'
+import { setCached } from './lib/dataCache'
+import { fetchExercises } from './lib/exerciseCache'
 import AppShell from './components/AppShell'
 import ActiveWorkoutPage from './pages/ActiveWorkoutPage'
 import ExerciseDetailPage from './pages/ExerciseDetailPage'
@@ -32,6 +34,17 @@ function Protected({ children }: { children: ReactNode }) {
         .catch(() => setNeedsSetup(false))
     }
   }, [loading, user])
+
+  // Warm the caches an offline workout depends on (exercise catalog for the
+  // picker, routines for template starts) on every authenticated app start —
+  // being online once is enough, no page visit required.
+  useEffect(() => {
+    if (!user) return
+    fetchExercises().catch(() => {})
+    api<unknown>('/routines')
+      .then((r) => setCached('routines', r))
+      .catch(() => {})
+  }, [user])
 
   if (loading) {
     return (
