@@ -15,6 +15,7 @@ import { isRpeEnabled } from '../lib/prefs'
 import { toast } from '../lib/toast'
 import { formatClock, formatRelativeDate, formatSetWeight, formatVolume, parseUTC, restLabel } from '../lib/format'
 import { useOutboxSize } from '../lib/outbox'
+import { useSyncQueueSize } from '../lib/syncQueue'
 import { restTimer } from '../lib/timer'
 import { moveItem, useDragReorder } from '../lib/useDragReorder'
 import type { FinishResult, SetEntry, WorkoutExercise } from '../lib/types'
@@ -92,6 +93,7 @@ export default function ActiveWorkoutPage() {
   const {
     workout,
     loading,
+    dirty,
     refresh,
     rename,
     updateNotes,
@@ -101,6 +103,7 @@ export default function ActiveWorkoutPage() {
     setSupersetLink,
     swapExercise,
     addSet,
+    addWarmupSets,
     updateSet,
     deleteSet,
     reorderExercises,
@@ -123,7 +126,10 @@ export default function ActiveWorkoutPage() {
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   const [summary, setSummary] = useState<FinishResult | null>(null)
   const [error, setError] = useState('')
-  const pendingSync = useOutboxSize()
+  const finishingRef = useRef(false)
+  const legacyPending = useOutboxSize()
+  const queuedWorkouts = useSyncQueueSize()
+  const offlinePending = legacyPending + queuedWorkouts + (dirty ? 1 : 0)
   const rpeEnabled = isRpeEnabled()
   const exerciseCount = workout?.exercises.length ?? 0
   const { handleProps, itemProps } = useDragReorder(exerciseCount, (from, to) => {
@@ -132,7 +138,11 @@ export default function ActiveWorkoutPage() {
   })
 
   useEffect(() => {
-    if (!loading && !workout && !summary) navigate('/', { replace: true })
+    // finishingRef: the workout clears a beat before the summary lands —
+    // don't treat that in-between render as "no workout, go home"
+    if (!loading && !workout && !summary && !finishingRef.current) {
+      navigate('/', { replace: true })
+    }
   }, [loading, workout, summary, navigate])
 
   if (!workout && !summary) return null
@@ -182,6 +192,7 @@ export default function ActiveWorkoutPage() {
 
   const doFinish = async () => {
     setError('')
+    finishingRef.current = true
     try {
       const result = await finish()
       restTimer.skip()
@@ -190,6 +201,8 @@ export default function ActiveWorkoutPage() {
     } catch (e) {
       setConfirmFinish(false)
       setError(e instanceof Error ? e.message : 'Could not finish workout')
+    } finally {
+      finishingRef.current = false
     }
   }
 
@@ -222,9 +235,9 @@ export default function ActiveWorkoutPage() {
                       {formatVolume(liveVolume, user?.unit ?? 'kg')}
                     </span>
                   )}
-                  {pendingSync > 0 && (
+                  {offlinePending > 0 && (
                     <span className="flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning">
-                      <CloudOff size={12} /> {pendingSync} to sync
+                      <CloudOff size={12} /> {dirty && legacyPending + queuedWorkouts === 0 ? 'offline — will sync' : `${offlinePending} to sync`}
                     </span>
                   )}
                 </span>
@@ -534,14 +547,10 @@ export default function ActiveWorkoutPage() {
                     const we = menuExercise
                     setMenuExercise(null)
                     try {
-                      let pos = 0
-                      for (const r of ramp) {
-                        await api(`/workouts/${workout!.id}/exercises/${we.id}/sets`, {
-                          method: 'POST',
-                          body: { position: pos++, weight: r.weight, reps: r.reps, is_warmup: true },
-                        })
-                      }
-                      await refresh()
+                      await addWarmupSets(
+                        we.id,
+                        ramp.map((r, i) => ({ position: i, weight: r.weight, reps: r.reps })),
+                      )
                     } catch {
                       toast('Could not add warm-up sets')
                     }
