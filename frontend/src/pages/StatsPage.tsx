@@ -18,7 +18,7 @@ import Skeleton from '../components/Skeleton'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
-import { getPageCache, setPageCache } from '../lib/pageCache'
+import { useCachedState } from '../lib/dataCache'
 import { formatDuration, formatShortDate, formatVolume } from '../lib/format'
 import { cn } from '../lib/utils'
 
@@ -252,17 +252,14 @@ function CalendarHeatmap({ days }: { days: StatsData['calendar'] }) {
 export default function StatsPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [stats, setStats] = useState<StatsData | null>(() => getPageCache<StatsData>('stats'))
+  const [stats, setStats] = useCachedState<StatsData | null>('stats', null)
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null)
   const [tab, setTab] = useState<'overview' | 'trends'>('overview')
   const unit = user?.unit ?? 'kg'
 
   useEffect(() => {
     api<StatsData>(`/stats?tz_offset=${-new Date().getTimezoneOffset()}`)
-      .then((s) => {
-        setPageCache('stats', s)
-        setStats(s)
-      })
+      .then(setStats)
       .catch(() => {})
   }, [])
 

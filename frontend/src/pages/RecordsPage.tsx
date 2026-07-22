@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import Skeleton from '../components/Skeleton'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
+import { useCachedState } from '../lib/dataCache'
 import { formatRelativeDate } from '../lib/format'
 
 interface RecordRow {
@@ -19,7 +20,7 @@ interface RecordRow {
 export default function RecordsPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const [records, setRecords] = useState<RecordRow[] | null>(null)
+  const [records, setRecords] = useCachedState<RecordRow[] | null>('records', null)
   const [query, setQuery] = useState('')
   const unit = user?.unit ?? 'kg'
 

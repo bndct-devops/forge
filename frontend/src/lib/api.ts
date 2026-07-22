@@ -1,4 +1,8 @@
+import { clearDataCache } from './dataCache'
+import type { User } from './types'
+
 const TOKEN_KEY = 'forge_token'
+const USER_KEY = 'forge_user'
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY)
@@ -10,6 +14,26 @@ export function setToken(token: string) {
 
 export function clearToken() {
   localStorage.removeItem(TOKEN_KEY)
+}
+
+/** Last authenticated user, kept so the app stays usable offline where
+ *  /auth/me can't be reached. Cleared alongside the token. */
+export function getCachedUser(): User | null {
+  const raw = localStorage.getItem(USER_KEY)
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as User
+  } catch {
+    return null
+  }
+}
+
+export function setCachedUser(user: User) {
+  localStorage.setItem(USER_KEY, JSON.stringify(user))
+}
+
+export function clearCachedUser() {
+  localStorage.removeItem(USER_KEY)
 }
 
 export class ApiError extends Error {
@@ -37,6 +61,9 @@ export async function api<T = unknown>(
 
   if (res.status === 401 && !path.startsWith('/auth/login')) {
     clearToken()
+    clearCachedUser()
+    // Awaited so navigation doesn't abort the IndexedDB clear
+    await clearDataCache()
     if (!location.pathname.startsWith('/login')) location.href = '/login'
     throw new ApiError(401, 'Not authenticated')
   }

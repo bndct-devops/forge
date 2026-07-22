@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
-import { api, clearToken, getToken, setToken } from '../lib/api'
+import { api, clearCachedUser, clearToken, getCachedUser, getToken, setCachedUser, setToken } from '../lib/api'
+import { clearDataCache } from '../lib/dataCache'
 import type { User } from '../lib/types'
 
 interface AuthContextValue {
@@ -20,8 +21,9 @@ interface TokenResponse {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  // Trust the cached user while offline; /auth/me revalidates in the background
+  const [user, setUser] = useState<User | null>(() => (getToken() ? getCachedUser() : null))
+  const [loading, setLoading] = useState(() => getToken() != null && getCachedUser() == null)
 
   useEffect(() => {
     if (!getToken()) {
@@ -29,9 +31,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
     api<User>('/auth/me')
-      .then(setUser)
-      .catch(() => {})
+      .then((me) => {
+        setUser(me)
+        setCachedUser(me)
+      })
+      .catch(() => {}) // network error: keep the cached user; 401 clears everything in api()
       .finally(() => setLoading(false))
+  }, [])
+
+  // Persist the fresh session; drop the previous account's cached data
+  const adoptUser = useCallback(async (u: User) => {
+    const prev = getCachedUser()
+    if (prev && prev.id !== u.id) await clearDataCache()
+    setCachedUser(u)
+    setUser(u)
   }, [])
 
   const login = useCallback(async (username: string, password: string) => {
@@ -40,14 +53,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body: { username, password },
     })
     setToken(res.token)
-    setUser(res.user)
-  }, [])
+    await adoptUser(res.user)
+  }, [adoptUser])
 
   const loginWithToken = useCallback(async (token: string) => {
     setToken(token)
     const me = await api<User>('/auth/me')
-    setUser(me)
-  }, [])
+    await adoptUser(me)
+  }, [adoptUser])
 
   const setup = useCallback(async (username: string, password: string) => {
     const res = await api<TokenResponse>('/auth/setup', {
@@ -55,18 +68,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body: { username, password },
     })
     setToken(res.token)
-    setUser(res.user)
-  }, [])
+    await adoptUser(res.user)
+  }, [adoptUser])
 
   const logout = useCallback(() => {
     clearToken()
+    clearCachedUser()
     setUser(null)
-    location.href = '/login'
+    clearDataCache().finally(() => {
+      location.href = '/login'
+    })
   }, [])
 
   const updateUser = useCallback<AuthContextValue['updateUser']>(async (patch) => {
     const updated = await api<User>('/auth/me', { method: 'PATCH', body: patch })
     setUser(updated)
+    setCachedUser(updated)
   }, [])
 
   return (

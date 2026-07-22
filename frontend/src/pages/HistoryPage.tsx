@@ -7,7 +7,7 @@ import Segmented from '../components/Segmented'
 import { CardListSkeleton } from '../components/Skeleton'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
-import { getPageCache, setPageCache } from '../lib/pageCache'
+import { getCached, useCachedState } from '../lib/dataCache'
 import { formatDuration, formatRelativeDate, formatVolume, parseUTC } from '../lib/format'
 import type { WorkoutSummary } from '../lib/types'
 
@@ -31,22 +31,16 @@ function groupByMonth(workouts: WorkoutSummary[]): { month: string; workouts: Wo
 export default function HistoryPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const [workouts, setWorkouts] = useState<WorkoutSummary[]>(
-    () => getPageCache<WorkoutSummary[]>('history') ?? [],
-  )
+  const [workouts, setWorkouts] = useCachedState<WorkoutSummary[]>('history', [])
   const [done, setDone] = useState(false)
-  const [loading, setLoading] = useState(() => getPageCache('history') == null)
+  const [loading, setLoading] = useState(() => getCached('history') == null)
   const [view, setView] = useState<'list' | 'calendar'>('list')
 
   const load = (offset: number) => {
     setLoading(true)
     api<WorkoutSummary[]>(`/workouts?limit=${PAGE}&offset=${offset}`)
       .then((page) => {
-        setWorkouts((prev) => {
-          const next = offset === 0 ? page : [...prev, ...page]
-          setPageCache('history', next)
-          return next
-        })
+        setWorkouts((prev) => (offset === 0 ? page : [...prev, ...page]))
         if (page.length < PAGE) setDone(true)
       })
       .catch(() => {})
