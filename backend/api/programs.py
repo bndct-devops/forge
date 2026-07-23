@@ -10,7 +10,16 @@ from sqlalchemy.orm import Session
 
 from backend.core.database import get_db
 from backend.core.security import get_current_user
-from backend.models import Exercise, Program, ProgramLift, SetEntry, User, Workout, WorkoutExercise
+from backend.models import (
+    Exercise,
+    Program,
+    ProgramLift,
+    Routine,
+    SetEntry,
+    User,
+    Workout,
+    WorkoutExercise,
+)
 from backend.program_schemes import SCHEMES, cycle_length, prescription
 from backend.serializers import serialize_workout
 
@@ -21,6 +30,8 @@ class ProgramLiftIn(BaseModel):
     exercise_id: int
     training_max: float = Field(gt=0, lt=1000)
     increment: float = Field(default=2.5, gt=0, le=50)
+    # Accessory template appended to this lift's sessions
+    routine_id: int | None = None
 
 
 class ProgramIn(BaseModel):
@@ -32,11 +43,13 @@ class ProgramIn(BaseModel):
 
 class ProgramLiftPatch(BaseModel):
     # With an id: update that lift. Without one: add a new lift, which
-    # requires exercise_id and training_max.
+    # requires exercise_id and training_max. routine_id links an accessory
+    # template; sending null clears it, omitting it leaves it untouched.
     id: int | None = None
     exercise_id: int | None = None
     training_max: float | None = Field(default=None, gt=0, lt=1000)
     increment: float | None = Field(default=None, gt=0, le=50)
+    routine_id: int | None = None
 
 
 class ProgramPatch(BaseModel):
@@ -53,11 +66,27 @@ def _get_own(db: Session, user: User, program_id: int) -> Program:
     return p
 
 
+def _own_routine(db: Session, user: User, routine_id: int) -> Routine:
+    r = db.get(Routine, routine_id)
+    if r is None or r.owner_id != user.id:
+        raise HTTPException(status_code=404, detail="Routine not found")
+    return r
+
+
 def _serialize(db: Session, p: Program) -> dict:
     exercises = {
         e.id: e
         for e in db.execute(
             select(Exercise).where(Exercise.id.in_([l.exercise_id for l in p.lifts]))
+        ).scalars()
+    }
+    routines = {
+        r.id: r.name
+        for r in db.execute(
+            select(Routine).where(
+                Routine.id.in_([l.routine_id for l in p.lifts if l.routine_id]),
+                Routine.owner_id == p.owner_id,
+            )
         ).scalars()
     }
     next_lift = p.lifts[p.lift_pointer % len(p.lifts)] if p.lifts else None
@@ -78,6 +107,8 @@ def _serialize(db: Session, p: Program) -> dict:
                 "name": exercises[l.exercise_id].name if l.exercise_id in exercises else "?",
                 "training_max": l.training_max,
                 "increment": l.increment,
+                "routine_id": l.routine_id if l.routine_id in routines else None,
+                "routine_name": routines.get(l.routine_id),
             }
             for l in p.lifts
         ],
@@ -94,6 +125,7 @@ def _serialize(db: Session, p: Program) -> dict:
                 "sets": prescription(
                     p.scheme, p.current_week, next_lift.training_max, p.rounding
                 ),
+                "routine_name": routines.get(next_lift.routine_id),
             }
             if next_lift
             else None
@@ -139,6 +171,8 @@ def create_program(
         ex = db.get(Exercise, lift.exercise_id)
         if ex is None:
             raise HTTPException(status_code=404, detail="Exercise not found")
+        if lift.routine_id is not None:
+            _own_routine(db, user, lift.routine_id)
     p = Program(
         owner_id=user.id, name=body.name, scheme=body.scheme, rounding=body.rounding
     )
@@ -148,6 +182,7 @@ def create_program(
             position=i,
             training_max=l.training_max,
             increment=l.increment,
+            routine_id=l.routine_id,
         )
         for i, l in enumerate(body.lifts)
     ]
@@ -182,6 +217,8 @@ def update_program(
         pointed = p.lifts[p.lift_pointer % len(p.lifts)] if p.lifts else None
         kept: list[ProgramLift] = []
         for patch in body.lifts:
+            if patch.routine_id is not None:
+                _own_routine(db, user, patch.routine_id)
             if patch.id is not None:
                 lift = next((l for l in p.lifts if l.id == patch.id), None)
                 if lift is None:
@@ -190,6 +227,8 @@ def update_program(
                     lift.training_max = patch.training_max
                 if patch.increment is not None:
                     lift.increment = patch.increment
+                if "routine_id" in patch.model_fields_set:
+                    lift.routine_id = patch.routine_id
                 kept.append(lift)
             else:
                 if patch.exercise_id is None or patch.training_max is None:
@@ -204,6 +243,7 @@ def update_program(
                         exercise_id=patch.exercise_id,
                         training_max=patch.training_max,
                         increment=patch.increment if patch.increment is not None else 2.5,
+                        routine_id=patch.routine_id,
                     )
                 )
         for i, lift in enumerate(kept):
@@ -264,6 +304,15 @@ def start_program_workout(
         for i, s in enumerate(sets)
     ]
     w.exercises = [we]
+    # Accessory template: its exercises follow the main lift, with the same
+    # empty sets and progression suggestions as a template start. A routine
+    # deleted since it was linked is skipped, never an error.
+    if lift.routine_id is not None:
+        routine = db.get(Routine, lift.routine_id)
+        if routine is not None and routine.owner_id == user.id:
+            from backend.api.workouts import seed_from_routine
+
+            w.exercises += seed_from_routine(db, user, routine, position_offset=1)
     db.add(w)
     db.commit()
     data = serialize_workout(db, w)

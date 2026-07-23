@@ -391,6 +391,50 @@ def _stalled(sessions: list[list[tuple[float, int]]], rep_max: int) -> float | N
     return tops[0]
 
 
+def seed_from_routine(
+    db: Session, user: User, routine: Routine, position_offset: int = 0
+) -> list[WorkoutExercise]:
+    """WorkoutExercises (with empty sets) for a routine's entries, each with
+    its double-progression suggestion computed against history. Used by
+    template starts and by program sessions with an accessory template."""
+    exercises: list[WorkoutExercise] = []
+    for re_ in routine.exercises:
+        suggestion = None
+        kind = None
+        if re_.rep_max:
+            # Double progression: every previous working set hit rep_max
+            # -> suggest last weight + increment
+            prev = previous_sets(db, user.id, re_.exercise_id, exclude_workout_id=-1)
+            working = [x for x in prev if x["reps"] is not None]
+            if working:
+                top_weight = max((x["weight"] or 0) for x in working)
+                if all(x["reps"] >= re_.rep_max for x in working) and top_weight > 0:
+                    suggestion = top_weight + (re_.increment or 2.5)
+                    kind = "progress"
+                elif user.deload_hints:
+                    # Three straight sessions stuck at the same weight
+                    # without hitting the target -> suggest ~10% off
+                    sessions = _recent_session_sets(db, user.id, re_.exercise_id)
+                    stall_weight = _stalled(sessions, re_.rep_max)
+                    if stall_weight is not None:
+                        step = re_.increment or 2.5
+                        suggestion = max(step, round(stall_weight * 0.9 / step) * step)
+                        kind = "deload"
+        we = WorkoutExercise(
+            exercise_id=re_.exercise_id,
+            position=position_offset + re_.position,
+            rest_seconds=re_.rest_seconds,
+            superset_with_next=re_.superset_with_next,
+            rep_min=re_.rep_min,
+            rep_max=re_.rep_max,
+            suggested_weight=suggestion,
+            suggestion_kind=kind,
+        )
+        we.sets = [SetEntry(position=i) for i in range(re_.set_count)]
+        exercises.append(we)
+    return exercises
+
+
 @router.post("")
 def start_workout(
     body: WorkoutStart,
@@ -407,40 +451,7 @@ def start_workout(
         if routine is None or routine.owner_id != user.id:
             raise HTTPException(status_code=404, detail="Routine not found")
         name = name or routine.name
-        for re_ in routine.exercises:
-            suggestion = None
-            kind = None
-            if re_.rep_max:
-                # Double progression: every previous working set hit rep_max
-                # -> suggest last weight + increment
-                prev = previous_sets(db, user.id, re_.exercise_id, exclude_workout_id=-1)
-                working = [x for x in prev if x["reps"] is not None]
-                if working:
-                    top_weight = max((x["weight"] or 0) for x in working)
-                    if all(x["reps"] >= re_.rep_max for x in working) and top_weight > 0:
-                        suggestion = top_weight + (re_.increment or 2.5)
-                        kind = "progress"
-                    elif user.deload_hints:
-                        # Three straight sessions stuck at the same weight
-                        # without hitting the target -> suggest ~10% off
-                        sessions = _recent_session_sets(db, user.id, re_.exercise_id)
-                        stall_weight = _stalled(sessions, re_.rep_max)
-                        if stall_weight is not None:
-                            step = re_.increment or 2.5
-                            suggestion = max(step, round(stall_weight * 0.9 / step) * step)
-                            kind = "deload"
-            we = WorkoutExercise(
-                exercise_id=re_.exercise_id,
-                position=re_.position,
-                rest_seconds=re_.rest_seconds,
-                superset_with_next=re_.superset_with_next,
-                rep_min=re_.rep_min,
-                rep_max=re_.rep_max,
-                suggested_weight=suggestion,
-                suggestion_kind=kind,
-            )
-            we.sets = [SetEntry(position=i) for i in range(re_.set_count)]
-            exercises.append(we)
+        exercises = seed_from_routine(db, user, routine)
     elif body.workout_id is not None:
         source = db.get(Workout, body.workout_id)
         if source is None or source.owner_id != user.id:

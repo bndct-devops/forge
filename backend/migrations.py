@@ -59,3 +59,6 @@ def run_migrations() -> None:
     _ensure_column("exercises", "grip_width", "grip_width VARCHAR(16)")
     _ensure_column("exercises", "attachment", "attachment VARCHAR(24)")
     _ensure_column("workouts", "client_id", "client_id VARCHAR(36)")
+    _ensure_column(
+        "program_lifts", "routine_id", "routine_id INTEGER REFERENCES routines(id)"
+    )

@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useWorkout } from '../contexts/WorkoutContext'
 import { api } from '../lib/api'
 import { toast } from '../lib/toast'
-import type { Exercise } from '../lib/types'
+import type { Exercise, Routine } from '../lib/types'
 import ConfirmSheet from './ConfirmSheet'
 import ExercisePicker from './ExercisePicker'
 import Sheet from './Sheet'
@@ -27,8 +27,21 @@ interface Program {
   cycle_length: number
   cycle_number: number
   // id is absent on lifts added in the edit sheet and not yet saved
-  lifts: { id?: number; exercise_id: number; name: string; training_max: number; increment: number }[]
-  next: { exercise_name: string; week: number; sets: ProgramSet[] } | null
+  lifts: {
+    id?: number
+    exercise_id: number
+    name: string
+    training_max: number
+    increment: number
+    routine_id: number | null
+    routine_name?: string | null
+  }[]
+  next: {
+    exercise_name: string
+    week: number
+    sets: ProgramSet[]
+    routine_name?: string | null
+  } | null
 }
 
 interface SchemeInfo {
@@ -41,6 +54,7 @@ interface DraftLift {
   exercise: Exercise
   training_max: number
   increment: number
+  routine_id: number | null
 }
 
 interface RecordRow {
@@ -70,6 +84,7 @@ export default function ProgramsSection() {
   const [draftLifts, setDraftLifts] = useState<DraftLift[]>([])
   const [pickerOpen, setPickerOpen] = useState(false)
   const [records, setRecords] = useState<RecordRow[]>([])
+  const [routines, setRoutines] = useState<Routine[]>([])
 
   const load = useCallback(() => {
     api<Program[]>('/programs').then(setPrograms).catch(() => {})
@@ -86,11 +101,13 @@ export default function ProgramsSection() {
     setDraftLifts([])
     setCreating(true)
     api<RecordRow[]>('/stats/records').then(setRecords).catch(() => {})
+    api<Routine[]>('/routines').then(setRoutines).catch(() => {})
   }
 
   const openEdit = (p: Program) => {
     setEditTarget(structuredClone(p))
     api<RecordRow[]>('/stats/records').then(setRecords).catch(() => {})
+    api<Routine[]>('/routines').then(setRoutines).catch(() => {})
   }
 
   // Conventional training max: 90% of the best estimated 1RM
@@ -107,12 +124,15 @@ export default function ProgramsSection() {
       if (editTarget.lifts.some((l) => l.exercise_id === exercise.id)) return
       setEditTarget({
         ...editTarget,
-        lifts: [...editTarget.lifts, { exercise_id: exercise.id, name: exercise.name, ...suggestLift(exercise) }],
+        lifts: [
+          ...editTarget.lifts,
+          { exercise_id: exercise.id, name: exercise.name, routine_id: null, ...suggestLift(exercise) },
+        ],
       })
       return
     }
     if (draftLifts.some((l) => l.exercise.id === exercise.id)) return
-    setDraftLifts((ls) => [...ls, { exercise, ...suggestLift(exercise) }])
+    setDraftLifts((ls) => [...ls, { exercise, routine_id: null, ...suggestLift(exercise) }])
   }
 
   const createProgram = async () => {
@@ -128,6 +148,7 @@ export default function ProgramsSection() {
             exercise_id: l.exercise.id,
             training_max: l.training_max,
             increment: l.increment,
+            routine_id: l.routine_id,
           })),
         },
       })
@@ -153,6 +174,7 @@ export default function ProgramsSection() {
             exercise_id: l.exercise_id,
             training_max: l.training_max,
             increment: l.increment,
+            routine_id: l.routine_id ?? null,
           })),
         },
       })
@@ -185,6 +207,31 @@ export default function ProgramsSection() {
 
   const setsSummary = (sets: ProgramSet[]) =>
     sets.map((s) => `${s.weight}×${s.reps}${s.amrap ? '+' : ''}`).join(' · ')
+
+  // Accessory template picker for a lift row; templates are optional, so an
+  // empty library just hints at where they come from.
+  const accessoryPicker = (value: number | null | undefined, onChange: (v: number | null) => void) =>
+    routines.length === 0 ? (
+      <p className="text-xs text-muted-foreground">
+        Accessories: none — create a template under Templates to attach one.
+      </p>
+    ) : (
+      <label className="flex items-center gap-2 text-xs text-muted-foreground">
+        Accessories
+        <select
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
+          className="min-w-0 flex-1 rounded-lg border bg-background px-2 py-1.5 text-sm text-foreground"
+        >
+          <option value="">None</option>
+          {routines.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.name}
+            </option>
+          ))}
+        </select>
+      </label>
+    )
 
   return (
     <>
@@ -229,6 +276,11 @@ export default function ProgramsSection() {
                   <div className="tnum mt-0.5 text-sm font-medium">
                     {setsSummary(p.next.sets)} {unit}
                   </div>
+                  {p.next.routine_name && (
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      + {p.next.routine_name}
+                    </div>
+                  )}
                 </div>
               )}
               <button
@@ -287,7 +339,8 @@ export default function ProgramsSection() {
             )}
             <div className="flex flex-col gap-2">
               {draftLifts.map((l, i) => (
-                <div key={l.exercise.id} className="flex items-center gap-2 rounded-xl border bg-card px-3 py-2">
+                <div key={l.exercise.id} className="rounded-xl border bg-card px-3 py-2">
+                <div className="flex items-center gap-2">
                   <span className="min-w-0 flex-1 truncate text-sm font-medium">{l.exercise.name}</span>
                   <label className="flex items-center gap-1 text-xs text-muted-foreground">
                     TM
@@ -325,6 +378,12 @@ export default function ProgramsSection() {
                     <X size={15} />
                   </button>
                 </div>
+                <div className="mt-2">
+                  {accessoryPicker(l.routine_id, (v) =>
+                    setDraftLifts((ls) => ls.map((x, j) => (j === i ? { ...x, routine_id: v } : x))),
+                  )}
+                </div>
+                </div>
               ))}
             </div>
           </div>
@@ -359,7 +418,8 @@ export default function ProgramsSection() {
             </div>
             <div className="flex flex-col gap-2">
               {editTarget.lifts.map((l, i) => (
-                <div key={l.id ?? `new-${l.exercise_id}`} className="flex items-center gap-2 rounded-xl border bg-card px-3 py-2">
+                <div key={l.id ?? `new-${l.exercise_id}`} className="rounded-xl border bg-card px-3 py-2">
+                <div className="flex items-center gap-2">
                   <span className="min-w-0 flex-1 truncate text-sm font-medium">{l.name}</span>
                   <label className="flex items-center gap-1 text-xs text-muted-foreground">
                     TM
@@ -409,6 +469,15 @@ export default function ProgramsSection() {
                       <X size={15} />
                     </button>
                   )}
+                </div>
+                <div className="mt-2">
+                  {accessoryPicker(l.routine_id, (v) =>
+                    setEditTarget({
+                      ...editTarget,
+                      lifts: editTarget.lifts.map((x, j) => (j === i ? { ...x, routine_id: v } : x)),
+                    }),
+                  )}
+                </div>
                 </div>
               ))}
             </div>

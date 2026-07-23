@@ -48,3 +48,8 @@ class ProgramLift(Base):
     training_max: Mapped[float] = mapped_column(Float)
     # Added to the training max at the end of every full cycle
     increment: Mapped[float] = mapped_column(Float, default=2.5)
+    # Optional accessory template: starting this lift's session appends the
+    # routine's exercises after the prescribed main-lift sets
+    routine_id: Mapped[int | None] = mapped_column(
+        ForeignKey("routines.id", ondelete="SET NULL"), nullable=True
+    )

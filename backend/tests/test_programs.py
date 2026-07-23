@@ -15,10 +15,27 @@ from backend.api.programs import (
     update_program,
 )
 from backend.api.workouts import finish_workout
-from backend.models import Program, SetEntry, Workout
+from backend.models import Program, Routine, RoutineExercise, SetEntry, User, Workout
 from backend.program_schemes import cycle_length, prescription, round_to_step
 
-from .conftest import make_exercise
+from .conftest import log_workout, make_exercise
+
+
+def make_routine(db, user, name="Push accessories", exercises=(), set_counts=None):
+    r = Routine(owner_id=user.id, name=name)
+    r.exercises = [
+        RoutineExercise(
+            exercise_id=ex.id,
+            position=i,
+            set_count=(set_counts or {}).get(ex.id, 3),
+            rep_min=8,
+            rep_max=12,
+        )
+        for i, ex in enumerate(exercises)
+    ]
+    db.add(r)
+    db.commit()
+    return r
 
 
 class TestSchemeMath:
@@ -134,6 +151,121 @@ class TestProgramWorkouts:
         sets = db.query(SetEntry).all()
         assert [(s.weight, s.reps) for s in sets] == [(65.0, 5), (75.0, 5), (85.0, 5)]
         assert data["program"]["sets"][2]["amrap"] is True
+
+    def test_start_appends_the_accessory_routine(self, db, user):
+        bench = make_exercise(db, "Bench Press")
+        pulldown = make_exercise(db, "Lat Pulldown", "Back", "Cable")
+        curl = make_exercise(db, "Bicep Curl", "Arms", "Dumbbell")
+        p = make_program(db, user, [bench], tms=(100.0,))
+        routine = make_routine(db, user, exercises=[pulldown, curl])
+        # A finished session where every set hit rep_max -> the accessory
+        # arrives with a double-progression suggestion, like a template start
+        log_workout(db, user, 2, [(pulldown, [(50.0, 12), (50.0, 12), (50.0, 12)])])
+        update_program(
+            p.id,
+            ProgramPatch(lifts=[ProgramLiftPatch(id=p.lifts[0].id, routine_id=routine.id)]),
+            user=user,
+            db=db,
+        )
+        data = start_program_workout(p.id, user=user, db=db)
+        w = db.get(Workout, data["id"])
+        assert [(we.exercise_id, we.position) for we in w.exercises] == [
+            (bench.id, 0), (pulldown.id, 1), (curl.id, 2),
+        ]
+        # Main lift prescribed, accessories empty with rep ranges + suggestion
+        assert [s.weight for s in w.exercises[0].sets] == [65.0, 75.0, 85.0]
+        acc = w.exercises[1]
+        assert (acc.rep_min, acc.rep_max, len(acc.sets)) == (8, 12, 3)
+        assert all(s.weight is None for s in acc.sets)
+        assert (acc.suggested_weight, acc.suggestion_kind) == (52.5, "progress")
+
+    def test_finishing_with_accessories_still_advances(self, db, user):
+        bench = make_exercise(db, "Bench Press")
+        curl = make_exercise(db, "Bicep Curl", "Arms", "Dumbbell")
+        p = make_program(db, user, [bench], tms=(100.0,))
+        routine = make_routine(db, user, exercises=[curl])
+        update_program(
+            p.id,
+            ProgramPatch(lifts=[ProgramLiftPatch(id=p.lifts[0].id, routine_id=routine.id)]),
+            user=user,
+            db=db,
+        )
+        data = start_program_workout(p.id, user=user, db=db)
+        w = db.get(Workout, data["id"])
+        for we in w.exercises:
+            for s in we.sets:
+                s.is_completed = True
+        db.commit()
+        finish_workout(w.id, user=user, db=db)
+        db.expire_all()
+        assert p.current_week == 2  # single lift: one session = one week
+
+    def test_deleted_routine_is_skipped_not_an_error(self, db, user):
+        bench = make_exercise(db, "Bench Press")
+        curl = make_exercise(db, "Bicep Curl", "Arms", "Dumbbell")
+        p = make_program(db, user, [bench], tms=(100.0,))
+        routine = make_routine(db, user, exercises=[curl])
+        update_program(
+            p.id,
+            ProgramPatch(lifts=[ProgramLiftPatch(id=p.lifts[0].id, routine_id=routine.id)]),
+            user=user,
+            db=db,
+        )
+        db.delete(routine)
+        db.commit()
+        data = start_program_workout(p.id, user=user, db=db)
+        w = db.get(Workout, data["id"])
+        assert [we.exercise_id for we in w.exercises] == [bench.id]
+
+    def test_patch_clears_the_routine_with_null(self, db, user):
+        bench = make_exercise(db, "Bench Press")
+        curl = make_exercise(db, "Bicep Curl", "Arms", "Dumbbell")
+        p = make_program(db, user, [bench], tms=(100.0,))
+        routine = make_routine(db, user, exercises=[curl])
+        lift_id = p.lifts[0].id
+        update_program(
+            p.id,
+            ProgramPatch(lifts=[ProgramLiftPatch(id=lift_id, routine_id=routine.id)]),
+            user=user,
+            db=db,
+        )
+        db.expire_all()
+        assert p.lifts[0].routine_id == routine.id
+        # Omitting routine_id leaves the link untouched
+        update_program(
+            p.id,
+            ProgramPatch(lifts=[ProgramLiftPatch(id=lift_id, training_max=105.0)]),
+            user=user,
+            db=db,
+        )
+        db.expire_all()
+        assert p.lifts[0].routine_id == routine.id
+        # An explicit null clears it
+        update_program(
+            p.id,
+            ProgramPatch(lifts=[ProgramLiftPatch(id=lift_id, routine_id=None)]),
+            user=user,
+            db=db,
+        )
+        db.expire_all()
+        assert p.lifts[0].routine_id is None
+
+    def test_someone_elses_routine_is_rejected(self, db, user):
+        bench = make_exercise(db, "Bench Press")
+        curl = make_exercise(db, "Bicep Curl", "Arms", "Dumbbell")
+        p = make_program(db, user, [bench], tms=(100.0,))
+        other = User(username="other", hashed_password="x")
+        db.add(other)
+        db.commit()
+        foreign = make_routine(db, other, exercises=[curl])
+        with pytest.raises(Exception) as e:
+            update_program(
+                p.id,
+                ProgramPatch(lifts=[ProgramLiftPatch(id=p.lifts[0].id, routine_id=foreign.id)]),
+                user=user,
+                db=db,
+            )
+        assert getattr(e.value, "status_code", None) == 404
 
     def test_second_active_workout_is_refused(self, db, user):
         bench = make_exercise(db, "Bench Press")
