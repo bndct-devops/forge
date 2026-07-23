@@ -67,6 +67,44 @@ interface StatsTrends {
   recovery: { bucket: string; pct: number; n: number }[] | null
   detraining: { pct_per_week: number; events: number } | null
   standards: { lift: string; ratio: number; score: number; level: string }[] | null
+  headroom:
+    | {
+        lift: string
+        program: string
+        training_max: number
+        points: HeadroomPoint[]
+        latest: HeadroomPoint
+      }[]
+    | null
+  cycles:
+    | {
+        lift: string
+        weeks: { week: number; cycles: { cycle: number; weight: number; reps: number; e1rm: number }[] }[]
+      }[]
+    | null
+  velocity:
+    | {
+        name: string
+        sessions_per_increase: number
+        increases: number
+        current_weight: number
+        sessions_at_current: number
+        last_sets: number
+        last_min_reps: number
+        rep_max: number
+      }[]
+    | null
+}
+
+interface HeadroomPoint {
+  date: string
+  cycle: number
+  week: number
+  weight: number
+  reps: number
+  e1rm: number
+  tm: number
+  headroom: number
 }
 
 const LOAD_STATUS: Record<string, { label: string; hint: string }> = {
@@ -879,6 +917,132 @@ export default function StatsPage() {
                     ))}
                   </LineChart>
                 </ResponsiveContainer>
+              </div>
+            </section>
+          )}
+
+          {(stats.trends.headroom ?? []).length > 0 && (
+            <section className="rounded-xl border bg-card p-4">
+              <h2 className="mb-1 text-base">TM headroom</h2>
+              <p className="mb-3 text-xs text-muted-foreground">
+                AMRAP e1RM vs training max — around +10% is a healthy TM, near 0% a bump
+                is outpacing you, negative means deload it
+              </p>
+              <div className="flex flex-col gap-4">
+                {stats.trends.headroom!.map((h) => (
+                  <div key={`${h.program}-${h.lift}`}>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="min-w-0 truncate text-sm font-medium">{h.lift}</span>
+                      <span
+                        className={`tnum text-sm font-semibold ${
+                          h.latest.headroom >= 5
+                            ? 'text-success'
+                            : h.latest.headroom >= 0
+                              ? ''
+                              : 'text-destructive'
+                        }`}
+                      >
+                        {h.latest.headroom > 0 ? '+' : ''}
+                        {h.latest.headroom}%
+                      </span>
+                    </div>
+                    <div className="tnum text-xs text-muted-foreground">
+                      C{h.latest.cycle} W{h.latest.week} · {h.latest.weight}×{h.latest.reps} →
+                      e1RM {h.latest.e1rm} vs TM {h.latest.tm} {unit}
+                    </div>
+                    {h.points.length > 1 && (
+                      <div className="mt-2 flex h-9 items-end gap-1">
+                        {h.points.map((pt, i) => (
+                          <div
+                            key={i}
+                            title={`C${pt.cycle} W${pt.week}: ${pt.weight}×${pt.reps} (${pt.headroom > 0 ? '+' : ''}${pt.headroom}%)`}
+                            className="flex-1 rounded-sm"
+                            style={{
+                              height: `${Math.max(10, Math.min(100, ((pt.headroom + 5) / 20) * 100))}%`,
+                              backgroundColor:
+                                pt.headroom >= 0 ? 'var(--chart-accent)' : 'var(--destructive)',
+                              opacity: 0.45 + 0.55 * ((i + 1) / h.points.length),
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {(stats.trends.cycles ?? []).length > 0 && (
+            <section className="rounded-xl border bg-card p-4">
+              <h2 className="mb-1 text-base">Cycle over cycle</h2>
+              <p className="mb-3 text-xs text-muted-foreground">
+                the same program week, one cycle apart — reps held at a higher weight is
+                the cleanest progress there is
+              </p>
+              <div className="flex flex-col gap-4">
+                {stats.trends.cycles!.map((c) => (
+                  <div key={c.lift}>
+                    <div className="mb-1 text-sm font-medium">{c.lift}</div>
+                    <div className="flex flex-col gap-1">
+                      {c.weeks.map((wk) => {
+                        const first = wk.cycles[0]
+                        const last = wk.cycles[wk.cycles.length - 1]
+                        const delta =
+                          wk.cycles.length > 1
+                            ? Math.round((last.e1rm - first.e1rm) * 10) / 10
+                            : null
+                        return (
+                          <div key={wk.week} className="flex items-center gap-2 text-xs">
+                            <span className="w-7 shrink-0 text-muted-foreground">W{wk.week}</span>
+                            <span className="tnum min-w-0 flex-1 truncate">
+                              {wk.cycles.map((cc) => `${cc.weight}×${cc.reps}`).join(' → ')}
+                            </span>
+                            {delta !== null && (
+                              <span
+                                className={`tnum shrink-0 ${
+                                  delta > 0
+                                    ? 'text-success'
+                                    : delta < 0
+                                      ? 'text-destructive'
+                                      : 'text-muted-foreground'
+                                }`}
+                              >
+                                {delta > 0 ? '+' : ''}
+                                {delta} e1RM
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {(stats.trends.velocity ?? []).length > 0 && (
+            <section className="rounded-xl border bg-card p-4">
+              <h2 className="mb-1 text-base">Progression velocity</h2>
+              <p className="mb-3 text-xs text-muted-foreground">
+                sessions needed per weight increase on rep-range work — fast movers are
+                working, slow movers may need attention
+              </p>
+              <div className="flex flex-col gap-2">
+                {stats.trends.velocity!.map((v) => (
+                  <div key={v.name} className="flex items-center gap-2 text-sm">
+                    <span className="min-w-0 flex-1 truncate">{v.name}</span>
+                    <span className="tnum shrink-0 text-xs text-muted-foreground">
+                      {v.current_weight} {unit} · {v.sessions_at_current}{' '}
+                      {v.sessions_at_current === 1 ? 'session' : 'sessions'} ·{' '}
+                      {v.last_min_reps}/{v.rep_max} reps
+                    </span>
+                    <span className="tnum shrink-0 font-semibold">
+                      +1 per {v.sessions_per_increase}
+                    </span>
+                  </div>
+                ))}
               </div>
             </section>
           )}

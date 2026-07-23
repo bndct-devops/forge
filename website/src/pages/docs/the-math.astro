@@ -76,6 +76,47 @@ else, with deload hints on:
     The scheme tables are served verbatim at <code>/api/programs/schemes</code>.
   </p>
 
+  <h2>TM headroom</h2>
+  <p>
+    Every 5/3/1 AMRAP set is a measurement. Headroom compares its e1RM to the training
+    max that prescribed it:
+  </p>
+  <pre><code>headroom % = (e1RM of the AMRAP set ÷ TM at that session − 1) × 100</code></pre>
+  <p>
+    The AMRAP set is the heaviest completed working set of the session's program lift.
+    Week, cycle, and TM at session time are reconstructed by replaying the program's
+    state machine backwards from its current state — exact unless week or pointer were
+    hand-edited between sessions. Reading the number: a healthy fresh TM (set at 90% of
+    max) shows about +10%; bare-minimum AMRAP reps land near 0%; negative means the TM
+    has overtaken you — deload it. <em>Gate: at least one finished AMRAP session on a
+    5/3/1 program. Deload weeks and linear-block programs carry no AMRAP and are
+    excluded.</em>
+  </p>
+
+  <h2>Cycle over cycle</h2>
+  <p>
+    The same lift on the same program week, one cycle apart — since the program fixes
+    every other variable, reps held (or gained) at the cycle's higher prescribed weight
+    is the cleanest progress signal available. Shown per week as the sequence of
+    weight×reps across cycles with the e1RM delta from first to latest.
+    <em>Gate: AMRAP data in at least two different cycles for that lift.</em>
+  </p>
+
+  <h2>Progression velocity</h2>
+  <p>
+    For rep-range (double-progression) work only: how many sessions each exercise needs
+    to earn a weight increase.
+  </p>
+  <pre><code>top(session) = heaviest completed working set
+an increase = top(session) &gt; top(previous session)
+velocity   = mean sessions between increases</code></pre>
+  <p>
+    Also reported: sessions spent at the current top weight and the last session's
+    weakest working-set reps against the rep-range ceiling — together they show how
+    close the next increase is. <em>Gate: at least 3 sessions and 2 increases per
+    exercise; sets without a rep range never count.</em>
+  </p>
+
   <h2>Warm-up ramp generator</h2>
   <pre><code>targets ≈ 40% × 10 reps · 60% × 6 · 80% × 3   (of the suggested or top working weight)</code></pre>
   <p>Rounded to your plate step; regenerated every session as the target moves.</p>

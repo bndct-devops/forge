@@ -271,3 +271,138 @@ class TestBlocks:
         bench = make_exercise(db)
         log_workout(db, user, days_ago=5, entries=[(bench, [(100, 10)])])
         assert get_stats()["trends"]["blocks"] is None
+
+
+class TestProgramInsights:
+    """TM headroom + cycle-over-cycle: AMRAP e1RM against the training max
+    reconstructed by replaying the program state machine backwards."""
+
+    def _finish_session(self, db, user, program_id, amrap_reps, days_ago):
+        from datetime import timedelta
+
+        from backend.api.programs import start_program_workout
+        from backend.api.workouts import finish_workout
+        from backend.models import Workout
+
+        data = start_program_workout(program_id, user=user, db=db)
+        w = db.get(Workout, data["id"])
+        w.started_at = FROZEN_NOW - timedelta(days=days_ago)
+        sets = w.exercises[0].sets
+        for s in sets:
+            s.is_completed = True
+        sets[-1].reps = amrap_reps  # the AMRAP set: reps corrected upward
+        db.commit()
+        finish_workout(w.id, user=user, db=db)
+        w.finished_at = w.started_at
+        db.commit()
+        db.expire_all()
+
+    def _make_program(self, db, user, exercise, tm=100.0):
+        from backend.api.programs import ProgramIn, ProgramLiftIn, create_program
+
+        data = create_program(
+            ProgramIn(
+                name="531",
+                scheme="531",
+                lifts=[ProgramLiftIn(exercise_id=exercise.id, training_max=tm)],
+            ),
+            user=user,
+            db=db,
+        )
+        return data["id"]
+
+    def test_headroom_from_amrap_sets(self, db, user, get_stats):
+        bench = make_exercise(db, "Bench Press")
+        pid = self._make_program(db, user, bench, tm=100.0)
+        # Week 1: top set 85×10 -> e1RM 113.3 -> +13.3% vs TM 100
+        self._finish_session(db, user, pid, amrap_reps=10, days_ago=10)
+        # Week 2: top set 90×5 -> e1RM 105.0 -> +5.0%
+        self._finish_session(db, user, pid, amrap_reps=5, days_ago=8)
+        rows = get_stats()["trends"]["headroom"]
+        assert len(rows) == 1
+        row = rows[0]
+        assert row["lift"] == "Bench Press"
+        assert [p["week"] for p in row["points"]] == [1, 2]
+        assert row["latest"]["weight"] == 90.0
+        assert row["latest"]["e1rm"] == pytest.approx(105.0)
+        assert row["latest"]["headroom"] == pytest.approx(5.0)
+        assert row["latest"]["tm"] == 100.0
+        assert row["points"][0]["headroom"] == pytest.approx(13.3)
+
+    def test_tm_is_reconstructed_across_cycle_bumps(self, db, user, get_stats):
+        bench = make_exercise(db, "Bench Press")
+        pid = self._make_program(db, user, bench, tm=100.0)
+        # Two full cycles: 8 sessions, 5 reps on every AMRAP set. After the
+        # first cycle the TM bumps 100 -> 102.5; headroom must be computed
+        # against the TM of the session's own cycle.
+        for i in range(8):
+            self._finish_session(db, user, pid, amrap_reps=5, days_ago=40 - i * 4)
+        rows = get_stats()["trends"]["headroom"]
+        points = rows[0]["points"]
+        # Deload weeks (4) carry no AMRAP -> 3 points per cycle
+        assert [(p["cycle"], p["week"]) for p in points] == [
+            (1, 1), (1, 2), (1, 3), (2, 1), (2, 2), (2, 3),
+        ]
+        assert all(p["tm"] == 100.0 for p in points[:3])
+        assert all(p["tm"] == 102.5 for p in points[3:])
+        # Cycle 2 week 1: 0.85 × 102.5 rounds to 87.5 at the 2.5 step
+        assert points[3]["weight"] == 87.5
+
+    def test_cycle_over_cycle_needs_two_cycles(self, db, user, get_stats):
+        bench = make_exercise(db, "Bench Press")
+        pid = self._make_program(db, user, bench, tm=100.0)
+        for i in range(3):
+            self._finish_session(db, user, pid, amrap_reps=5, days_ago=20 - i * 4)
+        assert get_stats()["trends"]["cycles"] is None
+
+        for i in range(5):
+            self._finish_session(db, user, pid, amrap_reps=6, days_ago=8 - i)
+        cycles = get_stats()["trends"]["cycles"]
+        assert len(cycles) == 1
+        week1 = next(wk for wk in cycles[0]["weeks"] if wk["week"] == 1)
+        assert [(c["cycle"], c["weight"], c["reps"]) for c in week1["cycles"]] == [
+            (1, 85.0, 5), (2, 87.5, 6),
+        ]
+
+    def test_gated_without_program_sessions(self, db, user, get_stats):
+        bench = make_exercise(db)
+        log_workout(db, user, days_ago=5, entries=[(bench, [(80, 5)])])
+        assert get_stats()["trends"]["headroom"] is None
+        assert get_stats()["trends"]["cycles"] is None
+
+
+class TestVelocity:
+    """Progression velocity: sessions per weight increase on rep-range work."""
+
+    def _rep_range_session(self, db, user, exercise, days_ago, tops):
+        w = log_workout(db, user, days_ago, entries=[(exercise, [(t, 10) for t in tops])])
+        for we in w.exercises:
+            we.rep_min, we.rep_max = 8, 12
+        db.commit()
+        return w
+
+    def test_sessions_per_increase(self, db, user, get_stats):
+        row_ex = make_exercise(db, "Dumbbell Row", "Back", "Dumbbell")
+        # Tops: 50, 50, 52.5, 52.5, 52.5, 55 -> increases after 2 and 3 sessions
+        for i, top in enumerate([50, 50, 52.5, 52.5, 52.5, 55]):
+            self._rep_range_session(db, user, row_ex, days_ago=30 - i * 4, tops=[top] * 3)
+        rows = get_stats()["trends"]["velocity"]
+        assert len(rows) == 1
+        r = rows[0]
+        assert r["name"] == "Dumbbell Row"
+        assert r["sessions_per_increase"] == 2.5
+        assert r["increases"] == 2
+        assert (r["current_weight"], r["sessions_at_current"]) == (55.0, 1)
+        assert (r["last_min_reps"], r["rep_max"]) == (10, 12)
+
+    def test_gated_below_two_increases(self, db, user, get_stats):
+        row_ex = make_exercise(db, "Dumbbell Row", "Back", "Dumbbell")
+        for i, top in enumerate([50, 50, 52.5]):
+            self._rep_range_session(db, user, row_ex, days_ago=20 - i * 4, tops=[top] * 3)
+        assert get_stats()["trends"]["velocity"] is None
+
+    def test_plain_sets_without_rep_range_never_count(self, db, user, get_stats):
+        bench = make_exercise(db)
+        for i, top in enumerate([50, 52.5, 55, 57.5]):
+            log_workout(db, user, days_ago=20 - i * 4, entries=[(bench, [(top, 10)])])
+        assert get_stats()["trends"]["velocity"] is None

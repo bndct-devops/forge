@@ -11,7 +11,16 @@ from sqlalchemy.orm import Session
 from backend.core.clock import utcnow
 from backend.core.database import get_db
 from backend.core.security import get_current_user
-from backend.models import Exercise, Measurement, SetEntry, User, Workout, WorkoutExercise
+from backend.models import (
+    Exercise,
+    Measurement,
+    Program,
+    SetEntry,
+    User,
+    Workout,
+    WorkoutExercise,
+)
+from backend.program_schemes import SCHEMES
 from backend.serializers import epley_1rm, workout_totals
 
 router = APIRouter(prefix="/stats", tags=["stats"])
@@ -36,6 +45,10 @@ FATIGUE_TC = 7
 LOAD_CHART_DAYS = 90
 # Detraining: a layoff starts at two weeks off a lift
 DETRAIN_GAP_DAYS = 14
+# TM headroom sparkline length; velocity needs a history before it means much
+HEADROOM_POINTS = 8
+VELOCITY_MIN_SESSIONS = 3
+VELOCITY_MIN_INCREASES = 2
 
 # Strength standards (barbell lifts only — machine numbers against barbell
 # population standards would flatter): e1RM / bodyweight thresholds for
@@ -714,6 +727,175 @@ def stats(
         if rows_std:
             standards = rows_std
 
+    # ── Program insights: TM headroom + cycle-over-cycle ────────────────────
+    # Both read the AMRAP set of finished program sessions. The week, cycle,
+    # and TM at session time are reconstructed by replaying the program's
+    # state machine backwards from its current state — exact as long as week
+    # and pointer weren't hand-edited between sessions (documented caveat).
+    headroom = []
+    cycles = []
+    program_workouts: dict[int, list[Workout]] = defaultdict(list)
+    for w in workouts:  # already chronological
+        if w.program_lift_id is not None:
+            program_workouts[w.program_lift_id].append(w)
+    if program_workouts:
+        programs = (
+            db.execute(select(Program).where(Program.owner_id == user.id)).scalars().all()
+        )
+        for p in programs:
+            if p.scheme not in SCHEMES:
+                continue
+            weeks_def = SCHEMES[p.scheme]["weeks"]
+            clen = len(weeks_def)
+            amrap_weeks = {
+                i + 1 for i, wk in enumerate(weeks_def) if any(s[2] for s in wk)
+            }
+            if not amrap_weeks:
+                continue  # linear block has no AMRAP measurement to read
+            for idx, lift in enumerate(p.lifts):
+                sessions = program_workouts.get(lift.id)
+                if not sessions:
+                    continue
+                # Lifts before the pointer already trained the current week
+                week_next = p.current_week + (1 if idx < p.lift_pointer else 0)
+                tm = lift.training_max
+                cyc = p.cycle_number
+                points = []
+                for w in reversed(sessions):
+                    week_next -= 1
+                    if week_next < 1:
+                        week_next = clen
+                        cyc -= 1
+                        tm = round(tm - lift.increment, 2)
+                    if week_next not in amrap_weeks or cyc < 1 or tm <= 0:
+                        continue
+                    we = next(
+                        (x for x in w.exercises if x.exercise_id == lift.exercise_id),
+                        None,
+                    )
+                    if we is None:
+                        continue
+                    working = [
+                        s
+                        for s in we.sets
+                        if s.is_completed and not s.is_warmup and s.weight and s.reps
+                    ]
+                    if not working:
+                        continue
+                    top = max(working, key=lambda s: (s.weight, s.reps))
+                    e1 = epley_1rm(top.weight, top.reps)
+                    points.append(
+                        {
+                            "date": w.started_at.date().isoformat(),
+                            "cycle": cyc,
+                            "week": week_next,
+                            "weight": top.weight,
+                            "reps": top.reps,
+                            "e1rm": round(e1, 1),
+                            "tm": tm,
+                            "headroom": round((e1 / tm - 1) * 100, 1),
+                        }
+                    )
+                if not points:
+                    continue
+                points.reverse()  # chronological
+                name = (
+                    exercises[lift.exercise_id].name
+                    if lift.exercise_id in exercises
+                    else "?"
+                )
+                headroom.append(
+                    {
+                        "lift": name,
+                        "program": p.name,
+                        "training_max": lift.training_max,
+                        "points": points[-HEADROOM_POINTS:],
+                        "latest": points[-1],
+                    }
+                )
+                by_cycle: dict[int, dict[int, dict]] = defaultdict(dict)
+                for pt in points:
+                    by_cycle[pt["cycle"]][pt["week"]] = pt
+                if len(by_cycle) >= 2:
+                    cycles.append(
+                        {
+                            "lift": name,
+                            "weeks": [
+                                {
+                                    "week": wknum,
+                                    "cycles": [
+                                        {
+                                            "cycle": c,
+                                            "weight": by_cycle[c][wknum]["weight"],
+                                            "reps": by_cycle[c][wknum]["reps"],
+                                            "e1rm": by_cycle[c][wknum]["e1rm"],
+                                        }
+                                        for c in sorted(by_cycle)
+                                        if wknum in by_cycle[c]
+                                    ],
+                                }
+                                for wknum in sorted(amrap_weeks)
+                                if any(wknum in by_cycle[c] for c in by_cycle)
+                            ],
+                        }
+                    )
+
+    # ── Accessory progression velocity: rep-range (double-progression) work ─
+    # Sessions per weight increase, from the top completed working-set weight
+    # of every workout exercise that carries a rep range.
+    velo_sessions: dict[int, list[dict]] = defaultdict(list)
+    for w in workouts:
+        for we in w.exercises:
+            if not we.rep_max:
+                continue
+            working = [
+                s
+                for s in we.sets
+                if s.is_completed and not s.is_warmup and s.weight and s.reps
+            ]
+            if not working:
+                continue
+            velo_sessions[we.exercise_id].append(
+                {
+                    "top": max(s.weight for s in working),
+                    "sets": len(working),
+                    "min_reps": min(s.reps for s in working),
+                    "rep_max": we.rep_max,
+                }
+            )
+    velocity = []
+    for eid, sess in velo_sessions.items():
+        if eid not in exercises or len(sess) < VELOCITY_MIN_SESSIONS:
+            continue
+        gaps = []
+        last_up = 0
+        for i in range(1, len(sess)):
+            if sess[i]["top"] > sess[i - 1]["top"]:
+                gaps.append(i - last_up)
+                last_up = i
+        if len(gaps) < VELOCITY_MIN_INCREASES:
+            continue
+        current = sess[-1]
+        at_current = 1
+        for i in range(len(sess) - 2, -1, -1):
+            if sess[i]["top"] == current["top"]:
+                at_current += 1
+            else:
+                break
+        velocity.append(
+            {
+                "name": exercises[eid].name,
+                "sessions_per_increase": round(sum(gaps) / len(gaps), 1),
+                "increases": len(gaps),
+                "current_weight": current["top"],
+                "sessions_at_current": at_current,
+                "last_sets": current["sets"],
+                "last_min_reps": current["min_reps"],
+                "rep_max": current["rep_max"],
+            }
+        )
+    velocity.sort(key=lambda r: r["sessions_per_increase"])
+
     year_review = None
     if year_data["workouts"]:
         top_eid = max(
@@ -782,6 +964,9 @@ def stats(
             "recovery": recovery,
             "detraining": detraining,
             "standards": standards,
+            "headroom": headroom or None,
+            "cycles": cycles or None,
+            "velocity": velocity or None,
         },
         "totals": {
             "workouts": len(workouts),
