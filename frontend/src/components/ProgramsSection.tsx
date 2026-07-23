@@ -26,7 +26,8 @@ interface Program {
   current_week: number
   cycle_length: number
   cycle_number: number
-  lifts: { id: number; exercise_id: number; name: string; training_max: number; increment: number }[]
+  // id is absent on lifts added in the edit sheet and not yet saved
+  lifts: { id?: number; exercise_id: number; name: string; training_max: number; increment: number }[]
   next: { exercise_name: string; week: number; sets: ProgramSet[] } | null
 }
 
@@ -87,14 +88,31 @@ export default function ProgramsSection() {
     api<RecordRow[]>('/stats/records').then(setRecords).catch(() => {})
   }
 
-  const addLift = (exercise: Exercise) => {
-    setPickerOpen(false)
-    if (draftLifts.some((l) => l.exercise.id === exercise.id)) return
-    // Conventional training max: 90% of the best estimated 1RM
+  const openEdit = (p: Program) => {
+    setEditTarget(structuredClone(p))
+    api<RecordRow[]>('/stats/records').then(setRecords).catch(() => {})
+  }
+
+  // Conventional training max: 90% of the best estimated 1RM
+  const suggestLift = (exercise: Exercise) => {
     const record = records.find((r) => r.exercise_id === exercise.id)
     const tm = record?.best_1rm ? roundTo(record.best_1rm.value * 0.9, 2.5) : 40
     const increment = exercise.muscle_group === 'Legs' ? 5 : 2.5
-    setDraftLifts((ls) => [...ls, { exercise, training_max: Math.max(20, tm), increment }])
+    return { training_max: Math.max(20, tm), increment }
+  }
+
+  const addLift = (exercise: Exercise) => {
+    setPickerOpen(false)
+    if (editTarget) {
+      if (editTarget.lifts.some((l) => l.exercise_id === exercise.id)) return
+      setEditTarget({
+        ...editTarget,
+        lifts: [...editTarget.lifts, { exercise_id: exercise.id, name: exercise.name, ...suggestLift(exercise) }],
+      })
+      return
+    }
+    if (draftLifts.some((l) => l.exercise.id === exercise.id)) return
+    setDraftLifts((ls) => [...ls, { exercise, ...suggestLift(exercise) }])
   }
 
   const createProgram = async () => {
@@ -132,6 +150,7 @@ export default function ProgramsSection() {
           name: editTarget.name,
           lifts: editTarget.lifts.map((l) => ({
             id: l.id,
+            exercise_id: l.exercise_id,
             training_max: l.training_max,
             increment: l.increment,
           })),
@@ -196,7 +215,7 @@ export default function ProgramsSection() {
                   </div>
                 </div>
                 <button
-                  onClick={() => setEditTarget(structuredClone(p))}
+                  onClick={() => openEdit(p)}
                   className="touch-feedback shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground"
                 >
                   Edit
@@ -329,9 +348,18 @@ export default function ProgramsSection() {
               onChange={(e) => setEditTarget({ ...editTarget, name: e.target.value })}
               className="w-full rounded-xl border bg-card px-3.5 py-2.5 text-[15px] outline-none focus:ring-2 focus:ring-ring"
             />
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold">Lifts</span>
+              <button
+                onClick={() => setPickerOpen(true)}
+                className="touch-feedback flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-primary"
+              >
+                <Plus size={15} /> Add lift
+              </button>
+            </div>
             <div className="flex flex-col gap-2">
               {editTarget.lifts.map((l, i) => (
-                <div key={l.id} className="flex items-center gap-2 rounded-xl border bg-card px-3 py-2">
+                <div key={l.id ?? `new-${l.exercise_id}`} className="flex items-center gap-2 rounded-xl border bg-card px-3 py-2">
                   <span className="min-w-0 flex-1 truncate text-sm font-medium">{l.name}</span>
                   <label className="flex items-center gap-1 text-xs text-muted-foreground">
                     TM
@@ -367,6 +395,20 @@ export default function ProgramsSection() {
                       className="tnum w-12 rounded-lg border bg-background px-2 py-1 text-right text-sm"
                     />
                   </label>
+                  {editTarget.lifts.length > 1 && (
+                    <button
+                      onClick={() =>
+                        setEditTarget({
+                          ...editTarget,
+                          lifts: editTarget.lifts.filter((_, j) => j !== i),
+                        })
+                      }
+                      className="touch-feedback shrink-0 p-1 text-muted-foreground"
+                      aria-label={`Remove ${l.name}`}
+                    >
+                      <X size={15} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

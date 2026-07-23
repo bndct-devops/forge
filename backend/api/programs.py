@@ -31,7 +31,10 @@ class ProgramIn(BaseModel):
 
 
 class ProgramLiftPatch(BaseModel):
-    id: int
+    # With an id: update that lift. Without one: add a new lift, which
+    # requires exercise_id and training_max.
+    id: int | None = None
+    exercise_id: int | None = None
     training_max: float | None = Field(default=None, gt=0, lt=1000)
     increment: float | None = Field(default=None, gt=0, le=50)
 
@@ -167,18 +170,55 @@ def update_program(
         if body.current_week > cycle_length(p.scheme):
             raise HTTPException(status_code=400, detail="Week beyond the scheme's cycle")
         p.current_week = body.current_week
+    if body.lifts is not None:
+        # The payload is the full desired lift list: entries with an id
+        # update that lift, entries without one are added, and lifts absent
+        # from the payload are removed (logged workouts keep their history —
+        # the FK nulls out).
+        if not body.lifts:
+            raise HTTPException(status_code=400, detail="A program needs at least one lift")
+        if len(body.lifts) > 10:
+            raise HTTPException(status_code=400, detail="At most 10 lifts per program")
+        pointed = p.lifts[p.lift_pointer % len(p.lifts)] if p.lifts else None
+        kept: list[ProgramLift] = []
+        for patch in body.lifts:
+            if patch.id is not None:
+                lift = next((l for l in p.lifts if l.id == patch.id), None)
+                if lift is None:
+                    raise HTTPException(status_code=404, detail="Program lift not found")
+                if patch.training_max is not None:
+                    lift.training_max = patch.training_max
+                if patch.increment is not None:
+                    lift.increment = patch.increment
+                kept.append(lift)
+            else:
+                if patch.exercise_id is None or patch.training_max is None:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="A new lift needs exercise_id and training_max",
+                    )
+                if db.get(Exercise, patch.exercise_id) is None:
+                    raise HTTPException(status_code=404, detail="Exercise not found")
+                kept.append(
+                    ProgramLift(
+                        exercise_id=patch.exercise_id,
+                        training_max=patch.training_max,
+                        increment=patch.increment if patch.increment is not None else 2.5,
+                    )
+                )
+        for i, lift in enumerate(kept):
+            lift.position = i
+        p.lifts = kept
+        # Keep pointing at the same next lift when it survived the edit;
+        # otherwise clamp so the pointer stays within the new list.
+        if pointed is not None and pointed in kept:
+            p.lift_pointer = kept.index(pointed)
+        else:
+            p.lift_pointer = p.lift_pointer % len(kept)
     if body.lift_pointer is not None:
         if body.lift_pointer >= len(p.lifts):
             raise HTTPException(status_code=400, detail="Pointer beyond the lift list")
         p.lift_pointer = body.lift_pointer
-    for patch in body.lifts or []:
-        lift = next((l for l in p.lifts if l.id == patch.id), None)
-        if lift is None:
-            raise HTTPException(status_code=404, detail="Program lift not found")
-        if patch.training_max is not None:
-            lift.training_max = patch.training_max
-        if patch.increment is not None:
-            lift.increment = patch.increment
     db.commit()
     return _serialize(db, p)
 

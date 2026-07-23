@@ -166,6 +166,79 @@ class TestApiGuards:
         assert p.current_week == 3
         assert p.lifts[0].training_max == 110.0
 
+    def test_patch_adds_a_lift(self, db, user):
+        bench = make_exercise(db, "Bench Press")
+        squat = make_exercise(db, "Back Squat", "Legs")
+        p = make_program(db, user, [bench], tms=(100.0,))
+        update_program(
+            p.id,
+            ProgramPatch(
+                lifts=[
+                    ProgramLiftPatch(id=p.lifts[0].id),
+                    ProgramLiftPatch(exercise_id=squat.id, training_max=140.0, increment=5.0),
+                ]
+            ),
+            user=user,
+            db=db,
+        )
+        db.expire_all()
+        assert [(l.exercise_id, l.position) for l in p.lifts] == [(bench.id, 0), (squat.id, 1)]
+        assert p.lifts[1].training_max == 140.0
+        assert p.lifts[1].increment == 5.0
+        # Next session is still the lift the pointer was on
+        assert p.lift_pointer == 0
+
+    def test_patch_removes_a_lift_and_keeps_the_pointer_on_the_next_lift(self, db, user):
+        bench = make_exercise(db, "Bench Press")
+        squat = make_exercise(db, "Back Squat", "Legs")
+        p = make_program(db, user, [bench, squat])
+        p.lift_pointer = 1  # next session: squat
+        db.commit()
+        update_program(
+            p.id,
+            ProgramPatch(lifts=[ProgramLiftPatch(id=p.lifts[1].id)]),  # drop bench
+            user=user,
+            db=db,
+        )
+        db.expire_all()
+        assert [(l.exercise_id, l.position) for l in p.lifts] == [(squat.id, 0)]
+        assert p.lift_pointer == 0  # still points at squat
+
+    def test_patch_removing_the_pointed_lift_clamps_the_pointer(self, db, user):
+        bench = make_exercise(db, "Bench Press")
+        squat = make_exercise(db, "Back Squat", "Legs")
+        p = make_program(db, user, [bench, squat])
+        p.lift_pointer = 1  # next session: squat
+        db.commit()
+        update_program(
+            p.id,
+            ProgramPatch(lifts=[ProgramLiftPatch(id=p.lifts[0].id)]),  # drop squat
+            user=user,
+            db=db,
+        )
+        db.expire_all()
+        assert [l.exercise_id for l in p.lifts] == [bench.id]
+        assert p.lift_pointer == 0
+
+    def test_patch_rejects_an_empty_lift_list(self, db, user):
+        bench = make_exercise(db, "Bench Press")
+        p = make_program(db, user, [bench], tms=(100.0,))
+        with pytest.raises(Exception) as e:
+            update_program(p.id, ProgramPatch(lifts=[]), user=user, db=db)
+        assert getattr(e.value, "status_code", None) == 400
+
+    def test_patch_new_lift_requires_exercise_and_tm(self, db, user):
+        bench = make_exercise(db, "Bench Press")
+        p = make_program(db, user, [bench], tms=(100.0,))
+        with pytest.raises(Exception) as e:
+            update_program(
+                p.id,
+                ProgramPatch(lifts=[ProgramLiftPatch(id=p.lifts[0].id), ProgramLiftPatch(training_max=80.0)]),
+                user=user,
+                db=db,
+            )
+        assert getattr(e.value, "status_code", None) == 400
+
     def test_patch_week_beyond_cycle_rejected(self, db, user):
         bench = make_exercise(db, "Bench Press")
         p = make_program(db, user, [bench], tms=(100.0,))
