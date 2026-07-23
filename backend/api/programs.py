@@ -54,6 +54,7 @@ class ProgramLiftPatch(BaseModel):
 
 class ProgramPatch(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
+    rounding: float | None = Field(default=None, gt=0, le=25)
     current_week: int | None = Field(default=None, ge=1, le=8)
     lift_pointer: int | None = Field(default=None, ge=0)
     lifts: list[ProgramLiftPatch] | None = None
@@ -201,6 +202,8 @@ def update_program(
     p = _get_own(db, user, program_id)
     if body.name is not None:
         p.name = body.name
+    if body.rounding is not None:
+        p.rounding = body.rounding
     if body.current_week is not None:
         if body.current_week > cycle_length(p.scheme):
             raise HTTPException(status_code=400, detail="Week beyond the scheme's cycle")

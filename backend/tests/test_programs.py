@@ -371,6 +371,14 @@ class TestApiGuards:
             )
         assert getattr(e.value, "status_code", None) == 400
 
+    def test_patch_rounding_changes_prescriptions(self, db, user):
+        bench = make_exercise(db, "Bench Press")
+        p = make_program(db, user, [bench], tms=(90.0,))
+        data = update_program(p.id, ProgramPatch(rounding=5), user=user, db=db)
+        assert data["rounding"] == 5
+        # TM 90 week 1 at a 5-step: 58.5->60, 67.5->70, 76.5->75
+        assert [s["weight"] for s in data["next"]["sets"]] == [60.0, 70.0, 75.0]
+
     def test_patch_week_beyond_cycle_rejected(self, db, user):
         bench = make_exercise(db, "Bench Press")
         p = make_program(db, user, [bench], tms=(100.0,))

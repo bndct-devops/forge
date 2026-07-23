@@ -81,6 +81,7 @@ export default function ProgramsSection() {
   // Create-sheet draft state
   const [draftName, setDraftName] = useState('')
   const [draftScheme, setDraftScheme] = useState('531')
+  const [draftRounding, setDraftRounding] = useState(2.5)
   const [draftLifts, setDraftLifts] = useState<DraftLift[]>([])
   const [pickerOpen, setPickerOpen] = useState(false)
   const [records, setRecords] = useState<RecordRow[]>([])
@@ -98,6 +99,7 @@ export default function ProgramsSection() {
   const openCreate = () => {
     setDraftName('')
     setDraftScheme('531')
+    setDraftRounding(2.5)
     setDraftLifts([])
     setCreating(true)
     api<RecordRow[]>('/stats/records').then(setRecords).catch(() => {})
@@ -144,6 +146,7 @@ export default function ProgramsSection() {
         body: {
           name: draftName.trim() || schemes[draftScheme]?.name || 'Program',
           scheme: draftScheme,
+          rounding: draftRounding,
           lifts: draftLifts.map((l) => ({
             exercise_id: l.exercise.id,
             training_max: l.training_max,
@@ -169,6 +172,7 @@ export default function ProgramsSection() {
         method: 'PATCH',
         body: {
           name: editTarget.name,
+          rounding: editTarget.rounding,
           lifts: editTarget.lifts.map((l) => ({
             id: l.id,
             exercise_id: l.exercise_id,
@@ -207,6 +211,26 @@ export default function ProgramsSection() {
 
   const setsSummary = (sets: ProgramSet[]) =>
     sets.map((s) => `${s.weight}×${s.reps}${s.amrap ? '+' : ''}`).join(' · ')
+
+  // Smallest weight step the gym's plates allow — prescriptions round to it
+  const stepPicker = (value: number, onChange: (v: number) => void) => (
+    <div className="flex items-center justify-between">
+      <span className="text-sm text-muted-foreground">Plate step</span>
+      <div className="flex gap-1">
+        {[1.25, 2.5, 5].map((s) => (
+          <button
+            key={s}
+            onClick={() => onChange(s)}
+            className={`touch-feedback tnum rounded-lg border px-3 py-1.5 text-sm ${
+              value === s ? 'border-primary bg-accent-soft font-semibold' : 'bg-card'
+            }`}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
 
   // Accessory template picker for a lift row; templates are optional, so an
   // empty library just hints at where they come from.
@@ -322,6 +346,8 @@ export default function ProgramsSection() {
             ))}
           </div>
 
+          {stepPicker(draftRounding, setDraftRounding)}
+
           <div>
             <div className="mb-2 flex items-center justify-between">
               <span className="text-sm font-semibold">Lifts</span>
@@ -407,6 +433,7 @@ export default function ProgramsSection() {
               onChange={(e) => setEditTarget({ ...editTarget, name: e.target.value })}
               className="w-full rounded-xl border bg-card px-3.5 py-2.5 text-[15px] outline-none focus:ring-2 focus:ring-ring"
             />
+            {stepPicker(editTarget.rounding, (v) => setEditTarget({ ...editTarget, rounding: v }))}
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold">Lifts</span>
               <button
