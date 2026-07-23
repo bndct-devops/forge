@@ -158,7 +158,7 @@ function WeightQuickLog() {
 
       <Sheet open={open} onClose={() => setOpen(false)} title="Log weight">
         <div className="flex flex-col gap-3 pb-2">
-          <div className="flex items-center gap-3">
+          <div className="relative">
             <input
               type="number"
               inputMode="decimal"
@@ -166,9 +166,11 @@ function WeightQuickLog() {
               value={value}
               onChange={(e) => setValue(e.target.value)}
               placeholder={latest ? String(latest.value) : ''}
-              className="tnum min-w-0 flex-1 rounded-xl border bg-card px-3.5 py-3 text-center text-2xl font-semibold outline-none focus:ring-2 focus:ring-ring"
+              className="tnum w-full rounded-xl border bg-card py-3 pr-14 pl-14 text-center text-2xl font-semibold outline-none focus:ring-2 focus:ring-ring"
             />
-            <span className="text-muted-foreground">{unit}</span>
+            <span className="absolute top-1/2 right-4 -translate-y-1/2 text-muted-foreground">
+              {unit}
+            </span>
           </div>
           <button
             onClick={save}
