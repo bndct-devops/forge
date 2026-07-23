@@ -10,7 +10,7 @@ interface AuthContextValue {
   loginWithToken: (token: string) => Promise<void>
   setup: (username: string, password: string) => Promise<void>
   logout: () => void
-  updateUser: (patch: Partial<Pick<User, 'unit' | 'default_rest_seconds' | 'weekly_goal' | 'gap_nudges' | 'deload_hints' | 'weekly_digest' | 'plate_config' | 'webhook_url'>> & { password?: string; webhook_secret?: string }) => Promise<void>
+  updateUser: (patch: Partial<Pick<User, 'unit' | 'default_rest_seconds' | 'weekly_goal' | 'gap_nudges' | 'deload_hints' | 'weekly_digest' | 'weigh_in_reminder' | 'weigh_in_hour' | 'plate_config' | 'webhook_url'>> & { password?: string; webhook_secret?: string }) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
