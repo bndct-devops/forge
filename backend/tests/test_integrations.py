@@ -138,3 +138,61 @@ class TestMqtt:
         topic, payload = mqtt.build_state("ben", {"streak_weeks": 4})
         assert topic == "forge/ben/state"
         assert payload == {"streak_weeks": 4}
+
+
+class TestWeighInReminder:
+    def _arm(self, db, user, monkeypatch, hour=7):
+        from backend.core.digest import run_weigh_in_reminders_if_due  # noqa: F401
+
+        sent = []
+        monkeypatch.setattr(
+            "backend.core.digest._push_to_user", lambda db, u, p: sent.append(p)
+        )
+        monkeypatch.setattr("backend.core.digest.SessionLocal", lambda: db)
+        monkeypatch.setattr(db, "close", lambda: None)
+        user.weigh_in_reminder = True
+        user.weigh_in_hour = hour
+        db.commit()
+        return sent
+
+    def test_fires_once_after_the_hour(self, db, user, monkeypatch):
+        from backend.core.digest import run_weigh_in_reminders_if_due
+
+        sent = self._arm(db, user, monkeypatch, hour=7)
+        early = datetime(2026, 7, 20, 6, 0, 0)
+        assert run_weigh_in_reminders_if_due(now=early) == 0
+        due = datetime(2026, 7, 20, 8, 0, 0)
+        assert run_weigh_in_reminders_if_due(now=due) == 1
+        assert run_weigh_in_reminders_if_due(now=due) == 0  # once per day
+        assert sent[0]["tag"] == "weigh-in"
+        # Next day it fires again
+        assert run_weigh_in_reminders_if_due(now=datetime(2026, 7, 21, 8, 0, 0)) == 1
+
+    def test_silent_when_weight_already_logged(self, db, user, monkeypatch):
+        from backend.core.digest import run_weigh_in_reminders_if_due
+        from backend.models import Measurement
+
+        sent = self._arm(db, user, monkeypatch, hour=7)
+        db.add(
+            Measurement(
+                user_id=user.id,
+                kind="Weight",
+                value=98.5,
+                measured_at=datetime(2026, 7, 20, 6, 30, 0),
+            )
+        )
+        db.commit()
+        assert run_weigh_in_reminders_if_due(now=datetime(2026, 7, 20, 8, 0, 0)) == 0
+        assert sent == []
+
+    def test_off_by_default(self, db, user, monkeypatch):
+        from backend.core.digest import run_weigh_in_reminders_if_due
+
+        sent = []
+        monkeypatch.setattr(
+            "backend.core.digest._push_to_user", lambda db, u, p: sent.append(p)
+        )
+        monkeypatch.setattr("backend.core.digest.SessionLocal", lambda: db)
+        monkeypatch.setattr(db, "close", lambda: None)
+        assert run_weigh_in_reminders_if_due(now=datetime(2026, 7, 20, 12, 0, 0)) == 0
+        assert sent == []

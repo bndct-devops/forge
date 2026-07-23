@@ -1,19 +1,19 @@
-"""Weekly digest over the existing Web Push pipeline. Runs Sunday evenings
-(17:00 UTC tick or later) for users who enabled it; the content is the same
-math the stats page shows, compressed to a lock-screen notification.
-Documented at /docs/webhooks-metrics.
+"""Weekly digest and daily weigh-in reminder over the existing Web Push
+pipeline. The digest runs Sunday evenings (17:00 UTC tick or later); the
+weigh-in reminder daily at the user's chosen hour, and only on days without
+a logged weight. Documented at /docs/webhooks-metrics.
 """
 import logging
 import threading
 import time
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import select
 
 from backend.core.clock import utcnow
 from backend.core.database import SessionLocal
 from backend.core.push import send_push
-from backend.models import PushSubscription, User, Workout
+from backend.models import Measurement, PushSubscription, User, Workout
 from backend.serializers import workout_totals
 
 log = logging.getLogger("forge.digest")
@@ -58,7 +58,7 @@ def build_digest(db, user: User, today: date) -> str | None:
     return " · ".join(parts)
 
 
-def _send_digest(db, user: User, body: str) -> None:
+def _push_to_user(db, user: User, payload: dict) -> None:
     subs = (
         db.execute(select(PushSubscription).where(PushSubscription.user_id == user.id))
         .scalars()
@@ -67,10 +67,16 @@ def _send_digest(db, user: User, body: str) -> None:
     for sub in subs:
         alive = send_push(
             {"endpoint": sub.endpoint, "keys": {"p256dh": sub.p256dh, "auth": sub.auth}},
-            {"title": "Your training week", "body": body, "tag": "weekly-digest"},
+            payload,
         )
         if not alive:
             db.delete(sub)
+
+
+def _send_digest(db, user: User, body: str) -> None:
+    _push_to_user(
+        db, user, {"title": "Your training week", "body": body, "tag": "weekly-digest"}
+    )
 
 
 def run_digests_if_due(now=None) -> int:
@@ -97,6 +103,50 @@ def run_digests_if_due(now=None) -> int:
     return sent
 
 
+def run_weigh_in_reminders_if_due(now=None) -> int:
+    """Hourly tick: at/after each user's chosen UTC hour, once per day — and
+    a day with a logged weight needs no reminder at all."""
+    now = now or utcnow()
+    day_start = datetime(now.year, now.month, now.day)
+    sent = 0
+    db = SessionLocal()
+    try:
+        users = (
+            db.execute(select(User).where(User.weigh_in_reminder.is_(True)))
+            .scalars()
+            .all()
+        )
+        for user in users:
+            if now.hour < user.weigh_in_hour:
+                continue
+            if user.weigh_in_sent_at and user.weigh_in_sent_at >= day_start:
+                continue  # already handled today
+            logged_today = db.execute(
+                select(Measurement.id).where(
+                    Measurement.user_id == user.id,
+                    Measurement.kind == "Weight",
+                    Measurement.measured_at >= day_start,
+                )
+            ).first()
+            if logged_today is None:
+                _push_to_user(
+                    db,
+                    user,
+                    {
+                        "title": "Weigh-in",
+                        "body": "30 seconds on the scale keeps the trend honest.",
+                        "tag": "weigh-in",
+                    },
+                )
+                sent += 1
+            # Either way today is handled — a logged weight silences the ping
+            user.weigh_in_sent_at = now
+        db.commit()
+    finally:
+        db.close()
+    return sent
+
+
 def start_digest_scheduler() -> None:
     def loop() -> None:
         while True:
@@ -104,6 +154,10 @@ def start_digest_scheduler() -> None:
                 run_digests_if_due()
             except Exception:
                 log.exception("weekly digest failed")
+            try:
+                run_weigh_in_reminders_if_due()
+            except Exception:
+                log.exception("weigh-in reminder failed")
             time.sleep(3600)
 
     threading.Thread(target=loop, name="forge-digest", daemon=True).start()

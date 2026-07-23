@@ -27,6 +27,8 @@ class UserOut(BaseModel):
     gap_nudges: bool = True
     deload_hints: bool = True
     weekly_digest: bool = False
+    weigh_in_reminder: bool = False
+    weigh_in_hour: int = 7
     plate_config: str | None = None
     oidc_linked: bool = False
     webhook_url: str | None = None
@@ -46,6 +48,8 @@ class UserUpdate(BaseModel):
     gap_nudges: bool | None = None
     deload_hints: bool | None = None
     weekly_digest: bool | None = None
+    weigh_in_reminder: bool | None = None
+    weigh_in_hour: int | None = Field(default=None, ge=0, le=23)
     plate_config: str | None = Field(default=None, max_length=2000)
     webhook_url: str | None = Field(default=None, max_length=512)
     webhook_secret: str | None = Field(default=None, max_length=128)

@@ -8,6 +8,8 @@ export interface User {
   gap_nudges: boolean
   deload_hints: boolean
   weekly_digest: boolean
+  weigh_in_reminder: boolean
+  weigh_in_hour: number
   plate_config: string | null
   oidc_linked: boolean
   webhook_url: string | null

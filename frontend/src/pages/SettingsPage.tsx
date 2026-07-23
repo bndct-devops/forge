@@ -559,6 +559,42 @@ export default function SettingsPage() {
             className="w-32"
           />
         </Row>
+        <Row
+          label="Weigh-in reminder"
+          hint="Daily push — quiet on days a weight is already logged"
+        >
+          <Segmented<'on' | 'off'>
+            options={[
+              { value: 'on', label: 'On' },
+              { value: 'off', label: 'Off' },
+            ]}
+            value={user.weigh_in_reminder ? 'on' : 'off'}
+            onChange={(v) => updateUser({ weigh_in_reminder: v === 'on' }).catch(() => {})}
+            className="w-32"
+          />
+        </Row>
+        {user.weigh_in_reminder && (
+          <Row label="Reminder time">
+            <select
+              value={Math.round(user.weigh_in_hour - new Date().getTimezoneOffset() / 60 + 24) % 24}
+              onChange={(e) =>
+                updateUser({
+                  weigh_in_hour:
+                    Math.round(
+                      Number(e.target.value) + new Date().getTimezoneOffset() / 60 + 24,
+                    ) % 24,
+                }).catch(() => {})
+              }
+              className="tnum rounded-lg border bg-background px-2 py-1.5 text-sm"
+            >
+              {Array.from({ length: 24 }, (_, h) => (
+                <option key={h} value={h}>
+                  {String(h).padStart(2, '0')}:00
+                </option>
+              ))}
+            </select>
+          </Row>
+        )}
       </Section>
 
       <Section title="Data" hint="Imports, exports and database backups.">

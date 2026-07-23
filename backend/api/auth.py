@@ -91,6 +91,10 @@ def update_me(
         user.deload_hints = body.deload_hints
     if body.weekly_digest is not None:
         user.weekly_digest = body.weekly_digest
+    if body.weigh_in_reminder is not None:
+        user.weigh_in_reminder = body.weigh_in_reminder
+    if body.weigh_in_hour is not None:
+        user.weigh_in_hour = body.weigh_in_hour
     if "plate_config" in body.model_fields_set:
         user.plate_config = body.plate_config
     if "webhook_url" in body.model_fields_set:

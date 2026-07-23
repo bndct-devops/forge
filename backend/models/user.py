@@ -23,6 +23,10 @@ class User(Base):
     deload_hints: Mapped[bool] = mapped_column(Boolean, default=True)
     weekly_digest: Mapped[bool] = mapped_column(Boolean, default=False)
     digest_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Daily weigh-in reminder push — skipped on days a weight is already logged
+    weigh_in_reminder: Mapped[bool] = mapped_column(Boolean, default=False)
+    weigh_in_hour: Mapped[int] = mapped_column(Integer, default=7)  # UTC hour
+    weigh_in_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # JSON blob for the plate calculator: {"bar": kg, "plates": [...]}; NULL =
     # plates-only math on the tracked weight (bar 0, standard plates)
     plate_config: Mapped[str | None] = mapped_column(Text, nullable=True)

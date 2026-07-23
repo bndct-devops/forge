@@ -62,3 +62,8 @@ def run_migrations() -> None:
     _ensure_column(
         "program_lifts", "routine_id", "routine_id INTEGER REFERENCES routines(id)"
     )
+    _ensure_column(
+        "users", "weigh_in_reminder", "weigh_in_reminder BOOLEAN NOT NULL DEFAULT 0"
+    )
+    _ensure_column("users", "weigh_in_hour", "weigh_in_hour INTEGER NOT NULL DEFAULT 7")
+    _ensure_column("users", "weigh_in_sent_at", "weigh_in_sent_at DATETIME")

@@ -1,4 +1,4 @@
-import { Copy, GripVertical, LibraryBig, MoreVertical, Pencil, Play, Plus, Trash2 } from 'lucide-react'
+import { Copy, GripVertical, LibraryBig, MoreVertical, Pencil, Play, Plus, Scale, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ConfirmSheet from '../components/ConfirmSheet'
@@ -6,9 +6,11 @@ import EmptyState from '../components/EmptyState'
 import Sheet from '../components/Sheet'
 import { CardListSkeleton } from '../components/Skeleton'
 import ProgramsSection from '../components/ProgramsSection'
+import { useAuth } from '../contexts/AuthContext'
 import { useWorkout } from '../contexts/WorkoutContext'
 import { api } from '../lib/api'
 import { getCached, useCachedState } from '../lib/dataCache'
+import { toast } from '../lib/toast'
 import type { Plan, Routine } from '../lib/types'
 import { formatRelativeDate, parseUTC, restLabel } from '../lib/format'
 import { moveItem, useDragReorder } from '../lib/useDragReorder'
@@ -93,6 +95,91 @@ function PlansSheet({
         ))}
       </div>
     </Sheet>
+  )
+}
+
+/** One-tap bodyweight logging from the home screen — weekly weigh-ins are
+ *  the whole diet metric, so the scale-to-app path has to be trivial. */
+function WeightQuickLog() {
+  const { user } = useAuth()
+  const unit = user?.unit ?? 'kg'
+  const [latest, setLatest] = useCachedState<{ value: number; measured_at: string } | null>(
+    'weight_latest',
+    null,
+  )
+  const [open, setOpen] = useState(false)
+  const [value, setValue] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    api<{ kind: string; latest: { value: number; measured_at: string } | null }[]>('/measurements')
+      .then((rows) => setLatest(rows.find((r) => r.kind === 'Weight')?.latest ?? null))
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const save = async () => {
+    const v = Number(value.replace(',', '.'))
+    if (!Number.isFinite(v) || v <= 0) return
+    setBusy(true)
+    try {
+      const m = await api<{ value: number; measured_at: string }>('/measurements', {
+        method: 'POST',
+        body: { kind: 'Weight', value: v },
+      })
+      setLatest({ value: m.value, measured_at: m.measured_at })
+      setOpen(false)
+      toast(`Logged ${m.value} ${unit}`)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Could not log weight')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => {
+          setValue('')
+          setOpen(true)
+        }}
+        className="touch-feedback mt-2 flex w-full items-center justify-between rounded-xl border bg-card px-4 py-3"
+      >
+        <span className="flex items-center gap-2 text-sm font-medium">
+          <Scale size={16} className="text-muted-foreground" /> Log weight
+        </span>
+        {latest && (
+          <span className="tnum text-xs text-muted-foreground">
+            {latest.value} {unit} · {formatRelativeDate(latest.measured_at)}
+          </span>
+        )}
+      </button>
+
+      <Sheet open={open} onClose={() => setOpen(false)} title="Log weight">
+        <div className="flex flex-col gap-3 pb-2">
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              inputMode="decimal"
+              autoFocus
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={latest ? String(latest.value) : ''}
+              className="tnum min-w-0 flex-1 rounded-xl border bg-card px-3.5 py-3 text-center text-2xl font-semibold outline-none focus:ring-2 focus:ring-ring"
+            />
+            <span className="text-muted-foreground">{unit}</span>
+          </div>
+          <button
+            onClick={save}
+            disabled={busy || !value}
+            className="touch-feedback w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground disabled:opacity-40"
+          >
+            Save
+          </button>
+        </div>
+      </Sheet>
+    </>
   )
 }
 
@@ -183,6 +270,7 @@ export default function WorkoutHomePage() {
       </button>
       {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
 
+      <WeightQuickLog />
 
       <div className="mt-8 mb-3 flex items-center justify-between">
         <h2 className="text-xl">Templates</h2>
