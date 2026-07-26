@@ -177,7 +177,7 @@ function WeightQuickLog() {
               value={value}
               onChange={(e) => setValue(e.target.value)}
               placeholder={latest ? String(latest.value) : ''}
-              className="tnum w-full rounded-xl border bg-card py-3 pr-14 pl-14 text-center text-2xl font-semibold outline-none focus:ring-2 focus:ring-ring"
+              className="tnum h-14 w-full rounded-xl border bg-card px-14 py-0 text-center text-2xl leading-none font-semibold outline-none focus:ring-2 focus:ring-ring"
             />
             <span className="absolute top-1/2 right-4 -translate-y-1/2 text-muted-foreground">
               {unit}
