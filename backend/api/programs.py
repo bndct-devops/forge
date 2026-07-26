@@ -134,6 +134,86 @@ def _serialize(db: Session, p: Program) -> dict:
     }
 
 
+@router.get("/{program_id}/preview")
+def preview_sessions(
+    program_id: int,
+    count: int = 8,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """The upcoming sessions, simulated forward through the same pointer →
+    week → cycle → TM-bump rules advance_program applies on finish, without
+    touching state. Accessory templates come with their exercise lists so a
+    session preview is complete; their weights are living suggestions and
+    only knowable at start time, so previews carry rep ranges instead."""
+    p = _get_own(db, user, program_id)
+    if not p.lifts:
+        return []
+    count = max(1, min(count, 50))
+    exercises = {
+        e.id: e.name
+        for e in db.execute(
+            select(Exercise).where(Exercise.id.in_([l.exercise_id for l in p.lifts]))
+        ).scalars()
+    }
+    accessory_lists: dict[int, list[dict]] = {}
+    routine_names: dict[int, str] = {}
+    for r in db.execute(
+        select(Routine).where(
+            Routine.id.in_([l.routine_id for l in p.lifts if l.routine_id]),
+            Routine.owner_id == p.owner_id,
+        )
+    ).scalars():
+        routine_names[r.id] = r.name
+        names = {
+            e.id: e.name
+            for e in db.execute(
+                select(Exercise).where(
+                    Exercise.id.in_([re_.exercise_id for re_ in r.exercises])
+                )
+            ).scalars()
+        }
+        accessory_lists[r.id] = [
+            {
+                "name": names.get(re_.exercise_id, "?"),
+                "set_count": re_.set_count,
+                "rep_min": re_.rep_min,
+                "rep_max": re_.rep_max,
+            }
+            for re_ in r.exercises
+        ]
+
+    pointer, week, cycle = p.lift_pointer, p.current_week, p.cycle_number
+    tms = {l.id: l.training_max for l in p.lifts}
+    sessions = []
+    for offset in range(count):
+        lift = p.lifts[pointer % len(p.lifts)]
+        routine_id = lift.routine_id if lift.routine_id in routine_names else None
+        sessions.append(
+            {
+                "offset": offset,
+                "week": week,
+                "cycle_number": cycle,
+                "exercise_id": lift.exercise_id,
+                "exercise_name": exercises.get(lift.exercise_id, "?"),
+                "training_max": tms[lift.id],
+                "sets": prescription(p.scheme, week, tms[lift.id], p.rounding),
+                "routine_name": routine_names.get(routine_id),
+                "accessories": accessory_lists.get(routine_id, []),
+            }
+        )
+        pointer += 1
+        if pointer >= len(p.lifts):
+            pointer = 0
+            week += 1
+            if week > cycle_length(p.scheme):
+                week = 1
+                cycle += 1
+                for l in p.lifts:
+                    tms[l.id] = round(tms[l.id] + l.increment, 2)
+    return sessions
+
+
 @router.get("/schemes")
 def schemes():
     """The scheme definitions, verbatim — transparency endpoint."""

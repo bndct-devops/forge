@@ -1,4 +1,4 @@
-import { CalendarRange, ChevronRight, Plus, Trash2, X } from 'lucide-react'
+import { CalendarRange, ChevronLeft, ChevronRight, Plus, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
@@ -44,6 +44,17 @@ interface Program {
   } | null
 }
 
+interface PreviewSession {
+  offset: number
+  week: number
+  cycle_number: number
+  exercise_name: string
+  training_max: number
+  sets: ProgramSet[]
+  routine_name: string | null
+  accessories: { name: string; set_count: number; rep_min: number | null; rep_max: number | null }[]
+}
+
 interface SchemeInfo {
   name: string
   description: string
@@ -77,6 +88,9 @@ export default function ProgramsSection() {
   const [editTarget, setEditTarget] = useState<Program | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Program | null>(null)
   const [busy, setBusy] = useState(false)
+  const [previewFor, setPreviewFor] = useState<Program | null>(null)
+  const [preview, setPreview] = useState<PreviewSession[]>([])
+  const [previewIdx, setPreviewIdx] = useState(0)
 
   // Create-sheet draft state
   const [draftName, setDraftName] = useState('')
@@ -191,6 +205,18 @@ export default function ProgramsSection() {
     }
   }
 
+  // A full cycle ahead, whatever the lift count — capped by the server at 50
+  const openPreview = (p: Program) => {
+    setPreviewFor(p)
+    setPreviewIdx(0)
+    setPreview([])
+    api<PreviewSession[]>(
+      `/programs/${p.id}/preview?count=${Math.max(8, p.cycle_length * p.lifts.length + 1)}`,
+    )
+      .then(setPreview)
+      .catch(() => toast('Could not load the session preview'))
+  }
+
   const startSession = async (p: Program) => {
     setBusy(true)
     try {
@@ -293,19 +319,25 @@ export default function ProgramsSection() {
                 </button>
               </div>
               {p.next && (
-                <div className="mt-3 rounded-lg bg-secondary/60 px-3 py-2.5">
-                  <div className="text-xs text-muted-foreground">
-                    Next · {p.next.exercise_name}
-                  </div>
-                  <div className="tnum mt-0.5 text-sm font-medium">
-                    {setsSummary(p.next.sets)} {unit}
-                  </div>
-                  {p.next.routine_name && (
-                    <div className="mt-0.5 text-xs text-muted-foreground">
-                      + {p.next.routine_name}
+                <button
+                  onClick={() => openPreview(p)}
+                  className="touch-feedback mt-3 flex w-full items-center gap-2 rounded-lg bg-secondary/60 px-3 py-2.5 text-left"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs text-muted-foreground">
+                      Next · {p.next.exercise_name}
                     </div>
-                  )}
-                </div>
+                    <div className="tnum mt-0.5 text-sm font-medium">
+                      {setsSummary(p.next.sets)} {unit}
+                    </div>
+                    {p.next.routine_name && (
+                      <div className="mt-0.5 text-xs text-muted-foreground">
+                        + {p.next.routine_name}
+                      </div>
+                    )}
+                  </div>
+                  <ChevronRight size={16} className="shrink-0 text-muted-foreground" />
+                </button>
               )}
               <button
                 onClick={() => startSession(p)}
@@ -318,6 +350,110 @@ export default function ProgramsSection() {
           ))}
         </div>
       )}
+
+      {/* Session preview sheet: page through upcoming sessions without
+          starting anything. Simulated server-side with the real advancement
+          rules, so cycle wraps show next cycle's bumped TMs. */}
+      <Sheet
+        open={previewFor != null}
+        onClose={() => setPreviewFor(null)}
+        title={previewFor?.name ?? 'Program'}
+      >
+        {(() => {
+          const s = preview[previewIdx]
+          if (!s)
+            return <p className="pb-4 text-sm text-muted-foreground">Loading sessions…</p>
+          const isDeload = previewFor?.scheme === '531' && s.week === 4
+          return (
+            <div className="flex flex-col gap-3 pb-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-semibold">
+                    {s.offset === 0 ? 'Next session' : `In ${s.offset + 1} sessions`}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Cycle {s.cycle_number} · Week {s.week}/{previewFor?.cycle_length}
+                    {isDeload && ' · Deload'}
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setPreviewIdx((i) => Math.max(0, i - 1))}
+                    disabled={previewIdx === 0}
+                    className="touch-feedback rounded-lg border bg-card p-2 disabled:opacity-30"
+                    aria-label="Previous session"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button
+                    onClick={() => setPreviewIdx((i) => Math.min(preview.length - 1, i + 1))}
+                    disabled={previewIdx >= preview.length - 1}
+                    className="touch-feedback rounded-lg border bg-card p-2 disabled:opacity-30"
+                    aria-label="Next session"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-xl border bg-card px-3.5 py-3">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="min-w-0 truncate text-sm font-semibold">{s.exercise_name}</span>
+                  <span className="tnum shrink-0 text-xs text-muted-foreground">
+                    TM {s.training_max} {unit}
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-col gap-1.5">
+                  {s.sets.map((x, i) => (
+                    <div key={i} className="flex items-center justify-between text-sm">
+                      <span className="tnum text-muted-foreground">{Math.round(x.pct * 100)}%</span>
+                      <span className="tnum font-medium">
+                        {x.weight} {unit} × {x.reps}
+                        {x.amrap && (
+                          <span className="ml-1.5 rounded bg-accent-soft px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                            AMRAP
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {s.accessories.length > 0 && (
+                <div className="rounded-xl border bg-card px-3.5 py-3">
+                  <div className="text-xs font-medium text-muted-foreground">
+                    + {s.routine_name}
+                  </div>
+                  <div className="mt-2 flex flex-col gap-1.5">
+                    {s.accessories.map((a, i) => (
+                      <div key={i} className="flex items-center justify-between gap-2 text-sm">
+                        <span className="min-w-0 truncate">{a.name}</span>
+                        <span className="tnum shrink-0 text-muted-foreground">
+                          {a.set_count} × {a.rep_min && a.rep_max ? `${a.rep_min}–${a.rep_max}` : '—'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {s.offset === 0 && previewFor && (
+                <button
+                  onClick={() => {
+                    setPreviewFor(null)
+                    startSession(previewFor)
+                  }}
+                  disabled={busy}
+                  className="touch-feedback flex w-full items-center justify-center gap-1.5 rounded-xl bg-accent-soft py-3 text-sm font-semibold text-primary"
+                >
+                  Start this session <ChevronRight size={15} />
+                </button>
+              )}
+            </div>
+          )
+        })()}
+      </Sheet>
 
       {/* Create sheet */}
       <Sheet open={creating} onClose={() => setCreating(false)} title="New program">

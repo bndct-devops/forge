@@ -394,3 +394,63 @@ class TestApiGuards:
         assert nxt["exercise_name"] == "Bench Press"
         assert nxt["week"] == 1
         assert [s["weight"] for s in nxt["sets"]] == [65.0, 75.0, 85.0]
+
+
+class TestPreview:
+    def test_preview_walks_pointer_week_cycle_and_bumps_tms(self, db, user):
+        from backend.api.programs import preview_sessions
+
+        bench = make_exercise(db, "Bench Press")
+        squat = make_exercise(db, "Back Squat", "Legs")
+        p = make_program(db, user, [bench, squat])  # TMs 100 / 140, incr 2.5 / 5
+        sessions = preview_sessions(p.id, count=10, user=user, db=db)
+
+        assert [s["exercise_name"] for s in sessions[:4]] == [
+            "Bench Press", "Back Squat", "Bench Press", "Back Squat",
+        ]
+        assert [s["week"] for s in sessions[:4]] == [1, 1, 2, 2]
+        # Session 0 is exactly the card's "next"
+        assert [x["weight"] for x in sessions[0]["sets"]] == [65.0, 75.0, 85.0]
+        assert sessions[0]["sets"][2]["amrap"] is True
+        # First session of cycle 2 (offset 8): TM bumped 100 -> 102.5
+        assert sessions[8]["cycle_number"] == 2
+        assert sessions[8]["week"] == 1
+        assert sessions[8]["training_max"] == 102.5
+        assert sessions[9]["training_max"] == 145.0
+
+    def test_preview_does_not_mutate_state(self, db, user):
+        from backend.api.programs import preview_sessions
+
+        bench = make_exercise(db, "Bench Press")
+        p = make_program(db, user, [bench], tms=(100.0,))
+        preview_sessions(p.id, count=20, user=user, db=db)
+        db.expire_all()
+        assert (p.current_week, p.lift_pointer, p.cycle_number) == (1, 0, 1)
+        assert p.lifts[0].training_max == 100.0
+
+    def test_preview_carries_accessory_exercise_lists(self, db, user):
+        from backend.api.programs import preview_sessions
+
+        bench = make_exercise(db, "Bench Press")
+        fly = make_exercise(db, "Cable Fly")
+        routine = make_routine(db, user, "Push accessories", exercises=[fly])
+        p = make_program(db, user, [bench], tms=(100.0,))
+        p.lifts[0].routine_id = routine.id
+        db.commit()
+        sessions = preview_sessions(p.id, count=2, user=user, db=db)
+        assert sessions[0]["routine_name"] == "Push accessories"
+        assert sessions[0]["accessories"] == [
+            {"name": "Cable Fly", "set_count": 3, "rep_min": 8, "rep_max": 12}
+        ]
+
+    def test_preview_starts_from_current_state_not_cycle_start(self, db, user):
+        from backend.api.programs import preview_sessions, update_program
+
+        bench = make_exercise(db, "Bench Press")
+        p = make_program(db, user, [bench], tms=(100.0,))
+        update_program(p.id, ProgramPatch(current_week=3), user=user, db=db)
+        sessions = preview_sessions(p.id, count=3, user=user, db=db)
+        assert [s["week"] for s in sessions] == [3, 4, 1]
+        # Week 4 of 5/3/1 is the deload: no AMRAP set
+        assert not any(x["amrap"] for x in sessions[1]["sets"])
+        assert sessions[2]["cycle_number"] == 2
