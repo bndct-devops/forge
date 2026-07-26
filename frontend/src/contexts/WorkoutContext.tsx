@@ -15,6 +15,7 @@ import {
   utcStamp,
 } from '../lib/localWorkout'
 import { isNetworkError, outbox } from '../lib/outbox'
+import { advanceCachedProgram, buildLocalProgramWorkout } from '../lib/programLocal'
 import { syncQueue } from '../lib/syncQueue'
 import { toast } from '../lib/toast'
 import type { FinishResult, Routine, SetEntry, Workout } from '../lib/types'
@@ -25,7 +26,12 @@ interface WorkoutContextValue {
   /** Local changes not yet on the server — the workout is in offline mode */
   dirty: boolean
   refresh: () => Promise<void>
-  start: (from?: { routineId?: number; workoutId?: number; name?: string }) => Promise<Workout>
+  start: (from?: {
+    routineId?: number
+    workoutId?: number
+    name?: string
+    programId?: number
+  }) => Promise<Workout>
   rename: (name: string) => Promise<void>
   updateNotes: (notes: string) => Promise<void>
   addExercise: (exerciseId: number) => Promise<number | undefined>
@@ -185,16 +191,24 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
   }, [refresh, sync])
 
   const start = useCallback(
-    async (from?: { routineId?: number; workoutId?: number; name?: string }) => {
+    async (from?: {
+      routineId?: number
+      workoutId?: number
+      name?: string
+      programId?: number
+    }) => {
       try {
-        const w = await api<Workout>('/workouts', {
-          method: 'POST',
-          body: {
-            routine_id: from?.routineId ?? null,
-            workout_id: from?.workoutId ?? null,
-            name: from?.name ?? null,
-          },
-        })
+        const w =
+          from?.programId != null
+            ? await api<Workout>(`/programs/${from.programId}/start-workout`, { method: 'POST' })
+            : await api<Workout>('/workouts', {
+                method: 'POST',
+                body: {
+                  routine_id: from?.routineId ?? null,
+                  workout_id: from?.workoutId ?? null,
+                  name: from?.name ?? null,
+                },
+              })
         const withCid = { ...w, client_id: w.client_id ?? newClientId() }
         setWorkout(withCid)
         return withCid
@@ -205,7 +219,9 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
           throw new Error('Repeating a past workout needs a connection')
         }
         let local: Workout
-        if (from?.routineId != null) {
+        if (from?.programId != null) {
+          local = buildLocalProgramWorkout(from.programId)
+        } else if (from?.routineId != null) {
           const routine = getCached<Routine[]>('routines')?.find((r) => r.id === from.routineId)
           if (!routine) throw new Error('This template is not available offline')
           local = buildLocalWorkout({ routine })
@@ -648,6 +664,9 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
 
     // Offline: queue the finished document, summarize locally; PRs follow
     syncQueue.enqueueFinish(syncPayload(w, finishedAt), w.name)
+    // Program sessions advance server-side on finish — mirror that on the
+    // cached program so the card shows the true next session while offline
+    if (w.program_id != null) advanceCachedProgram(w.program_id)
     setWorkout(null)
     setDirty(false)
     return localFinishSummary(w, finishedAt)

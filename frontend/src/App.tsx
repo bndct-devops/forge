@@ -36,13 +36,20 @@ function Protected({ children }: { children: ReactNode }) {
   }, [loading, user])
 
   // Warm the caches an offline workout depends on (exercise catalog for the
-  // picker, routines for template starts) on every authenticated app start —
-  // being online once is enough, no page visit required.
+  // picker, routines for template starts, programs + scheme tables for
+  // prescribed sessions) on every authenticated app start — being online
+  // once is enough, no page visit required.
   useEffect(() => {
     if (!user) return
     fetchExercises().catch(() => {})
     api<unknown>('/routines')
       .then((r) => setCached('routines', r))
+      .catch(() => {})
+    api<unknown>('/programs')
+      .then((p) => setCached('programs', p))
+      .catch(() => {})
+    api<unknown>('/programs/schemes')
+      .then((s) => setCached('programSchemes', s))
       .catch(() => {})
   }, [user])
 

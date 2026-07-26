@@ -169,6 +169,10 @@ def serialize_workout(db: Session, workout: Workout, with_previous: bool = True)
         "started_at": workout.started_at,
         "finished_at": workout.finished_at,
         "client_id": workout.client_id,
+        # Program linkage rides along so an offline client can advance its
+        # cached program state when it finishes this session locally
+        "program_id": workout.program_id,
+        "program_lift_id": workout.program_lift_id,
         "exercises": exercises,
     }
 

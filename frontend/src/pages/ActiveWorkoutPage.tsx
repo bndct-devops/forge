@@ -338,11 +338,18 @@ export default function ActiveWorkoutPage() {
                   </div>
 
                   <div className="divide-y divide-border/60">
-                    {we.sets.map((set, i) => (
+                    {/* previous_sets holds only the last session's working
+                        sets, so the ghost (and the displayed number) index by
+                        working-set rank — set.position counts warmups and
+                        drifts as soon as one is inserted */}
+                    {we.sets.map((set, i) => {
+                      const rank = we.sets.filter((s, j) => j < i && !s.is_warmup).length
+                      return (
                       <SetRow
                         key={set.id}
                         set={set}
-                        previous={we.previous_sets[set.position]}
+                        number={rank + 1}
+                        previous={set.is_warmup ? undefined : we.previous_sets[rank]}
                         suggested={we.sets
                           .slice(0, i)
                           .reverse()
@@ -361,7 +368,8 @@ export default function ActiveWorkoutPage() {
                         onMarker={() => setMarkerSet(set)}
                         onDelete={() => deleteSet(we.id, set.id)}
                       />
-                    ))}
+                      )
+                    })}
                   </div>
 
                   <button

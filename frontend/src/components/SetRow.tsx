@@ -9,6 +9,9 @@ export const SET_GRID_RPE = 'grid-cols-[2rem_1fr_3.75rem_3.25rem_2.75rem_2.75rem
 
 interface SetRowProps {
   set: SetEntry
+  /** Displayed set number: rank among working sets, so inserted warmups
+   *  never renumber the work. */
+  number: number
   previous: PastSet | undefined
   /** Placeholder fallback when there's no previous for this slot — the last
    *  filled set above it in the current session. */
@@ -41,6 +44,7 @@ function parseNum(value: string): number | null {
  *  Swipe left to reveal delete, like a native list row. */
 export default function SetRow({
   set,
+  number,
   previous,
   suggested,
   unit,
@@ -270,7 +274,7 @@ export default function SetRow({
           ) : set.set_type === 'failure' ? (
             <span className="text-destructive">F</span>
           ) : (
-            set.position + 1
+            number
           )}
         </button>
         <span className="tnum truncate text-center text-sm text-muted-foreground">

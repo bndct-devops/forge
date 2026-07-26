@@ -105,6 +105,10 @@ export interface Workout {
   // Client-generated UUID; /workouts/sync upserts by it so offline
   // sessions replay without duplicating. Negative id = not yet on the server.
   client_id?: string | null
+  // Set on program sessions; finishing one advances the program — offline
+  // finishes advance the cached copy until the sync replays server-side
+  program_id?: number | null
+  program_lift_id?: number | null
   exercises: WorkoutExercise[]
   duration_seconds?: number
   total_volume?: number

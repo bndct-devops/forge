@@ -4,6 +4,9 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useWorkout } from '../contexts/WorkoutContext'
 import { api } from '../lib/api'
+import { useCachedState } from '../lib/dataCache'
+import { isNetworkError } from '../lib/outbox'
+import { localProgramPreview } from '../lib/programLocal'
 import { toast } from '../lib/toast'
 import type { Exercise, Routine } from '../lib/types'
 import ConfirmSheet from './ConfirmSheet'
@@ -80,10 +83,12 @@ function roundTo(v: number, step: number) {
 export default function ProgramsSection() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { refresh } = useWorkout()
+  const { start } = useWorkout()
   const unit = user?.unit ?? 'kg'
-  const [programs, setPrograms] = useState<Program[]>([])
-  const [schemes, setSchemes] = useState<Record<string, SchemeInfo>>({})
+  // Cached so the card (and an offline session start) works without a
+  // connection — the cache warms on app start and refreshes on every mount
+  const [programs, setPrograms] = useCachedState<Program[]>('programs', [])
+  const [schemes, setSchemes] = useCachedState<Record<string, SchemeInfo>>('programSchemes', {})
   const [creating, setCreating] = useState(false)
   const [editTarget, setEditTarget] = useState<Program | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Program | null>(null)
@@ -210,18 +215,22 @@ export default function ProgramsSection() {
     setPreviewFor(p)
     setPreviewIdx(0)
     setPreview([])
-    api<PreviewSession[]>(
-      `/programs/${p.id}/preview?count=${Math.max(8, p.cycle_length * p.lifts.length + 1)}`,
-    )
+    const count = Math.max(8, p.cycle_length * p.lifts.length + 1)
+    api<PreviewSession[]>(`/programs/${p.id}/preview?count=${count}`)
       .then(setPreview)
-      .catch(() => toast('Could not load the session preview'))
+      .catch((e) => {
+        // Offline: the same walk computed from cached state
+        const local = isNetworkError(e) ? localProgramPreview(p.id, count) : null
+        if (local) setPreview(local)
+        else toast('Could not load the session preview')
+      })
   }
 
   const startSession = async (p: Program) => {
     setBusy(true)
     try {
-      await api(`/programs/${p.id}/start-workout`, { method: 'POST' })
-      await refresh()
+      // Falls back to a locally-built prescribed session when offline
+      await start({ programId: p.id })
       navigate('/workout', { viewTransition: true })
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Could not start the session')

@@ -236,6 +236,9 @@ class WorkoutSyncIn(BaseModel):
     notes: str | None = None
     started_at: datetime
     finished_at: datetime | None = None
+    # Program session started offline: finishing advances this program
+    program_id: int | None = None
+    program_lift_id: int | None = None
     exercises: list[SyncExerciseIn] = Field(max_length=50)
 
 

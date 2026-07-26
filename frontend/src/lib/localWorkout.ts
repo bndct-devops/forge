@@ -14,6 +14,8 @@ export interface SyncPayload {
   notes: string | null
   started_at: string
   finished_at: string | null
+  program_id: number | null
+  program_lift_id: number | null
   exercises: {
     exercise_id: number
     position: number
@@ -196,6 +198,8 @@ export function syncPayload(w: Workout, finishedAt?: string): SyncPayload {
     notes: w.notes,
     started_at: w.started_at,
     finished_at: finishedAt ?? w.finished_at ?? null,
+    program_id: w.program_id ?? null,
+    program_lift_id: w.program_lift_id ?? null,
     exercises: w.exercises.map((we) => ({
       exercise_id: we.exercise_id,
       position: we.position,

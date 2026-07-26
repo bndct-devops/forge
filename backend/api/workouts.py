@@ -203,6 +203,17 @@ def sync_workout(
     workout.name = body.name.strip()
     workout.notes = body.notes
     workout.started_at = body.started_at
+    # Offline-started program session: adopt the claimed linkage if it's the
+    # user's own program, so the finish below advances it. Invalid claims are
+    # dropped silently — sync replays must never reject the whole document.
+    if body.program_id is not None and workout.program_id is None:
+        from backend.models import Program
+
+        program = db.get(Program, body.program_id)
+        if program is not None and program.owner_id == user.id:
+            workout.program_id = program.id
+            if any(l.id == body.program_lift_id for l in program.lifts):
+                workout.program_lift_id = body.program_lift_id
 
     exercises: list[WorkoutExercise] = []
     for i, ex in enumerate(sorted(body.exercises, key=lambda e: e.position)):

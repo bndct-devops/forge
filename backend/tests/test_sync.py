@@ -119,3 +119,69 @@ def test_sync_adopts_server_id_workout(db, user):
     db.expire_all()
     assert w.client_id == "test-client-0001"
     assert len(w.exercises) == 1
+
+
+class TestSyncProgramSessions:
+    def _program(self, db, user, exercise):
+        from backend.api.programs import ProgramIn, ProgramLiftIn, create_program
+        from backend.models import Program
+
+        data = create_program(
+            ProgramIn(
+                name="531",
+                scheme="531",
+                lifts=[ProgramLiftIn(exercise_id=exercise.id, training_max=100.0)],
+            ),
+            user=user,
+            db=db,
+        )
+        return db.get(Program, data["id"])
+
+    def test_offline_program_finish_advances_the_program(self, db, user):
+        ex = make_exercise(db)
+        p = self._program(db, user, ex)
+        doc = _doc(ex, finished=True)
+        doc.program_id = p.id
+        doc.program_lift_id = p.lifts[0].id
+        sync_workout(doc, user, db)
+        db.expire_all()
+        assert (p.current_week, p.lift_pointer) == (2, 0)
+
+    def test_finish_replay_does_not_advance_twice(self, db, user):
+        ex = make_exercise(db)
+        p = self._program(db, user, ex)
+        doc = _doc(ex, finished=True)
+        doc.program_id = p.id
+        doc.program_lift_id = p.lifts[0].id
+        sync_workout(doc, user, db)
+        sync_workout(doc, user, db)  # replay of the same finished document
+        db.expire_all()
+        assert (p.current_week, p.lift_pointer) == (2, 0)
+
+    def test_someone_elses_program_claim_is_dropped_not_rejected(self, db, user):
+        from backend.models import User as UserModel
+
+        other = UserModel(username="other", hashed_password="x")
+        db.add(other)
+        db.commit()
+        ex = make_exercise(db)
+        p = self._program(db, other, ex)
+        doc = _doc(ex, finished=True)
+        doc.program_id = p.id
+        res = sync_workout(doc, user, db)
+        assert res["finish"] is not None  # workout landed fine
+        db.expire_all()
+        assert (p.current_week, p.lift_pointer) == (1, 0)  # untouched
+
+    def test_invalid_lift_id_keeps_program_but_drops_lift(self, db, user):
+        ex = make_exercise(db)
+        p = self._program(db, user, ex)
+        doc = _doc(ex, finished=True)
+        doc.program_id = p.id
+        doc.program_lift_id = 99999
+        sync_workout(doc, user, db)
+        db.expire_all()
+        w = db.execute(select(Workout).where(Workout.owner_id == user.id, Workout.finished_at.isnot(None))).scalars().first()
+        assert w.program_id == p.id
+        assert w.program_lift_id is None
+        assert (p.current_week, p.lift_pointer) == (2, 0)
