@@ -102,6 +102,42 @@ else, with deload hints on:
     <em>Gate: AMRAP data in at least two different cycles for that lift.</em>
   </p>
 
+  <h2>Cycle report</h2>
+  <p>
+    When a cycle completes, its close-out: every AMRAP top set of that cycle per lift,
+    and a verdict on the training-max bump it triggered.
+  </p>
+  <pre><code>earned  = best AMRAP e1RM of the cycle ≥ the new TM
+margin  = (best e1RM / new TM − 1) × 100</code></pre>
+  <p>
+    An earned bump was demonstrated before it was granted; a "not shown" bump means the
+    program advanced on schedule but the evidence isn't there yet — worth watching, not
+    necessarily worth reverting. Accessories are reported as top-working-weight movement
+    across the cycle's date span. <em>Gate: at least one fully completed cycle on an
+    AMRAP scheme.</em>
+  </p>
+
+  <h2>AMRAP beat target</h2>
+  <pre><code>beat = ⌊30 × (best e1RM / top-set weight − 1)⌋ + 1   (Epley, inverted)</code></pre>
+  <p>
+    The smallest rep count on the prescribed AMRAP set that sets a new estimated-1RM
+    best — shown on the session preview and inside a live program session. Recomputed
+    from finished workouts only, so the running session never hides its own target.
+    Hidden without history or when the answer is 20+ reps (that's noise, not a target).
+  </p>
+
+  <h2>Measurement trend</h2>
+  <pre><code>trend₀ = first reading
+trendᵢ = trendᵢ₋₁ + (1 − 0.9^gap_days) × (readingᵢ − trendᵢ₋₁)</code></pre>
+  <p>
+    A time-aware exponential smoother in the Hacker's Diet tradition: daily weigh-ins
+    step 10% toward each reading, and a gap of <em>n</em> days takes exactly the step
+    <em>n</em> daily readings at that value would have — sparse and dense logging agree.
+    The weekly rate is the least-squares slope of the trend over the last 28 days
+    (needs 5+ days of span); the 28-day change reads the trend, never the raw scale
+    noise. BMI, when a height is on file, uses the trend weight — not today's reading.
+  </p>
+
   <h2>Progression velocity</h2>
   <p>
     For rep-range (double-progression) work only: how many sessions each exercise needs

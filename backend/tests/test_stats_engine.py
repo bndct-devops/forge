@@ -406,3 +406,69 @@ class TestVelocity:
         for i, top in enumerate([50, 52.5, 55, 57.5]):
             log_workout(db, user, days_ago=20 - i * 4, entries=[(bench, [(top, 10)])])
         assert get_stats()["trends"]["velocity"] is None
+
+
+class TestCycleReport(TestProgramInsights):
+    """End-of-cycle report: latest completed cycle, per-lift verdicts, and
+    accessory movement across the cycle's span."""
+
+    def test_no_report_before_a_cycle_completes(self, db, user, get_stats):
+        bench = make_exercise(db, "Bench Press")
+        pid = self._make_program(db, user, bench, tm=100.0)
+        self._finish_session(db, user, pid, amrap_reps=8, days_ago=10)
+        assert get_stats()["trends"]["cycle_report"] is None
+
+    def test_report_after_one_cycle(self, db, user, get_stats):
+        bench = make_exercise(db, "Bench Press")
+        pid = self._make_program(db, user, bench, tm=100.0)
+        # Full cycle: W1 85×10 (e1 113.3), W2 90×5 (105.0), W3 95×3 (104.5),
+        # W4 deload (no AMRAP) — then the TM bumps to 102.5
+        for reps, days in [(10, 28), (5, 21), (3, 14), (5, 7)]:
+            self._finish_session(db, user, pid, amrap_reps=reps, days_ago=days)
+        report = get_stats()["trends"]["cycle_report"]
+        assert report is not None and len(report) == 1
+        r = report[0]
+        assert r["cycle"] == 1
+        lift = r["lifts"][0]
+        assert lift["lift"] == "Bench Press"
+        assert lift["tm"] == 100.0
+        assert lift["tm_next"] == 102.5
+        assert [wk["week"] for wk in lift["weeks"]] == [1, 2, 3]
+        # Best e1RM 113.3 covers the new TM 102.5 -> earned, +10.5% margin
+        assert lift["earned"] is True
+        assert lift["margin"] == pytest.approx(10.5, abs=0.1)
+
+    def test_gifted_bump_is_flagged(self, db, user, get_stats):
+        bench = make_exercise(db, "Bench Press")
+        pid = self._make_program(db, user, bench, tm=100.0)
+        # Bare-minimum AMRAPs (W1 85×5 = 99.2, W2 90×1 = 93, W3 95×1 = 98.2):
+        # best e1RM 99.2 < next TM 102.5 — the bump wasn't demonstrated
+        for reps, days in [(5, 28), (1, 21), (1, 14), (1, 7)]:
+            self._finish_session(db, user, pid, amrap_reps=reps, days_ago=days)
+        lift = get_stats()["trends"]["cycle_report"][0]["lifts"][0]
+        assert lift["earned"] is False
+        assert lift["margin"] < 0
+
+    def test_accessory_progress_within_the_cycle(self, db, user, get_stats):
+        from backend.models import SetEntry, WorkoutExercise, Workout
+
+        bench = make_exercise(db, "Bench Press")
+        row = make_exercise(db, "Dumbbell Row", "Back")
+        pid = self._make_program(db, user, bench, tm=100.0)
+        days = [28, 21, 14, 7]
+        weights = [25.0, 25.0, 30.0, 30.0]  # accessory moved up mid-cycle
+        for d, aw in zip(days, weights):
+            self._finish_session(db, user, pid, amrap_reps=5, days_ago=d)
+            w = (
+                db.query(Workout)
+                .filter(Workout.owner_id == user.id)
+                .order_by(Workout.id.desc())
+                .first()
+            )
+            we = WorkoutExercise(exercise_id=row.id, position=1)
+            we.sets = [SetEntry(position=0, weight=aw, reps=10, is_completed=True)]
+            w.exercises.append(we)
+            db.commit()
+        db.expire_all()
+        r = get_stats()["trends"]["cycle_report"][0]
+        assert r["accessories"] == [{"name": "Dumbbell Row", "from": 25.0, "to": 30.0}]

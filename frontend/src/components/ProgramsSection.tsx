@@ -54,6 +54,7 @@ interface PreviewSession {
   exercise_name: string
   training_max: number
   sets: ProgramSet[]
+  beat_reps?: number | null
   routine_name: string | null
   accessories: { name: string; set_count: number; rep_min: number | null; rep_max: number | null }[]
 }
@@ -434,6 +435,11 @@ export default function ProgramsSection() {
                     </div>
                   ))}
                 </div>
+                {s.beat_reps != null && (
+                  <p className="mt-2 border-t pt-2 text-xs text-muted-foreground">
+                    ×{s.beat_reps}+ on the top set beats your current best
+                  </p>
+                )}
               </div>
 
               {s.accessories.length > 0 && (

@@ -162,6 +162,25 @@ def serialize_workout(db: Session, workout: Workout, with_previous: bool = True)
                 ),
             }
         )
+    # Live program session: the rep count on the top set that beats the
+    # all-time e1RM best — recomputed on every mutation, so editing the top
+    # set's weight moves the target with it. Bests only read finished
+    # workouts, so the running session can't hide its own target.
+    amrap_target = None
+    if workout.program_lift_id is not None and workout.finished_at is None:
+        from backend.api.programs import beat_reps
+        from backend.models import ProgramLift
+
+        lift = db.get(ProgramLift, workout.program_lift_id)
+        we = next(
+            (x for x in workout.exercises if lift and x.exercise_id == lift.exercise_id), None
+        )
+        if we is not None and we.sets:
+            top_weight = max(s.weight or 0 for s in we.sets)
+            reps = beat_reps(db, workout.owner_id, we.exercise_id, top_weight)
+            if reps is not None:
+                amrap_target = {"we_id": we.id, "weight": top_weight, "beat_reps": reps}
+
     return {
         "id": workout.id,
         "name": workout.name,
@@ -173,6 +192,7 @@ def serialize_workout(db: Session, workout: Workout, with_previous: bool = True)
         # cached program state when it finishes this session locally
         "program_id": workout.program_id,
         "program_lift_id": workout.program_lift_id,
+        "amrap_target": amrap_target,
         "exercises": exercises,
     }
 

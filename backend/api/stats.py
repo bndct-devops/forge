@@ -734,6 +734,7 @@ def stats(
     # and pointer weren't hand-edited between sessions (documented caveat).
     headroom = []
     cycles = []
+    cycle_report = []
     program_workouts: dict[int, list[Workout]] = defaultdict(list)
     for w in workouts:  # already chronological
         if w.program_lift_id is not None:
@@ -752,6 +753,7 @@ def stats(
             }
             if not amrap_weeks:
                 continue  # linear block has no AMRAP measurement to read
+            lift_points: list[dict] = []
             for idx, lift in enumerate(p.lifts):
                 sessions = program_workouts.get(lift.id)
                 if not sessions:
@@ -813,6 +815,9 @@ def stats(
                         "latest": points[-1],
                     }
                 )
+                lift_points.append(
+                    {"name": name, "increment": lift.increment, "points": points}
+                )
                 by_cycle: dict[int, dict[int, dict]] = defaultdict(dict)
                 for pt in points:
                     by_cycle[pt["cycle"]][pt["week"]] = pt
@@ -836,6 +841,91 @@ def stats(
                                 }
                                 for wknum in sorted(amrap_weeks)
                                 if any(wknum in by_cycle[c] for c in by_cycle)
+                            ],
+                        }
+                    )
+
+            # ── End-of-cycle report: the latest fully completed cycle ──────
+            # Verdict per lift: the bump to the next TM is "earned" when the
+            # cycle's best AMRAP e1RM already covers that new TM; the margin
+            # is that same comparison as a percentage. Accessories report top
+            # working-weight movement across the cycle's date span.
+            done_cycle = max(
+                (
+                    pt["cycle"]
+                    for lp in lift_points
+                    for pt in lp["points"]
+                    if pt["cycle"] < p.cycle_number
+                ),
+                default=None,
+            )
+            if done_cycle is not None:
+                lifts_report = []
+                span: list[str] = []
+                for lp in lift_points:
+                    pts = [pt for pt in lp["points"] if pt["cycle"] == done_cycle]
+                    if not pts:
+                        continue
+                    span.extend(pt["date"] for pt in pts)
+                    tm_c = pts[0]["tm"]
+                    tm_next = round(tm_c + lp["increment"], 2)
+                    best = max(pt["e1rm"] for pt in pts)
+                    lifts_report.append(
+                        {
+                            "lift": lp["name"],
+                            "tm": tm_c,
+                            "tm_next": tm_next,
+                            "weeks": [
+                                {
+                                    "week": pt["week"],
+                                    "weight": pt["weight"],
+                                    "reps": pt["reps"],
+                                    "e1rm": pt["e1rm"],
+                                }
+                                for pt in pts
+                            ],
+                            "earned": best >= tm_next,
+                            "margin": round((best / tm_next - 1) * 100, 1),
+                        }
+                    )
+                if lifts_report:
+                    lo, hi = min(span), max(span)
+                    main_ids = {l.exercise_id for l in p.lifts}
+                    acc_first: dict[int, float] = {}
+                    acc_last: dict[int, float] = {}
+                    for w in workouts:  # chronological
+                        if w.program_id != p.id:
+                            continue
+                        if not lo <= w.started_at.date().isoformat() <= hi:
+                            continue
+                        for we in w.exercises:
+                            if we.exercise_id in main_ids:
+                                continue
+                            tops = [
+                                s.weight
+                                for s in we.sets
+                                if s.is_completed and not s.is_warmup and s.weight
+                            ]
+                            if not tops:
+                                continue
+                            top = max(tops)
+                            acc_first.setdefault(we.exercise_id, top)
+                            acc_last[we.exercise_id] = top
+                    cycle_report.append(
+                        {
+                            "program": p.name,
+                            "cycle": done_cycle,
+                            "from": lo,
+                            "to": hi,
+                            "lifts": lifts_report,
+                            "accessories": [
+                                {
+                                    "name": exercises[eid].name,
+                                    "from": acc_first[eid],
+                                    "to": acc_last[eid],
+                                }
+                                for eid in acc_first
+                                if eid in exercises and acc_last[eid] > acc_first[eid] + 0.01
                             ],
                         }
                     )
@@ -966,6 +1056,7 @@ def stats(
             "standards": standards,
             "headroom": headroom or None,
             "cycles": cycles or None,
+            "cycle_report": cycle_report or None,
             "velocity": velocity or None,
         },
         "totals": {

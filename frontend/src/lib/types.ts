@@ -109,6 +109,8 @@ export interface Workout {
   // finishes advance the cached copy until the sync replays server-side
   program_id?: number | null
   program_lift_id?: number | null
+  // Reps on the program main lift's top set that would set a new e1RM best
+  amrap_target?: { we_id: number; weight: number; beat_reps: number } | null
   exercises: WorkoutExercise[]
   duration_seconds?: number
   total_volume?: number

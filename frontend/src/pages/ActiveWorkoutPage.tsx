@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Calculator, Check, ChevronDown, CloudOff, Flag, Flame, GripVertical, Link2, MoreHorizontal, Plus, StickyNote, Timer, Trash2, TrendingDown, TrendingUp, Unlink2, X } from 'lucide-react'
+import { ArrowLeftRight, Calculator, Check, ChevronDown, CloudOff, Flag, Flame, GripVertical, Link2, MoreHorizontal, Plus, StickyNote, Timer, Trash2, TrendingDown, TrendingUp, Trophy, Unlink2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ConfirmSheet from '../components/ConfirmSheet'
@@ -323,6 +323,18 @@ export default function ActiveWorkoutPage() {
                     <p className="mt-1 flex items-start gap-1.5 text-xs text-muted-foreground">
                       <StickyNote size={13} className="mt-0.5 shrink-0" />
                       <span className="whitespace-pre-wrap">{we.note}</span>
+                    </p>
+                  )}
+                  {workout.amrap_target?.we_id === we.id && (
+                    <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Trophy size={13} className="shrink-0 text-record" />
+                      <span>
+                        <span className="tnum font-medium text-foreground">
+                          {workout.amrap_target.weight} {user?.unit ?? 'kg'} ×{' '}
+                          {workout.amrap_target.beat_reps}+
+                        </span>{' '}
+                        on the top set beats your best
+                      </span>
                     </p>
                   )}
 

@@ -29,6 +29,14 @@ interface Entry {
   measured_at: string
 }
 
+interface TrendData {
+  points: { measured_at: string; actual: number; trend: number }[]
+  trend: number | null
+  rate_per_week: number | null
+  change_28d: number | null
+  bmi: number | null
+}
+
 function unitFor(kind: string, weightUnit: string): string {
   if (kind === 'Weight') return weightUnit
   if (kind === 'Body fat') return '%'
@@ -99,6 +107,7 @@ export function MeasureDetailPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [entries, setEntries] = useState<Entry[] | null>(null)
+  const [trend, setTrend] = useState<TrendData | null>(null)
   const [adding, setAdding] = useState(false)
   const [value, setValue] = useState('')
   const [when, setWhen] = useState(() => toDatetimeLocal(new Date().toISOString()))
@@ -108,6 +117,12 @@ export function MeasureDetailPage() {
     api<Entry[]>(`/measurements/${encodeURIComponent(kind)}`)
       .then(setEntries)
       .catch(() => navigate('/measure', { replace: true }))
+    // Height is a constant, not a trend — the endpoint 404s it by design
+    if (kind !== 'Height') {
+      api<TrendData>(`/measurements/${encodeURIComponent(kind)}/trend`)
+        .then(setTrend)
+        .catch(() => {})
+    }
   }, [kind, navigate])
 
   useEffect(load, [load])
@@ -129,10 +144,19 @@ export function MeasureDetailPage() {
     setEntries((prev) => prev?.filter((e) => e.id !== id) ?? null)
   }
 
-  const chartData = (entries ?? [])
-    .slice()
-    .reverse()
-    .map((e) => ({ ...e, label: formatShortDate(e.measured_at) }))
+  const chartData: { label: string; actual: number; trend: number | null }[] =
+    trend && trend.points.length >= 2
+      ? trend.points.map((p) => ({
+          label: formatShortDate(p.measured_at),
+          actual: p.actual,
+          trend: p.trend,
+        }))
+      : (entries ?? [])
+          .slice()
+          .reverse()
+          .map((e) => ({ actual: e.value, trend: null, label: formatShortDate(e.measured_at) }))
+
+  const rate = trend?.rate_per_week ?? null
 
   return (
     <div className="safe-top px-4 md:max-w-2xl">
@@ -153,8 +177,66 @@ export function MeasureDetailPage() {
         </button>
       </header>
 
+      {trend != null && trend.trend != null && (
+        <section className="mb-4 grid grid-cols-3 gap-2">
+          <div className="rounded-xl border bg-card px-3 py-2.5">
+            <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+              Trend
+            </div>
+            <div className="tnum mt-0.5 text-lg font-semibold">
+              {trend.trend} <span className="text-xs font-normal text-muted-foreground">{unit}</span>
+            </div>
+            {trend.bmi != null && (
+              <div className="tnum text-xs text-muted-foreground">BMI {trend.bmi}</div>
+            )}
+          </div>
+          <div className="rounded-xl border bg-card px-3 py-2.5">
+            <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+              Per week
+            </div>
+            <div className="tnum mt-0.5 text-lg font-semibold">
+              {rate == null ? '—' : `${rate > 0 ? '+' : ''}${rate}`}
+              {rate != null && (
+                <span className="text-xs font-normal text-muted-foreground"> {unit}</span>
+              )}
+            </div>
+          </div>
+          <div className="rounded-xl border bg-card px-3 py-2.5">
+            <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+              28 days
+            </div>
+            <div className="tnum mt-0.5 text-lg font-semibold">
+              {trend.change_28d == null
+                ? '—'
+                : `${trend.change_28d > 0 ? '+' : ''}${trend.change_28d}`}
+              {trend.change_28d != null && (
+                <span className="text-xs font-normal text-muted-foreground"> {unit}</span>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
       {entries != null && chartData.length >= 2 && (
         <section className="mb-4 rounded-xl border bg-card p-4">
+          {trend != null && trend.points.length >= 2 && (
+            <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1">
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ backgroundColor: 'var(--muted-foreground)' }}
+                />
+                Logged
+              </span>
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ backgroundColor: 'var(--chart-accent)' }}
+                />
+                Trend
+              </span>
+            </div>
+          )}
           <div className="h-44">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 6, right: 12, bottom: 0, left: -18 }}>
@@ -182,16 +264,30 @@ export function MeasureDetailPage() {
                     color: 'var(--popover-foreground)',
                     fontSize: '13px',
                   }}
-                  formatter={(v) => [`${v} ${unit}`, kind]}
+                  formatter={(v, name) => [`${v} ${unit}`, name]}
                 />
+                {/* Raw readings recede; the smoothed trend is the signal */}
                 <Line
                   type="monotone"
-                  dataKey="value"
-                  stroke="var(--chart-accent)"
-                  strokeWidth={2}
-                  dot={{ r: 3, fill: 'var(--chart-accent)', strokeWidth: 0 }}
-                  activeDot={{ r: 5, fill: 'var(--chart-accent)', stroke: 'var(--card)', strokeWidth: 2 }}
+                  dataKey="actual"
+                  name="Logged"
+                  stroke="var(--muted-foreground)"
+                  strokeWidth={1.5}
+                  strokeOpacity={0.45}
+                  dot={{ r: 2.5, fill: 'var(--muted-foreground)', strokeWidth: 0 }}
+                  activeDot={{ r: 4, fill: 'var(--muted-foreground)', stroke: 'var(--card)', strokeWidth: 2 }}
                 />
+                {trend != null && trend.points.length >= 2 && (
+                  <Line
+                    type="monotone"
+                    dataKey="trend"
+                    name="Trend"
+                    stroke="var(--chart-accent)"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 5, fill: 'var(--chart-accent)', stroke: 'var(--card)', strokeWidth: 2 }}
+                  />
+                )}
               </LineChart>
             </ResponsiveContainer>
           </div>

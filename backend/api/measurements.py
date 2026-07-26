@@ -10,11 +10,13 @@ from backend.core.database import get_db
 from backend.core.security import get_current_user
 from backend.models import User
 from backend.models.measurement import Measurement
+from backend.trend import change_over, rate_per_week, smooth
 
 router = APIRouter(prefix="/measurements", tags=["measurements"])
 
 KINDS = [
     "Weight",
+    "Height",
     "Body fat",
     "Neck",
     "Shoulders",
@@ -92,6 +94,58 @@ def history(
         .order_by(Measurement.measured_at.desc())
     ).scalars()
     return [{"id": m.id, "value": m.value, "measured_at": m.measured_at} for m in rows]
+
+
+@router.get("/{kind}/trend")
+def trend(
+    kind: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Smoothed trend for a measurement kind: per-entry trend values, the
+    rate of change per week, and the 28-day change. Height is a constant,
+    not a trend — 404 keeps it off the chart."""
+    if kind not in KINDS or kind == "Height":
+        raise HTTPException(status_code=404, detail="Unknown measurement kind")
+    rows = (
+        db.execute(
+            select(Measurement)
+            .where(Measurement.user_id == user.id, Measurement.kind == kind)
+            .order_by(Measurement.measured_at)
+        )
+        .scalars()
+        .all()
+    )
+    entries = [(m.measured_at, m.value) for m in rows]
+    smoothed = smooth(entries)
+    points = [
+        {
+            "measured_at": at,
+            "actual": value,
+            "trend": round(t, 2),
+        }
+        for (at, value), t in zip(entries, smoothed)
+    ]
+    rate = rate_per_week(entries, smoothed)
+    change = change_over(entries, smoothed)
+    # BMI riff: only for Weight, only when a height is on file (kg/m²; a
+    # height logged in inches converts on the client before saving, so the
+    # stored unit follows the user's weight unit — cm for kg users)
+    height = db.execute(
+        select(Measurement)
+        .where(Measurement.user_id == user.id, Measurement.kind == "Height")
+        .order_by(Measurement.measured_at.desc())
+    ).scalars().first()
+    bmi = None
+    if kind == "Weight" and height is not None and height.value > 0 and smoothed and user.unit == "kg":
+        bmi = round(smoothed[-1] / (height.value / 100) ** 2, 1)
+    return {
+        "points": points,
+        "trend": round(smoothed[-1], 2) if smoothed else None,
+        "rate_per_week": round(rate, 2) if rate is not None else None,
+        "change_28d": round(change, 2) if change is not None else None,
+        "bmi": bmi,
+    }
 
 
 @router.delete("/{measurement_id}")

@@ -454,3 +454,47 @@ class TestPreview:
         # Week 4 of 5/3/1 is the deload: no AMRAP set
         assert not any(x["amrap"] for x in sessions[1]["sets"])
         assert sessions[2]["cycle_number"] == 2
+
+
+class TestBeatTargets:
+    def test_beat_reps_from_history(self, db, user):
+        from backend.api.programs import beat_reps
+
+        bench = make_exercise(db, "Bench Press")
+        # Best: 80x6 -> e1RM 96. At 75, rep 9 is the first to top it
+        log_workout(db, user, days_ago=3, entries=[(bench, [(80.0, 6)])])
+        assert beat_reps(db, user.id, bench.id, 75.0) == 9
+        # At or above the best e1RM weight a single rep is a new best
+        assert beat_reps(db, user.id, bench.id, 100.0) == 1
+
+    def test_beat_reps_none_without_history_or_when_absurd(self, db, user):
+        from backend.api.programs import beat_reps
+
+        bench = make_exercise(db, "Bench Press")
+        assert beat_reps(db, user.id, bench.id, 75.0) is None
+        log_workout(db, user, days_ago=3, entries=[(bench, [(80.0, 6)])])
+        # 40 kg would need 30 = 42+ reps -> not a target
+        assert beat_reps(db, user.id, bench.id, 40.0) is None
+
+    def test_next_and_preview_carry_beat_reps(self, db, user):
+        from backend.api.programs import preview_sessions
+
+        bench = make_exercise(db, "Bench Press")
+        log_workout(db, user, days_ago=3, entries=[(bench, [(80.0, 6)])])
+        p = make_program(db, user, [bench], tms=(90.0,))
+        listing = list_programs(user=user, db=db)
+        # W1 top set 76.5: reps to beat 96 -> int(30*(96/76.5-1))+1 = 8
+        assert listing[0]["next"]["beat_reps"] == 8
+        sessions = preview_sessions(p.id, count=2, user=user, db=db)
+        assert sessions[0]["beat_reps"] == 8
+
+    def test_live_program_workout_serializes_amrap_target(self, db, user):
+        bench = make_exercise(db, "Bench Press")
+        log_workout(db, user, days_ago=3, entries=[(bench, [(80.0, 6)])])
+        p = make_program(db, user, [bench], tms=(90.0,))
+        data = start_program_workout(p.id, user=user, db=db)
+        target = data["amrap_target"]
+        assert target is not None
+        assert target["weight"] == 77.5  # W1 top set: 85% of TM 90 at 2.5 step
+        # int(30*(96/77.5-1))+1 = 8
+        assert target["beat_reps"] == 8

@@ -74,6 +74,28 @@ def _own_routine(db: Session, user: User, routine_id: int) -> Routine:
     return r
 
 
+def beat_reps(db: Session, user_id: int, exercise_id: int, weight: float) -> int | None:
+    """Reps on an AMRAP set at `weight` that set a new estimated-1RM best
+    (Epley): the smallest r with weight × (1 + r/30) > best. None without
+    history, without a meaningful weight, or when it would take 20+ reps —
+    a target that far out is noise, not a target."""
+    from backend.serializers import historical_bests
+
+    if weight <= 0:
+        return None
+    best = historical_bests(db, user_id, exercise_id)["one_rm"]
+    if best <= 0:
+        return None
+    reps = int(30 * (best / weight - 1)) + 1
+    reps = max(reps, 1)
+    return reps if reps < 20 else None
+
+
+def _amrap_beat(db: Session, owner_id: int, exercise_id: int, sets: list[dict]) -> int | None:
+    top = next((s for s in sets if s.get("amrap")), None)
+    return beat_reps(db, owner_id, exercise_id, top["weight"]) if top else None
+
+
 def _serialize(db: Session, p: Program) -> dict:
     exercises = {
         e.id: e
@@ -123,9 +145,10 @@ def _serialize(db: Session, p: Program) -> dict:
                     else "?"
                 ),
                 "week": p.current_week,
-                "sets": prescription(
+                "sets": (sets := prescription(
                     p.scheme, p.current_week, next_lift.training_max, p.rounding
-                ),
+                )),
+                "beat_reps": _amrap_beat(db, p.owner_id, next_lift.exercise_id, sets),
                 "routine_name": routines.get(next_lift.routine_id),
             }
             if next_lift
@@ -186,9 +209,22 @@ def preview_sessions(
     pointer, week, cycle = p.lift_pointer, p.current_week, p.cycle_number
     tms = {l.id: l.training_max for l in p.lifts}
     sessions = []
+    # One bests lookup per lift, not per previewed session — targets are
+    # "as of today" for future sessions by design
+    bests: dict[int, float] = {}
+    from backend.serializers import historical_bests
+
     for offset in range(count):
         lift = p.lifts[pointer % len(p.lifts)]
         routine_id = lift.routine_id if lift.routine_id in routine_names else None
+        sets = prescription(p.scheme, week, tms[lift.id], p.rounding)
+        if lift.exercise_id not in bests:
+            bests[lift.exercise_id] = historical_bests(db, user.id, lift.exercise_id)["one_rm"]
+        top = next((s for s in sets if s["amrap"]), None)
+        beat = None
+        if top and top["weight"] > 0 and bests[lift.exercise_id] > 0:
+            beat = max(int(30 * (bests[lift.exercise_id] / top["weight"] - 1)) + 1, 1)
+            beat = beat if beat < 20 else None
         sessions.append(
             {
                 "offset": offset,
@@ -197,7 +233,8 @@ def preview_sessions(
                 "exercise_id": lift.exercise_id,
                 "exercise_name": exercises.get(lift.exercise_id, "?"),
                 "training_max": tms[lift.id],
-                "sets": prescription(p.scheme, week, tms[lift.id], p.rounding),
+                "sets": sets,
+                "beat_reps": beat,
                 "routine_name": routine_names.get(routine_id),
                 "accessories": accessory_lists.get(routine_id, []),
             }

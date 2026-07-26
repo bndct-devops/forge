@@ -94,6 +94,23 @@ interface StatsTrends {
         rep_max: number
       }[]
     | null
+  cycle_report:
+    | {
+        program: string
+        cycle: number
+        from: string
+        to: string
+        lifts: {
+          lift: string
+          tm: number
+          tm_next: number
+          weeks: { week: number; weight: number; reps: number; e1rm: number }[]
+          earned: boolean
+          margin: number
+        }[]
+        accessories: { name: string; from: number; to: number }[]
+      }[]
+    | null
 }
 
 interface HeadroomPoint {
@@ -1016,6 +1033,65 @@ export default function StatsPage() {
                         )
                       })}
                     </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {(stats.trends.cycle_report ?? []).length > 0 && (
+            <section className="rounded-xl border bg-card p-4">
+              <h2 className="mb-1 text-base">Cycle report</h2>
+              <p className="mb-3 text-xs text-muted-foreground">
+                the last completed cycle, closed out — a TM bump is earned when the
+                cycle's best AMRAP already covers the new max
+              </p>
+              <div className="flex flex-col gap-4">
+                {stats.trends.cycle_report!.map((r) => (
+                  <div key={`${r.program}-${r.cycle}`}>
+                    <div className="mb-2 text-xs text-muted-foreground">
+                      {r.program} · Cycle {r.cycle} · {formatShortDate(r.from)} –{' '}
+                      {formatShortDate(r.to)}
+                    </div>
+                    <div className="flex flex-col gap-3">
+                      {r.lifts.map((l) => (
+                        <div key={l.lift}>
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="min-w-0 truncate text-sm font-medium">{l.lift}</span>
+                            <span
+                              className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                l.earned
+                                  ? 'bg-success/15 text-success'
+                                  : 'bg-destructive/15 text-destructive'
+                              }`}
+                            >
+                              TM {l.tm} → {l.tm_next} · {l.earned ? 'earned' : 'not shown'}{' '}
+                              {l.margin > 0 ? '+' : ''}
+                              {l.margin}%
+                            </span>
+                          </div>
+                          <div className="tnum mt-1 text-xs text-muted-foreground">
+                            {l.weeks
+                              .map((wk) => `W${wk.week} ${wk.weight}×${wk.reps} (${wk.e1rm})`)
+                              .join(' · ')}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {r.accessories.length > 0 && (
+                      <div className="mt-2 border-t pt-2">
+                        <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                          Accessories moved
+                        </div>
+                        <div className="tnum mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+                          {r.accessories.map((a) => (
+                            <span key={a.name}>
+                              {a.name} {a.from} → {a.to} {unit}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

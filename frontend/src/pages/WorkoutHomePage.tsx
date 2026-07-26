@@ -107,14 +107,22 @@ function WeightQuickLog() {
     'weight_latest',
     null,
   )
+  const [rate, setRate] = useCachedState<number | null>('weight_rate', null)
   const [open, setOpen] = useState(false)
   const [value, setValue] = useState('')
   const [busy, setBusy] = useState(false)
+
+  const loadRate = () => {
+    api<{ rate_per_week: number | null }>('/measurements/Weight/trend')
+      .then((t) => setRate(t.rate_per_week))
+      .catch(() => {})
+  }
 
   useEffect(() => {
     api<{ kind: string; latest: { value: number; measured_at: string } | null }[]>('/measurements')
       .then((rows) => setLatest(rows.find((r) => r.kind === 'Weight')?.latest ?? null))
       .catch(() => {})
+    loadRate()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -128,6 +136,7 @@ function WeightQuickLog() {
         body: { kind: 'Weight', value: v },
       })
       setLatest({ value: m.value, measured_at: m.measured_at })
+      loadRate()
       setOpen(false)
       toast(`Logged ${m.value} ${unit}`)
     } catch (e) {
@@ -151,7 +160,9 @@ function WeightQuickLog() {
         </span>
         {latest && (
           <span className="tnum text-xs text-muted-foreground">
-            {latest.value} {unit} · {formatRelativeDate(latest.measured_at)}
+            {latest.value} {unit}
+            {rate != null && ` · ${rate > 0 ? '↗ +' : rate < 0 ? '↘ ' : '→ '}${rate}/wk`} ·{' '}
+            {formatRelativeDate(latest.measured_at)}
           </span>
         )}
       </button>
