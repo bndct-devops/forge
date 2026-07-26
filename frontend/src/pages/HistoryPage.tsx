@@ -79,7 +79,10 @@ export default function HistoryPage() {
               <h2 className="mb-2 px-1 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
                 {group.month}
               </h2>
-              <div className="grid gap-3 md:grid-cols-2">
+              {/* Explicit minmax(0,1fr) column: an implicit auto track sizes to
+                  max-content, and one long nowrap workout name would push the
+                  whole page into horizontal scroll */}
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {group.workouts.map((w, i) => (
                   <button
                     key={w.id}

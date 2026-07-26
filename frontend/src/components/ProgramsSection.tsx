@@ -361,8 +361,14 @@ export default function ProgramsSection() {
       >
         {(() => {
           const s = preview[previewIdx]
+          // The body keeps one fixed height across sessions of different
+          // lengths (and while loading) — the sheet's top edge, and with it
+          // the paging arrows, must not move while flipping through
+          const BODY = 'h-[min(420px,62svh)]'
           if (!s)
-            return <p className="pb-4 text-sm text-muted-foreground">Loading sessions…</p>
+            return (
+              <div className={`${BODY} pb-2 text-sm text-muted-foreground`}>Loading sessions…</div>
+            )
           const isDeload = previewFor?.scheme === '531' && s.week === 4
           return (
             <div className="flex flex-col gap-3 pb-2">
@@ -396,7 +402,8 @@ export default function ProgramsSection() {
                 </div>
               </div>
 
-              <div className="rounded-xl border bg-card px-3.5 py-3">
+              <div className={`${BODY} flex flex-col gap-3 overflow-y-auto`}>
+              <div className="shrink-0 rounded-xl border bg-card px-3.5 py-3">
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="min-w-0 truncate text-sm font-semibold">{s.exercise_name}</span>
                   <span className="tnum shrink-0 text-xs text-muted-foreground">
@@ -421,7 +428,7 @@ export default function ProgramsSection() {
               </div>
 
               {s.accessories.length > 0 && (
-                <div className="rounded-xl border bg-card px-3.5 py-3">
+                <div className="shrink-0 rounded-xl border bg-card px-3.5 py-3">
                   <div className="text-xs font-medium text-muted-foreground">
                     + {s.routine_name}
                   </div>
@@ -445,11 +452,12 @@ export default function ProgramsSection() {
                     startSession(previewFor)
                   }}
                   disabled={busy}
-                  className="touch-feedback flex w-full items-center justify-center gap-1.5 rounded-xl bg-accent-soft py-3 text-sm font-semibold text-primary"
+                  className="touch-feedback flex w-full shrink-0 items-center justify-center gap-1.5 rounded-xl bg-accent-soft py-3 text-sm font-semibold text-primary"
                 >
                   Start this session <ChevronRight size={15} />
                 </button>
               )}
+              </div>
             </div>
           )
         })()}
