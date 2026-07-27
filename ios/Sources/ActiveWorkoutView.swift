@@ -6,7 +6,13 @@ struct ActiveWorkoutView: View {
     let onMinimize: () -> Void
     let onEnd: () -> Void
 
+    private struct PlateTarget: Identifiable {
+        let idx: Int
+        var id: Int { idx }
+    }
+
     @State private var showPicker = false
+    @State private var plateExerciseIdx: PlateTarget?
     @State private var confirmDiscard = false
     @State private var finishing = false
     @State private var finished = false
@@ -67,6 +73,17 @@ struct ActiveWorkoutView: View {
         .preferredColorScheme(.dark)
         .fullScreenCover(isPresented: $showPicker) {
             ExercisePicker { store.addExercise($0) }
+        }
+        .sheet(item: $plateExerciseIdx) { target in
+            PlateCalculatorView(initialWeight: plateWeight(for: target.idx))
+        }
+        .onAppear {
+            // debug hook: `-plates` opens the calculator on the first exercise
+            if CommandLine.arguments.contains("-plates") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                    plateExerciseIdx = PlateTarget(idx: 0)
+                }
+            }
         }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
@@ -147,6 +164,11 @@ struct ActiveWorkoutView: View {
                 .padding(.vertical, 4)
                 .background(Capsule().fill(FG.secondary))
                 Menu {
+                    Button {
+                        plateExerciseIdx = PlateTarget(idx: i)
+                    } label: {
+                        Label("Plate calculator", systemImage: "plus.forwardslash.minus")
+                    }
                     Button(role: .destructive) {
                         store.removeExercise(at: i)
                     } label: {
@@ -462,6 +484,16 @@ struct ActiveWorkoutView: View {
             .padding(.bottom, 12)
             .shadow(color: .black.opacity(0.4), radius: 16, y: 6)
         }
+    }
+
+    /// Heaviest weight in play for the exercise — filled sets first, then the
+    /// server suggestion (PWA's plateWeightFor semantics).
+    private func plateWeight(for idx: Int) -> Double? {
+        guard store.exercises.indices.contains(idx) else { return nil }
+        let ex = store.exercises[idx]
+        let filled = ex.sets.compactMap(\.weight).filter { $0 > 0 }
+        if let maxW = filled.max() { return maxW }
+        return ex.suggestedWeight
     }
 
     // MARK: finish

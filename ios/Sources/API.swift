@@ -443,6 +443,7 @@ struct StatsResponse: Codable {
 struct Me: Codable {
     let unit: String?
     let weekly_goal: Int?
+    let plate_config: String?
 }
 
 // MARK: - measurements
@@ -610,6 +611,11 @@ struct ForgeAPI {
 
     static func me() async throws -> Me {
         try JSONDecoder().decode(Me.self, from: await request("/api/auth/me"))
+    }
+
+    static func updatePlateConfig(_ config: String) async throws {
+        let body = try JSONSerialization.data(withJSONObject: ["plate_config": config])
+        _ = try await request("/api/auth/me", method: "PATCH", body: body)
     }
 
     static func measurements() async throws -> [MeasureKind] {

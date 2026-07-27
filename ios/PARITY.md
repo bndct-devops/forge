@@ -7,7 +7,7 @@ reference — screens are ported, not reinterpreted. Status: ✅ done · 🟡 pa
 | PWA page / feature | Status | Notes |
 |---|---|---|
 | **WorkoutHomePage** | 🟡 | title/hero/templates/programs ✅ · Log-weight row ❌ · Plans ❌ · template create/reorder/menu ❌ |
-| **ActiveWorkoutPage** | 🟡 | table, prev column, ghosts, hints, trophy, types, RPE, rest bar, LA timer ✅ · plate calculator ❌ · exercise reorder ❌ · per-exercise rest editing ❌ · set swipe-delete (menu instead) 🟡 · superset creation ❌ |
+| **ActiveWorkoutPage** | 🟡 | table, prev column, ghosts, hints, trophy, types, RPE, rest bar, LA timer ✅ · plate calculator ✅ (per-side diagram, warm-up ramp, bar/plate config synced) · exercise reorder ❌ · per-exercise rest editing ❌ · set swipe-delete (menu instead) 🟡 · superset creation ❌ |
 | — draft persistence | ✅ | draft snapshots to disk (debounced) and restores on launch; cleared on finish/discard |
 | **Program preview/detail** | 🟡 | cycle click-through + start ✅ · program editing (TMs, lifts, scheme) ❌ |
 | **ExercisesPage** | 🟡 | grouped searchable list ✅ · create custom exercise ❌ · variant grouping under parents ❌ |
