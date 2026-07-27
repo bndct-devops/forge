@@ -11,9 +11,9 @@ reference — screens are ported, not reinterpreted. Status: ✅ done · 🟡 pa
 | — draft persistence | ❌ | in-memory only; app kill mid-workout loses unsynced sets |
 | **Program preview/detail** | 🟡 | cycle click-through + start ✅ · program editing (TMs, lifts, scheme) ❌ |
 | **ExercisesPage** | 🟡 | grouped searchable list ✅ · create custom exercise ❌ · variant grouping under parents ❌ |
-| **ExerciseDetailPage** | 🟡 | bests + recent sessions ✅ · muscle map ❌ · variation chips ❌ · pinned note ❌ · 1RM/weight/volume chart with 3M/1Y/ALL ❌ · best-set-volume tile ❌ |
-| **HistoryPage** | ❌ | list + calendar views, load-more |
-| **WorkoutDetailPage** | ❌ | past workout view, edit, delete |
+| **ExerciseDetailPage** | ✅ | muscle map, variation chips (+family toggle), pinned note, record tiles incl. best-set-volume, 1RM/weight/volume chart with 3M/1Y/ALL, training %, history ✅ · avg-RPE overlay on 1RM chart ❌ (needs dual axis) · custom-exercise edit/delete ❌ |
+| **HistoryPage** | ✅ | list + calendar views, load-more |
+| **WorkoutDetailPage** | 🟡 | view, rename, delete ✅ · set editing ❌ |
 | **StatsPage** | 🟡 | tiles + weekly volume + records ✅ · muscle split/map ❌ · trends ❌ · calendar heatmap ❌ · stalls/nudges ❌ · year view ❌ |
 | **RecordsPage** | 🟡 | records list in Stats ✅ · dedicated searchable page ❌ |
 | **MeasurePage** | ❌ | weight/body-fat/height logging + trends (the Home log-weight row feeds this) |

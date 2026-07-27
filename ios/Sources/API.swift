@@ -29,6 +29,7 @@ struct LibraryExercise: Codable, Identifiable {
     let name: String
     let muscle_group: String?
     let equipment: String?
+    let grip: String?
     let is_custom: Bool
 }
 
@@ -263,6 +264,7 @@ struct ExerciseRecords: Codable {
     let best_weight: RecordSetRef?
     let best_1rm: Record1RMRef?
     let best_volume_set: RecordVolumeRef?
+    let best_reps: RecordSetRef?
     let total_reps: Int?
     let total_volume: Double?
     let times_performed: Int?
@@ -289,6 +291,7 @@ struct ExerciseChartPoint: Codable {
     let date: String
     let best_1rm: Double?
     let best_weight: Double?
+    let best_reps: Double?
     let volume: Double?
     let avg_rpe: Double?
 }
@@ -433,8 +436,14 @@ struct ForgeAPI {
         _ = try await request("/api/workouts/\(id)", method: "PATCH", body: body)
     }
 
-    static func exerciseStats(id: Int) async throws -> ExerciseStats {
-        try JSONDecoder().decode(ExerciseStats.self, from: await request("/api/exercises/\(id)/stats"))
+    static func exerciseStats(id: Int, family: Bool = false) async throws -> ExerciseStats {
+        try JSONDecoder().decode(ExerciseStats.self,
+                                 from: await request("/api/exercises/\(id)/stats\(family ? "?family=true" : "")"))
+    }
+
+    static func putExerciseNote(id: Int, text: String) async throws {
+        let body = try JSONSerialization.data(withJSONObject: ["text": text])
+        _ = try await request("/api/exercises/\(id)/note", method: "PUT", body: body)
     }
 
     static func programPreview(id: Int) async throws -> [PreviewSession] {
