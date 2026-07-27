@@ -411,6 +411,231 @@ struct StatsTrends: Codable {
     let weekdays: [TrendWeekday]
     let rep_ranges: [TrendRepRange]
     let prs_by_month: [TrendPRMonth]
+    let blocks: TrendBlocks?
+    let load: TrendLoad?
+    let top_lifts: NamedSeries?
+    let headroom: [TrendHeadroom]?
+    let cycles: [TrendCycleLift]?
+    let cycle_report: [TrendCycleReport]?
+    let velocity: [TrendVelocity]?
+    let relative: NamedSeries?
+    let standards: [TrendStandard]?
+    let forecast: [TrendForecast]?
+    let recovery: [TrendRecovery]?
+    let detraining: TrendDetraining?
+    let pacing: TrendPacing?
+    let times: [TrendTimeOfDay]?
+}
+
+/// Multi-series week rows keyed by lift name ({week_start, "<name>": value}).
+struct NamedSeries: Codable {
+    let names: [String]
+    let weeks: [SeriesWeek]
+}
+
+struct SeriesWeek: Codable, Identifiable {
+    var id: String { week_start }
+    let week_start: String
+    let values: [String: Double]
+
+    private struct DynKey: CodingKey {
+        var stringValue: String
+        var intValue: Int? { nil }
+        init?(stringValue: String) { self.stringValue = stringValue }
+        init?(intValue: Int) { nil }
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: DynKey.self)
+        week_start = try c.decode(String.self, forKey: DynKey(stringValue: "week_start")!)
+        var out: [String: Double] = [:]
+        for key in c.allKeys where key.stringValue != "week_start" {
+            if let v = try? c.decode(Double.self, forKey: key) { out[key.stringValue] = v }
+        }
+        values = out
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: DynKey.self)
+        try c.encode(week_start, forKey: DynKey(stringValue: "week_start")!)
+        for (k, v) in values { try c.encode(v, forKey: DynKey(stringValue: k)!) }
+    }
+}
+
+struct TrendBlockTotals: Codable {
+    let volume: Double
+    let workouts: Int
+}
+
+struct TrendBlockGroup: Codable, Identifiable {
+    var id: String { group }
+    let group: String
+    let current: Int
+    let previous: Int
+}
+
+struct TrendBlockLift: Codable, Identifiable {
+    var id: String { name }
+    let name: String
+    let current: Double
+    let previous: Double
+}
+
+struct TrendBlocks: Codable {
+    let days: Int
+    let current: TrendBlockTotals
+    let previous: TrendBlockTotals
+    let groups: [TrendBlockGroup]
+    let lifts: [TrendBlockLift]
+}
+
+struct TrendLoadDay: Codable, Identifiable {
+    var id: String { date }
+    let date: String
+    let fitness: Double
+    let fatigue: Double
+    let form: Double
+}
+
+struct TrendLoad: Codable {
+    let days: [TrendLoadDay]
+    let status: String
+}
+
+struct HeadroomPoint: Codable {
+    let date: String
+    let cycle: Int
+    let week: Int
+    let weight: Double
+    let reps: Int
+    let e1rm: Double
+    let tm: Double
+    let headroom: Double
+}
+
+struct TrendHeadroom: Codable, Identifiable {
+    var id: String { "\(program)-\(lift)" }
+    let lift: String
+    let program: String
+    let training_max: Double
+    let points: [HeadroomPoint]
+    let latest: HeadroomPoint
+}
+
+struct TrendCycleEntry: Codable {
+    let cycle: Int
+    let weight: Double
+    let reps: Int
+    let e1rm: Double
+}
+
+struct TrendCycleWeek: Codable, Identifiable {
+    var id: Int { week }
+    let week: Int
+    let cycles: [TrendCycleEntry]
+}
+
+struct TrendCycleLift: Codable, Identifiable {
+    var id: String { lift }
+    let lift: String
+    let weeks: [TrendCycleWeek]
+}
+
+struct CycleReportWeek: Codable, Identifiable {
+    var id: Int { week }
+    let week: Int
+    let weight: Double
+    let reps: Int
+    let e1rm: Double
+}
+
+struct CycleReportLift: Codable, Identifiable {
+    var id: String { lift }
+    let lift: String
+    let tm: Double
+    let tm_next: Double
+    let weeks: [CycleReportWeek]
+    let earned: Bool
+    let margin: Double
+}
+
+struct CycleReportAccessory: Codable, Identifiable {
+    var id: String { name }
+    let name: String
+    let from: Double
+    let to: Double
+}
+
+struct TrendCycleReport: Codable, Identifiable {
+    var id: String { "\(program)-\(cycle)" }
+    let program: String
+    let cycle: Int
+    let from: String
+    let to: String
+    let lifts: [CycleReportLift]
+    let accessories: [CycleReportAccessory]
+}
+
+struct TrendVelocity: Codable, Identifiable {
+    var id: String { name }
+    let name: String
+    let sessions_per_increase: Double
+    let increases: Int
+    let current_weight: Double
+    let sessions_at_current: Int
+    let last_sets: Int
+    let last_min_reps: Int
+    let rep_max: Int
+}
+
+struct TrendStandard: Codable, Identifiable {
+    var id: String { lift }
+    let lift: String
+    let ratio: Double
+    let score: Double
+    let level: String
+}
+
+struct TrendForecast: Codable, Identifiable {
+    var id: String { name }
+    let name: String
+    let current: Double
+    let slope: Double
+    let milestone: Double?
+    let eta: String?
+}
+
+struct TrendRecovery: Codable, Identifiable {
+    var id: String { bucket }
+    let bucket: String
+    let pct: Double
+    let n: Int
+}
+
+struct TrendDetraining: Codable {
+    let pct_per_week: Double
+    let events: Int
+}
+
+struct TrendPacingWeek: Codable, Identifiable {
+    var id: String { week_start }
+    let week_start: String
+    let avg_rest_seconds: Double?
+    let density: Double?
+}
+
+struct TrendPacing: Codable {
+    let weeks: [TrendPacingWeek]
+    let avg_rest_seconds: Double?
+    let avg_density: Double?
+}
+
+struct TrendTimeOfDay: Codable, Identifiable {
+    var id: String { bucket }
+    let bucket: String
+    let workouts: Int
+    let avg_volume: Double
+    let index: Double?
 }
 
 struct MuscleGroupSets: Codable, Identifiable {

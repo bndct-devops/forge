@@ -44,10 +44,12 @@ struct StatsView: View {
                             .padding(.horizontal, 18)
                         }
                         .onAppear {
-                            // debug hook: `-scroll-bottom` jumps to the end
-                            if CommandLine.arguments.contains("-scroll-bottom") {
+                            // debug hooks: `-scroll-bottom` / `-scroll-headroom` jump on launch
+                            let target = CommandLine.arguments.contains("-scroll-bottom") ? "bottom"
+                                : CommandLine.arguments.contains("-scroll-headroom") ? "headroom" : nil
+                            if let target {
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                                    proxy.scrollTo("bottom", anchor: .bottom)
+                                    proxy.scrollTo(target, anchor: target == "headroom" ? .top : .bottom)
                                 }
                             }
                         }
@@ -341,7 +343,9 @@ struct StatsView: View {
 
     @ViewBuilder
     private func trends(_ s: StatsResponse) -> some View {
+        // PWA section order: volume → deep analytics → days/ranges → PRs → split
         weeklyVolumeCard(s)
+        DeepTrendsSections(trends: s.trends)
         trainingDaysCard(s.trends.weekdays)
         repRangesCard(s.trends.rep_ranges, days: s.split_days)
         prsPerMonthCard(s.trends.prs_by_month)

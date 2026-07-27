@@ -154,21 +154,57 @@ struct ActiveWorkoutView: View {
                     .foregroundStyle(FG.ember)
                     .lineLimit(1)
                 Spacer()
-                HStack(spacing: 4) {
-                    Image(systemName: "timer").font(.system(size: 10))
-                    Text("\(ex.restSeconds / 60):\(String(format: "%02d", ex.restSeconds % 60))")
-                }
-                .font(.system(size: 12, weight: .medium).monospacedDigit())
-                .foregroundStyle(FG.muted)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Capsule().fill(FG.secondary))
+                // per-exercise rest picker (PWA's REST_OPTIONS)
                 Menu {
+                    ForEach([0, 30, 45, 60, 90, 120, 150, 180, 240, 300], id: \.self) { s in
+                        Button {
+                            store.exercises[i].restSeconds = s
+                        } label: {
+                            if s == ex.restSeconds {
+                                Label(restLabel(s), systemImage: "checkmark")
+                            } else {
+                                Text(restLabel(s))
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "timer").font(.system(size: 10))
+                        Text(restLabel(ex.restSeconds))
+                    }
+                    .font(.system(size: 12, weight: .medium).monospacedDigit())
+                    .foregroundStyle(FG.muted)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(FG.secondary))
+                }
+                Menu {
+                    if i > 0 {
+                        Button {
+                            withAnimation(.spring(duration: 0.3)) { store.moveExercise(at: i, offset: -1) }
+                        } label: {
+                            Label("Move up", systemImage: "arrow.up")
+                        }
+                    }
+                    if i < store.exercises.count - 1 {
+                        Button {
+                            withAnimation(.spring(duration: 0.3)) { store.moveExercise(at: i, offset: 1) }
+                        } label: {
+                            Label("Move down", systemImage: "arrow.down")
+                        }
+                        Button {
+                            store.toggleSuperset(at: i)
+                        } label: {
+                            Label(ex.supersetWithNext ? "Remove superset with next" : "Superset with next exercise",
+                                  systemImage: ex.supersetWithNext ? "personalhotspot.slash" : "link")
+                        }
+                    }
                     Button {
                         plateExerciseIdx = PlateTarget(idx: i)
                     } label: {
                         Label("Plate calculator", systemImage: "plus.forwardslash.minus")
                     }
+                    Divider()
                     Button(role: .destructive) {
                         store.removeExercise(at: i)
                     } label: {
@@ -177,6 +213,15 @@ struct ActiveWorkoutView: View {
                 } label: {
                     Image(systemName: "ellipsis").font(.system(size: 13)).foregroundStyle(FG.muted).padding(6)
                 }
+            }
+            if ex.supersetWithNext {
+                HStack(spacing: 5) {
+                    Image(systemName: "link").font(.system(size: 10, weight: .semibold))
+                    Text("Superset with next — rest starts after the pair")
+                }
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(FG.ember)
+                .padding(.bottom, 6)
             }
             if let sw = ex.suggestedWeight {
                 if ex.suggestionKind == "deload" {
@@ -326,10 +371,13 @@ struct ActiveWorkoutView: View {
                 if !wasDone {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     focusedField = nil
-                    rest.start(seconds: store.exercises[exIdx].restSeconds,
-                               exercise: store.exercises[exIdx].name,
-                               nextSet: setIdx + 2,
-                               workoutName: store.name)
+                    // inside a superset, rest comes after the group's last exercise
+                    if !store.exercises[exIdx].supersetWithNext, store.exercises[exIdx].restSeconds > 0 {
+                        rest.start(seconds: store.exercises[exIdx].restSeconds,
+                                   exercise: store.exercises[exIdx].name,
+                                   nextSet: setIdx + 2,
+                                   workoutName: store.name)
+                    }
                 }
             } label: {
                 Image(systemName: "checkmark")
@@ -484,6 +532,10 @@ struct ActiveWorkoutView: View {
             .padding(.bottom, 12)
             .shadow(color: .black.opacity(0.4), radius: 16, y: 6)
         }
+    }
+
+    private func restLabel(_ seconds: Int) -> String {
+        seconds == 0 ? "Off" : "\(seconds / 60):\(String(format: "%02d", seconds % 60))"
     }
 
     /// Heaviest weight in play for the exercise — filled sets first, then the

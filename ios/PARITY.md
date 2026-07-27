@@ -7,14 +7,14 @@ reference — screens are ported, not reinterpreted. Status: ✅ done · 🟡 pa
 | PWA page / feature | Status | Notes |
 |---|---|---|
 | **WorkoutHomePage** | 🟡 | title/hero/templates/programs ✅ · Log-weight row ❌ · Plans ❌ · template create/reorder/menu ❌ |
-| **ActiveWorkoutPage** | 🟡 | table, prev column, ghosts, hints, trophy, types, RPE, rest bar, LA timer ✅ · plate calculator ✅ (per-side diagram, warm-up ramp, bar/plate config synced) · exercise reorder ❌ · per-exercise rest editing ❌ · set swipe-delete (menu instead) 🟡 · superset creation ❌ |
+| **ActiveWorkoutPage** | 🟡 | table, prev column, ghosts, hints, trophy, types, RPE, rest bar, LA timer ✅ · plate calculator ✅ (per-side diagram, warm-up ramp, bar/plate config synced) · exercise reorder ✅ (move up/down) · per-exercise rest editing ✅ (tap the rest chip) · superset toggle with next ✅ (rest deferred to pair end) · set swipe-delete (menu instead) 🟡 · two-stage superset picker ❌ |
 | — draft persistence | ✅ | draft snapshots to disk (debounced) and restores on launch; cleared on finish/discard |
 | **Program preview/detail** | 🟡 | cycle click-through + start ✅ · program editing (TMs, lifts, scheme) ❌ |
 | **ExercisesPage** | 🟡 | grouped searchable list ✅ · create custom exercise ❌ · variant grouping under parents ❌ |
 | **ExerciseDetailPage** | ✅ | muscle map, variation chips (+family toggle), pinned note, record tiles incl. best-set-volume, 1RM/weight/volume chart with 3M/1Y/ALL, training %, history ✅ · avg-RPE overlay on 1RM chart ❌ (needs dual axis) · custom-exercise edit/delete ❌ |
 | **HistoryPage** | ✅ | list + calendar views, load-more |
 | **WorkoutDetailPage** | 🟡 | view, rename, delete ✅ · set editing ❌ |
-| **StatsPage** | 🟡 | Overview (streak+goal, nudges, stalls, tiles, highlights, calendar heatmap, year review) ✅ · Trends core (weekly volume, training days, rep ranges, PRs/month, muscle split w/ per-group trend, push/pull) ✅ · deep trends ❌ (block-vs-last, form&fatigue, top lifts, TM headroom, cycles, cycle report, velocity, relative, standards, trajectory, recovery, pacing, time-of-day) · RPE overlay on weekly volume ❌ |
+| **StatsPage** | 🟡 | Overview (streak+goal, nudges, stalls, tiles, highlights, calendar heatmap, year review) ✅ · Trends core (weekly volume, training days, rep ranges, PRs/month, muscle split w/ per-group trend, push/pull) ✅ · deep trends ✅ (block-vs-last, form&fatigue, top lifts, TM headroom, cycles, cycle report, velocity, relative, standards, trajectory, recovery, detraining, pacing, time-of-day) · RPE overlay on weekly volume ❌ |
 | **RecordsPage** | ✅ | searchable records page pushed from Stats overview |
 | **MeasurePage** | ✅ | kinds list, trend tiles, logged-vs-trend chart, add/delete entries (reached from Stats overview) · Home log-weight shortcut row ❌ |
 | **RoutineEditorPage** | ❌ | template create/edit |

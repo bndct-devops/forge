@@ -238,6 +238,17 @@ final class WorkoutStore: ObservableObject {
         exercises.remove(at: index)
     }
 
+    func moveExercise(at index: Int, offset: Int) {
+        let target = index + offset
+        guard exercises.indices.contains(index), exercises.indices.contains(target) else { return }
+        exercises.swapAt(index, target)
+    }
+
+    func toggleSuperset(at index: Int) {
+        guard exercises.indices.contains(index), index < exercises.count - 1 else { return }
+        exercises[index].supersetWithNext.toggle()
+    }
+
     func removeSet(exIdx: Int, setIdx: Int) {
         guard exercises[exIdx].sets.indices.contains(setIdx) else { return }
         exercises[exIdx].sets.remove(at: setIdx)
