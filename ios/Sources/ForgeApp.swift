@@ -76,8 +76,10 @@ struct RootView: View {
                 .tint(FG.ember)
                 if let store = state.activeStore, !state.showWorkout {
                     ResumeBar(store: store) { state.showWorkout = true }
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
+            .animation(.spring(duration: 0.35), value: state.showWorkout)
             .environmentObject(state)
             .preferredColorScheme(.dark)
             .fullScreenCover(isPresented: $state.showWorkout) {
