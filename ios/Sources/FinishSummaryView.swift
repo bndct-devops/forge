@@ -21,6 +21,24 @@ struct FinishSummaryView: View {
     private var prs: [FinishPR] { summary?.prs ?? [] }
 
     var body: some View {
+        // debug hook: `-preview-card` renders the share card itself
+        if CommandLine.arguments.contains("-preview-card") {
+            ScrollView {
+                ShareCard(
+                    name: summary?.name ?? store.name, date: Date(),
+                    volume: volume, sets: sets, minutes: minutes,
+                    prs: prs, workoutNumber: summary?.workout_number,
+                    comparisonDelta: (summary?.comparison?.prev_volume).map { volume - $0 },
+                    comparisonLabel: "vs last \(summary?.name ?? "session")"
+                )
+                .padding(.top, 30)
+            }
+        } else {
+            summaryBody
+        }
+    }
+
+    private var summaryBody: some View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(spacing: 14) {
@@ -233,8 +251,10 @@ struct FinishSummaryView: View {
             name: summary?.name ?? store.name,
             date: Date(),
             volume: volume, sets: sets, minutes: minutes,
-            prCount: prs.count,
-            workoutNumber: summary?.workout_number
+            prs: prs,
+            workoutNumber: summary?.workout_number,
+            comparisonDelta: (summary?.comparison?.prev_volume).map { volume - $0 },
+            comparisonLabel: "vs last \(summary?.name ?? "session")"
         ))
     }
 
@@ -283,58 +303,112 @@ private extension View {
     }
 }
 
-/// The branded stat card rendered for sharing — used by the finish screen
-/// and past-workout detail pages.
+/// The branded stat card rendered for sharing — a portrait snapshot built
+/// from the same components as the completion screen.
 struct ShareCard: View {
     let name: String
     let date: Date
     let volume: Double
     let sets: Int
     let minutes: Int
-    let prCount: Int
+    let prs: [FinishPR]
     let workoutNumber: Int?
+    var comparisonDelta: Double?
+    var comparisonLabel: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
                 Image(systemName: "dumbbell.fill")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(FG.ember)
                 Text("FORGE")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: 13, weight: .bold))
                     .tracking(3)
                     .foregroundStyle(FG.ember)
                 Spacer()
                 if let n = workoutNumber {
-                    Text("#\(n)")
-                        .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                    Text("WORKOUT #\(n)")
+                        .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                        .tracking(1)
                         .foregroundStyle(FG.muted)
                 }
             }
-            VStack(alignment: .leading, spacing: 3) {
+
+            VStack(spacing: 6) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 40)).foregroundStyle(FG.ember)
                 Text(name)
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.system(size: 21, weight: .bold))
                     .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
                     .lineLimit(2)
                 Text(date.formatted(.dateTime.weekday(.wide).day().month(.wide)))
-                    .font(.system(size: 13))
+                    .font(.system(size: 12))
                     .foregroundStyle(FG.muted)
             }
-            HStack(spacing: 12) {
-                cardStat(fmtVolume(volume), "volume")
-                cardStat("\(sets)", "sets")
-                cardStat("\(minutes) min", "time")
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 4)
+
+            HStack(spacing: 10) {
+                cardTile("VOLUME", fmtVolume(volume))
+                cardTile("SETS", "\(sets)")
+                cardTile("TIME", "\(minutes) min")
             }
-            if prCount > 0 {
-                HStack(spacing: 6) {
-                    Image(systemName: "trophy.fill").font(.system(size: 13)).foregroundStyle(FG.gold)
-                    Text("\(prCount) personal record\(prCount == 1 ? "" : "s")")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(FG.gold)
+
+            if !prs.isEmpty {
+                VStack(alignment: .leading, spacing: 7) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "trophy.fill").font(.system(size: 12)).foregroundStyle(FG.gold)
+                        Text("\(prs.count) personal record\(prs.count == 1 ? "" : "s")")
+                            .font(.system(size: 14, weight: .semibold)).foregroundStyle(FG.gold)
+                    }
+                    ForEach(prs.prefix(3)) { pr in
+                        HStack {
+                            Text(pr.exercise_name ?? "")
+                                .font(.system(size: 12)).foregroundStyle(.white)
+                                .lineLimit(1)
+                            Spacer()
+                            Text(pr.kind == "reps"
+                                 ? "\(Int(pr.value ?? 0)) reps"
+                                 : "\(trim(pr.value ?? 0)) kg × \(pr.reps ?? 0)")
+                                .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    if prs.count > 3 {
+                        Text("+ \(prs.count - 3) more")
+                            .font(.system(size: 11)).foregroundStyle(FG.gold.opacity(0.8))
+                    }
                 }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 13).fill(FG.gold.opacity(0.10)))
+                .overlay(RoundedRectangle(cornerRadius: 13).stroke(FG.gold.opacity(0.35), lineWidth: 1))
+            }
+
+            if let delta = comparisonDelta {
+                HStack(spacing: 8) {
+                    Image(systemName: delta >= 0 ? "arrow.up.right" : "arrow.down.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(delta >= 0 ? FG.success : FG.destructive)
+                        .frame(width: 26, height: 26)
+                        .background(RoundedRectangle(cornerRadius: 7)
+                            .fill((delta >= 0 ? FG.success : FG.destructive).opacity(0.15)))
+                    (Text("\(delta >= 0 ? "+" : "")\(fmtVolume(delta)) ")
+                        .fontWeight(.semibold)
+                        .foregroundStyle(delta >= 0 ? FG.success : FG.destructive)
+                     + Text(comparisonLabel ?? "vs last session").foregroundStyle(FG.muted))
+                        .font(.system(size: 12))
+                        .lineLimit(1)
+                    Spacer()
+                }
+                .padding(10)
+                .background(RoundedRectangle(cornerRadius: 13).fill(FG.card))
+                .overlay(RoundedRectangle(cornerRadius: 13).stroke(FG.border, lineWidth: 1))
             }
         }
-        .padding(26)
+        .padding(22)
         .frame(width: 420, alignment: .leading)
         .background(FG.background)
         .overlay(alignment: .bottom) {
@@ -342,15 +416,19 @@ struct ShareCard: View {
         }
     }
 
-    private func cardStat(_ value: String, _ label: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(value)
-                .font(.system(size: 21, weight: .bold).monospacedDigit())
-                .foregroundStyle(.white)
-            Text(label.uppercased())
-                .font(.system(size: 10, weight: .semibold)).tracking(1)
+    private func cardTile(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label)
+                .font(.system(size: 10, weight: .semibold)).tracking(0.8)
                 .foregroundStyle(FG.muted)
+            Text(value)
+                .font(.system(size: 19, weight: .bold).monospacedDigit())
+                .foregroundStyle(.white)
+                .lineLimit(1).minimumScaleFactor(0.7)
         }
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 13).fill(FG.card))
+        .overlay(RoundedRectangle(cornerRadius: 13).stroke(FG.border, lineWidth: 1))
     }
 }

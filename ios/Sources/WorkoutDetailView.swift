@@ -264,13 +264,26 @@ struct WorkoutDetailView: View {
     @MainActor
     private func shareImage(_ w: WorkoutFull) -> Image {
         let date = ISO8601DateFormatter().date(from: String(w.started_at.prefix(19)) + "Z") ?? Date()
+        // rebuild the PR list from the stored trophy flags
+        var prs: [FinishPR] = []
+        for ex in w.exercises {
+            for s in ex.sets where s.is_pr == true {
+                let isWeight = (s.weight ?? 0) > 0
+                prs.append(FinishPR(
+                    exercise_name: ex.name,
+                    kind: isWeight ? "weight" : "reps",
+                    value: isWeight ? s.weight : (s.reps).map(Double.init),
+                    reps: s.reps
+                ))
+            }
+        }
         return renderShareCard(ShareCard(
             name: w.name,
             date: date,
             volume: w.total_volume ?? 0,
             sets: w.total_sets ?? 0,
             minutes: (w.duration_seconds ?? 0) / 60,
-            prCount: w.pr_count ?? 0,
+            prs: prs,
             workoutNumber: nil
         ))
     }
