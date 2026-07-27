@@ -29,17 +29,19 @@ struct PairingView: View {
                     .foregroundStyle(FG.muted)
                     .multilineTextAlignment(.center)
 
-                VStack(spacing: 10) {
+                VStack(spacing: 0) {
                     TextField("https://forge.example.com", text: $url)
                         .textContentType(.URL)
                         .keyboardType(.URL)
                         .autocapitalization(.none)
                         .autocorrectionDisabled()
+                        .padding(14)
+                    Rectangle().fill(FG.border).frame(height: 1)
                     SecureField("forge_pat_…", text: $token)
                         .autocapitalization(.none)
                         .autocorrectionDisabled()
+                        .padding(14)
                 }
-                .padding(14)
                 .background(RoundedRectangle(cornerRadius: 12).fill(FG.card))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(FG.border, lineWidth: 1))
                 .foregroundStyle(.white)
@@ -57,8 +59,10 @@ struct PairingView: View {
                         .frame(height: 48)
                         .background(RoundedRectangle(cornerRadius: 12).fill(FG.ember))
                         .foregroundStyle(.black.opacity(0.8))
+                        .opacity(busy || token.isEmpty ? 0.35 : 1)
                 }
                 .disabled(busy || token.isEmpty)
+                .animation(.easeOut(duration: 0.15), value: token.isEmpty)
                 Spacer()
                 Spacer()
             }
