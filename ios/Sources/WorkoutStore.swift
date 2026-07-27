@@ -321,6 +321,26 @@ final class WorkoutStore: ObservableObject {
         exercises[exIdx].sets.append(DraftSet(weight: template?.weight, reps: template?.reps))
     }
 
+    /// The lock-screen ✓: mark the next planned set done and restart rest —
+    /// same semantics as tapping the check in the table.
+    func completeNextSet() {
+        for exIdx in exercises.indices {
+            for setIdx in exercises[exIdx].sets.indices {
+                let set = exercises[exIdx].sets[setIdx]
+                if !set.done, set.reps != nil {
+                    exercises[exIdx].sets[setIdx].done = true
+                    finishIntent = nil
+                    let ex = exercises[exIdx]
+                    if !ex.supersetWithNext, ex.restSeconds > 0 {
+                        rest.start(seconds: ex.restSeconds, exercise: ex.name,
+                                   nextSet: setIdx + 2, workoutName: name)
+                    }
+                    return
+                }
+            }
+        }
+    }
+
     var doneSets: Int { exercises.flatMap(\.sets).filter(\.done).count }
     var volume: Double {
         exercises.flatMap(\.sets).filter { $0.done && !$0.warmup }

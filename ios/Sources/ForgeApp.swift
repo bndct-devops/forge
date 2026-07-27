@@ -83,6 +83,10 @@ final class AppState: ObservableObject {
         if let draft = WorkoutStore.loadPersisted() {
             activeStore = WorkoutStore(restored: draft)
         }
+        // Live Activity buttons act on the live workout when the app is up
+        IntentBridge.completeSet = { [weak self] in self?.activeStore?.completeNextSet() }
+        IntentBridge.adjustRest = { [weak self] in self?.activeStore?.rest.adjust(by: $0) }
+        IntentBridge.skipRest = { [weak self] in self?.activeStore?.rest.stop() }
     }
 
     var hasActive: Bool { activeStore != nil }
