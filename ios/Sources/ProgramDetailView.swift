@@ -44,7 +44,7 @@ struct ProgramDetailView: View {
                             .background(RoundedRectangle(cornerRadius: 14).fill(FG.ember))
                             .opacity(state.hasActive || starting ? 0.4 : 1)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(Pressable())
                         .disabled(state.hasActive || starting)
 
                         if let err = state.startError {

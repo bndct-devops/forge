@@ -23,6 +23,53 @@ enum FG {
     static let destructive = Color(red: 1.0, green: 0.396, blue: 0.341)  // #ff6557
 }
 
+/// Card press feedback — the native stand-in for the PWA's touch-feedback
+/// class: a quick scale-down while pressed.
+struct Pressable: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
+    }
+}
+
+/// Segmented control with a sliding pill (matched-geometry), used for
+/// History List/Calendar, Stats Overview/Trends and chart metric pickers.
+struct PillSegmented: View {
+    let options: [String]
+    @Binding var selection: Int
+    var height: CGFloat = 34
+
+    @Namespace private var ns
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(options.enumerated()), id: \.offset) { i, label in
+                Button {
+                    withAnimation(.spring(duration: 0.32)) { selection = i }
+                } label: {
+                    Text(label)
+                        .font(.system(size: height >= 34 ? 14 : 13, weight: .medium))
+                        .foregroundStyle(selection == i ? .white : FG.muted)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: height)
+                        .background {
+                            if selection == i {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(FG.card)
+                                    .matchedGeometryEffect(id: "pill", in: ns)
+                            }
+                        }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(RoundedRectangle(cornerRadius: 10).fill(FG.secondary))
+    }
+}
+
 /// Workout session state, shared app-wide so the active workout and its
 /// resume bar overlay every tab.
 @MainActor

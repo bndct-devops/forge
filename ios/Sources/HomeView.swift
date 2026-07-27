@@ -43,7 +43,7 @@ struct HomeView: View {
                         .frame(height: 56)
                         .background(RoundedRectangle(cornerRadius: 16).fill(FG.ember))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(Pressable())
                     .padding(.top, 16)
                     .disabled(state.hasActive)
 
@@ -81,7 +81,7 @@ struct HomeView: View {
                                         .frame(height: 44)
                                         .background(RoundedRectangle(cornerRadius: 12).fill(FG.emberSoft))
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(Pressable())
                                 .disabled(state.hasActive)
                             }
                             .padding(16)
@@ -139,7 +139,7 @@ struct HomeView: View {
                                 .background(RoundedRectangle(cornerRadius: 16).fill(FG.card))
                                 .overlay(RoundedRectangle(cornerRadius: 16).stroke(FG.border, lineWidth: 1))
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(Pressable())
                             .padding(.top, 12)
                         }
                     }

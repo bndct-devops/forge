@@ -37,25 +37,7 @@ struct HistoryView: View {
     }
 
     private var segmented: some View {
-        HStack(spacing: 0) {
-            ForEach(Array(["List", "Calendar"].enumerated()), id: \.offset) { i, label in
-                Button {
-                    mode = i
-                } label: {
-                    Text(label)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(mode == i ? .white : FG.muted)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 34)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8).fill(mode == i ? FG.card : .clear)
-                        )
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(4)
-        .background(RoundedRectangle(cornerRadius: 10).fill(FG.secondary))
+        PillSegmented(options: ["List", "Calendar"], selection: $mode)
     }
 
     private var listBody: some View {
@@ -66,7 +48,7 @@ struct HistoryView: View {
                 } label: {
                     workoutRow(w)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(Pressable())
             }
             if canLoadMore {
                 Button {

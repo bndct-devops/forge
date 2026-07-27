@@ -21,7 +21,7 @@ reference — screens are ported, not reinterpreted. Status: ✅ done · 🟡 pa
 | **SettingsPage** | 🟡 | unpair ✅ · units, insight toggles, tokens, backups, re-categorize ❌ |
 | **LoginPage / SetupPage / OIDC** | — | native pairs via PAT instead |
 | App icon | ✅ | PWA ember dumbbell via asset catalog |
-| Haptics / set-flash feedback | 🟡 | impact on set done, success on finish ✅ · set flash animation ❌ |
+| Haptics / set-flash feedback | ✅ | impact on set done, success on finish, set-flash ember pulse, press feedback on cards, sliding-pill segmented controls, animated set/exercise mutations, finish-screen pop |
 
 ## Suggested build order (adjust freely)
 

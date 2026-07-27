@@ -16,6 +16,8 @@ struct ActiveWorkoutView: View {
     @State private var swapTargetIdx: PlateTarget?
     @State private var noteTargetIdx: Int?
     @State private var noteDraft = ""
+    @State private var flashedSetId: UUID?
+    @State private var donePopped = false
     @State private var confirmDiscard = false
     @State private var finishing = false
     @State private var finished = false
@@ -244,7 +246,7 @@ struct ActiveWorkoutView: View {
                     }
                     Divider()
                     Button(role: .destructive) {
-                        store.removeExercise(at: i)
+                        withAnimation(.spring(duration: 0.3)) { store.removeExercise(at: i) }
                     } label: {
                         Label("Remove exercise", systemImage: "trash")
                     }
@@ -320,7 +322,7 @@ struct ActiveWorkoutView: View {
             }
 
             Button {
-                store.addSet(to: i)
+                withAnimation(.spring(duration: 0.3)) { store.addSet(to: i) }
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "plus").font(.system(size: 12, weight: .semibold))
@@ -393,7 +395,9 @@ struct ActiveWorkoutView: View {
                     Button("clear RPE") { store.exercises[exIdx].sets[setIdx].rpe = nil }
                 }
                 Divider()
-                Button("Remove set", role: .destructive) { store.removeSet(exIdx: exIdx, setIdx: setIdx) }
+                Button("Remove set", role: .destructive) {
+                    withAnimation(.spring(duration: 0.3)) { store.removeSet(exIdx: exIdx, setIdx: setIdx) }
+                }
             } label: {
                 Text(setBadge(set))
                     .font(.system(size: 12, weight: .medium))
@@ -405,10 +409,20 @@ struct ActiveWorkoutView: View {
             Button {
                 let wasDone = set.done
                 guard store.exercises[exIdx].sets[setIdx].reps != nil else { return }
-                store.exercises[exIdx].sets[setIdx].done.toggle()
+                withAnimation(.easeOut(duration: 0.2)) {
+                    store.exercises[exIdx].sets[setIdx].done.toggle()
+                }
                 if !wasDone {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     focusedField = nil
+                    // PWA set flash: brighter ember that settles into the done tint
+                    let id = store.exercises[exIdx].sets[setIdx].id
+                    flashedSetId = id
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        withAnimation(.easeOut(duration: 0.4)) {
+                            if flashedSetId == id { flashedSetId = nil }
+                        }
+                    }
                     // inside a superset, rest comes after the group's last exercise
                     if !store.exercises[exIdx].supersetWithNext, store.exercises[exIdx].restSeconds > 0 {
                         rest.start(seconds: store.exercises[exIdx].restSeconds,
@@ -430,7 +444,8 @@ struct ActiveWorkoutView: View {
         }
         .padding(.vertical, 7)
         .padding(.horizontal, 6)
-        .background(RoundedRectangle(cornerRadius: 8).fill(set.done ? FG.ember.opacity(0.14) : .clear))
+        .background(RoundedRectangle(cornerRadius: 8)
+            .fill(set.done ? FG.ember.opacity(flashedSetId == set.id ? 0.32 : 0.14) : .clear))
         .padding(.horizontal, -6)
         .animation(.easeOut(duration: 0.25), value: set.done)
     }
@@ -606,7 +621,13 @@ struct ActiveWorkoutView: View {
     private var doneView: some View {
         VStack(spacing: 14) {
             Spacer()
-            Image(systemName: "checkmark.circle.fill").font(.system(size: 52)).foregroundStyle(FG.ember)
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 52)).foregroundStyle(FG.ember)
+                .scaleEffect(donePopped ? 1 : 0.4)
+                .opacity(donePopped ? 1 : 0)
+                .onAppear {
+                    withAnimation(.spring(duration: 0.45, bounce: 0.45)) { donePopped = true }
+                }
             Text("Saved to Forge").font(.system(size: 22, weight: .semibold)).foregroundStyle(.white)
             Text("\(store.doneSets) sets · \(trim(store.volume)) kg · \(Int(Date().timeIntervalSince(store.startedAt) / 60)) min")
                 .font(.system(size: 14).monospacedDigit())

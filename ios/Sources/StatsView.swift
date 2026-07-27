@@ -86,23 +86,7 @@ struct StatsView: View {
     }
 
     private var segmented: some View {
-        HStack(spacing: 0) {
-            ForEach(Array(["Overview", "Trends"].enumerated()), id: \.offset) { i, label in
-                Button {
-                    tab = i
-                } label: {
-                    Text(label)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(tab == i ? .white : FG.muted)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 34)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(tab == i ? FG.card : .clear))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(4)
-        .background(RoundedRectangle(cornerRadius: 10).fill(FG.secondary))
+        PillSegmented(options: ["Overview", "Trends"], selection: $tab)
     }
 
     // MARK: - overview
@@ -252,13 +236,13 @@ struct StatsView: View {
             } label: {
                 navTile("trophy", "Records", "all-time bests")
             }
-            .buttonStyle(.plain)
+            .buttonStyle(Pressable())
             NavigationLink {
                 MeasureListView()
             } label: {
                 navTile("ruler", "Measurements", "body tracking")
             }
-            .buttonStyle(.plain)
+            .buttonStyle(Pressable())
         }
     }
 
@@ -742,7 +726,7 @@ struct RecordsListView: View {
                         } label: {
                             recordRow(r)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(Pressable())
                     }
                     Color.clear.frame(height: 40)
                 }

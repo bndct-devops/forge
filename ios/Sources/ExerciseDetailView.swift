@@ -264,7 +264,7 @@ struct ExerciseDetailView: View {
                 HStack(spacing: 2) {
                     ForEach(["3m", "1y", "all"], id: \.self) { r in
                         Button {
-                            range = r
+                            withAnimation(.easeInOut(duration: 0.35)) { range = r }
                         } label: {
                             Text(r.uppercased())
                                 .font(.system(size: 11, weight: .semibold))
@@ -278,23 +278,16 @@ struct ExerciseDetailView: View {
                 }
             }
 
-            HStack(spacing: 0) {
-                ForEach(metricOptions, id: \.0) { value, label in
-                    Button {
-                        metric = value
-                    } label: {
-                        Text(label)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(metric == value ? .white : FG.muted)
-                            .frame(maxWidth: .infinity).frame(height: 30)
-                            .background(RoundedRectangle(cornerRadius: 7)
-                                .fill(metric == value ? FG.card : .clear))
+            PillSegmented(
+                options: metricOptions.map(\.1),
+                selection: Binding(
+                    get: { metricOptions.firstIndex { $0.0 == metric } ?? 0 },
+                    set: { i in
+                        withAnimation(.easeInOut(duration: 0.35)) { metric = metricOptions[i].0 }
                     }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(3)
-            .background(RoundedRectangle(cornerRadius: 9).fill(FG.secondary))
+                ),
+                height: 30
+            )
 
             let data = chartData(s)
             if data.isEmpty {
@@ -408,7 +401,7 @@ struct ExerciseDetailView: View {
                     } label: {
                         historyCard(h)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(Pressable())
                 }
             }
         }
