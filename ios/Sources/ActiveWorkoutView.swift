@@ -413,6 +413,14 @@ struct ActiveWorkoutView: View {
     }
 
     private func setRow(exIdx: Int, setIdx: Int) -> some View {
+        SwipeToDelete {
+            withAnimation(.spring(duration: 0.3)) { store.removeSet(exIdx: exIdx, setIdx: setIdx) }
+        } content: {
+            setRowContent(exIdx: exIdx, setIdx: setIdx)
+        }
+    }
+
+    private func setRowContent(exIdx: Int, setIdx: Int) -> some View {
         let set = store.exercises[exIdx].sets[setIdx]
         return HStack(spacing: 8) {
             Text("\(setIdx + 1)")
@@ -844,5 +852,64 @@ struct RecentSessionsSheet: View {
             sessions = (try? await ForgeAPI.recent(exerciseId: exerciseId)) ?? []
             loading = false
         }
+    }
+}
+
+/// Left-swipe to delete on custom rows: horizontal-dominant drags reveal a
+/// trash zone; past the threshold the release deletes with a spring. Vertical
+/// scrolling stays untouched.
+struct SwipeToDelete<Content: View>: View {
+    let onDelete: () -> Void
+    @ViewBuilder let content: () -> Content
+
+    @State private var offset: CGFloat = 0
+    @State private var horizontal = false
+
+    private let revealWidth: CGFloat = 76
+    private let deleteThreshold: CGFloat = -58
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            if offset < -2 {
+                HStack {
+                    Spacer()
+                    Image(systemName: "trash.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: revealWidth)
+                        .scaleEffect(offset < deleteThreshold ? 1.15 : 1)
+                        .animation(.spring(duration: 0.2), value: offset < deleteThreshold)
+                }
+                .frame(maxHeight: .infinity)
+                .background(RoundedRectangle(cornerRadius: 8).fill(FG.destructive))
+            }
+            content()
+                .offset(x: offset)
+        }
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture(minimumDistance: 24, coordinateSpace: .local)
+                .onChanged { g in
+                    // commit to horizontal only when the drag clearly is
+                    if !horizontal {
+                        guard abs(g.translation.width) > abs(g.translation.height) * 1.4 else { return }
+                        horizontal = true
+                    }
+                    offset = min(0, max(-revealWidth - 14, g.translation.width))
+                }
+                .onEnded { g in
+                    defer { horizontal = false }
+                    if horizontal, offset < deleteThreshold {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        withAnimation(.spring(duration: 0.25)) { offset = -500 }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                            onDelete()
+                            offset = 0
+                        }
+                    } else {
+                        withAnimation(.spring(duration: 0.3)) { offset = 0 }
+                    }
+                }
+        )
     }
 }

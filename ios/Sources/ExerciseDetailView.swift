@@ -262,7 +262,10 @@ struct ExerciseDetailView: View {
         let id: Int
         let date: Date
         let value: Double
+        let rpe: Double?
     }
+
+    private static let rpeColor = Color(red: 0.427, green: 0.529, blue: 0.671) // #6d87ab
 
     private func chartData(_ s: ExerciseStats) -> [ChartPoint] {
         let cutoff: Date? = {
@@ -280,7 +283,7 @@ struct ExerciseDetailView: View {
             let v: Double? = ["best_1rm": c.best_1rm, "best_weight": c.best_weight,
                               "best_reps": c.best_reps, "volume": c.volume][metric] ?? nil
             guard let v else { return nil }
-            return ChartPoint(id: i, date: d, value: v)
+            return ChartPoint(id: i, date: d, value: v, rpe: c.avg_rpe)
         }
     }
 
@@ -325,6 +328,12 @@ struct ExerciseDetailView: View {
                     .frame(maxWidth: .infinity).padding(.vertical, 40)
             } else {
                 chart(data)
+                if metric == "best_1rm", data.contains(where: { $0.rpe != nil }) {
+                    (Text("– – ").foregroundStyle(Self.rpeColor)
+                     + Text("average RPE per session — rising 1RM at flat RPE is real strength; flat 1RM at rising RPE is strain")
+                        .foregroundStyle(FG.muted))
+                        .font(.system(size: 11))
+                }
             }
         }
         .padding(14)
@@ -334,6 +343,12 @@ struct ExerciseDetailView: View {
 
     @ViewBuilder
     private func chart(_ data: [ChartPoint]) -> some View {
+        // avg-RPE overlay on the 1RM chart: RPE (5–10) mapped onto the
+        // metric's own y-domain — Swift Charts has one scale per chart
+        let rpeOverlay = metric == "best_1rm" && data.contains { $0.rpe != nil }
+        let lo = data.map(\.value).min() ?? 0
+        let hi = max(lo + 1, data.map(\.value).max() ?? 1)
+        let rpeY: (Double) -> Double = { rpe in lo + (min(10, max(5, rpe)) - 5) / 5 * (hi - lo) }
         Chart(data) { p in
             if metric == "volume" {
                 BarMark(x: .value("Date", p.date, unit: .day), y: .value("Volume", p.value))
@@ -348,6 +363,15 @@ struct ExerciseDetailView: View {
                     .foregroundStyle(FG.ember)
                     .symbolSize(28)
             }
+            if rpeOverlay, let rpe = p.rpe {
+                LineMark(x: .value("Date", p.date), y: .value("Avg RPE", rpeY(rpe)),
+                         series: .value("s", "rpe"))
+                    .foregroundStyle(Self.rpeColor)
+                    .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 4]))
+                PointMark(x: .value("Date", p.date), y: .value("Avg RPE", rpeY(rpe)))
+                    .foregroundStyle(Self.rpeColor)
+                    .symbolSize(20)
+            }
             if let sel = nearestPoint(data, to: chartSelection) {
                 RuleMark(x: .value("Date", sel.date))
                     .foregroundStyle(FG.muted.opacity(0.5))
@@ -355,7 +379,8 @@ struct ExerciseDetailView: View {
                     .annotation(position: .top, spacing: 6,
                                 overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
                         ChartTip(title: sel.date.formatted(.dateTime.day().month(.abbreviated)),
-                                 value: metric == "best_reps" ? "\(Int(sel.value)) reps" : "\(trim(sel.value)) kg")
+                                 value: metric == "best_reps" ? "\(Int(sel.value)) reps" : "\(trim(sel.value)) kg",
+                                 secondary: rpeOverlay ? sel.rpe.map { "avg RPE \(trim($0))" } : nil)
                     }
                 PointMark(x: .value("Date", sel.date), y: .value(metricLabel, sel.value))
                     .foregroundStyle(FG.ember)

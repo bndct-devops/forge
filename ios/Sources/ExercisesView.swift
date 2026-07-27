@@ -12,10 +12,36 @@ struct ExercisesView: View {
         let name: String
     }
 
-    private var grouped: [(String, [LibraryExercise])] {
-        let filtered = query.isEmpty ? all : all.filter { $0.name.localizedCaseInsensitiveContains(query) }
-        let dict = Dictionary(grouping: filtered) { $0.muscle_group ?? "Other" }
-        return dict.sorted { $0.key < $1.key }
+    private struct Family: Identifiable {
+        let head: LibraryExercise
+        let variants: [LibraryExercise]
+        var id: Int { head.id }
+    }
+
+    @State private var expandedFamilies: Set<Int> = []
+
+    /// Searching flattens to plain matches; browsing groups variants under
+    /// their family head (PWA semantics).
+    private var grouped: [(String, [Family])] {
+        if !query.isEmpty {
+            let filtered = all.filter { $0.name.localizedCaseInsensitiveContains(query) }
+            let dict = Dictionary(grouping: filtered) { $0.muscle_group ?? "Other" }
+            return dict.sorted { $0.key < $1.key }.map { group, exs in
+                (group, exs.map { Family(head: $0, variants: []) })
+            }
+        }
+        let byRoot = Dictionary(grouping: all) { $0.variant_of_id ?? $0.id }
+        var families: [Family] = []
+        for (rootId, members) in byRoot {
+            let head = members.first { $0.id == rootId } ?? members[0]
+            let variants = members.filter { $0.id != head.id }
+                .sorted { $0.name < $1.name }
+            families.append(Family(head: head, variants: variants))
+        }
+        let dict = Dictionary(grouping: families) { $0.head.muscle_group ?? "Other" }
+        return dict.sorted { $0.key < $1.key }.map { group, fams in
+            (group, fams.sorted { $0.head.name < $1.head.name })
+        }
     }
 
     var body: some View {
@@ -26,17 +52,58 @@ struct ExercisesView: View {
                     ProgressView().tint(FG.ember)
                 } else {
                     List {
-                        ForEach(grouped, id: \.0) { group, exercises in
+                        ForEach(grouped, id: \.0) { group, families in
                             Section {
-                                ForEach(exercises) { ex in
-                                    NavigationLink(value: ExerciseRef(id: ex.id, name: ex.name)) {
-                                        VStack(alignment: .leading, spacing: 1) {
-                                            Text(ex.name).font(.system(size: 15)).foregroundStyle(.white)
-                                            Text(ex.equipment ?? "")
-                                                .font(.system(size: 11)).foregroundStyle(FG.muted)
+                                ForEach(families) { family in
+                                    HStack(spacing: 8) {
+                                        NavigationLink(value: ExerciseRef(id: family.head.id, name: family.head.name)) {
+                                            VStack(alignment: .leading, spacing: 1) {
+                                                Text(family.head.name).font(.system(size: 15)).foregroundStyle(.white)
+                                                Text(family.head.equipment ?? "")
+                                                    .font(.system(size: 11)).foregroundStyle(FG.muted)
+                                            }
+                                        }
+                                        if !family.variants.isEmpty {
+                                            Button {
+                                                withAnimation(.spring(duration: 0.3)) {
+                                                    if expandedFamilies.contains(family.id) {
+                                                        expandedFamilies.remove(family.id)
+                                                    } else {
+                                                        expandedFamilies.insert(family.id)
+                                                    }
+                                                }
+                                            } label: {
+                                                HStack(spacing: 3) {
+                                                    Text("\(family.variants.count)")
+                                                        .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                                                    Image(systemName: "chevron.down")
+                                                        .font(.system(size: 9, weight: .semibold))
+                                                        .rotationEffect(.degrees(expandedFamilies.contains(family.id) ? 180 : 0))
+                                                }
+                                                .foregroundStyle(FG.ember)
+                                                .padding(.horizontal, 8).padding(.vertical, 4)
+                                                .background(Capsule().fill(FG.emberSoft))
+                                            }
+                                            .buttonStyle(.plain)
                                         }
                                     }
                                     .listRowBackground(FG.card)
+                                    if expandedFamilies.contains(family.id) {
+                                        ForEach(family.variants) { v in
+                                            NavigationLink(value: ExerciseRef(id: v.id, name: v.name)) {
+                                                HStack(spacing: 8) {
+                                                    Rectangle().fill(FG.ember.opacity(0.5))
+                                                        .frame(width: 2, height: 22)
+                                                    VStack(alignment: .leading, spacing: 1) {
+                                                        Text(v.name).font(.system(size: 14)).foregroundStyle(.white)
+                                                        Text(v.equipment ?? "")
+                                                            .font(.system(size: 11)).foregroundStyle(FG.muted)
+                                                    }
+                                                }
+                                            }
+                                            .listRowBackground(FG.card.opacity(0.6))
+                                        }
+                                    }
                                 }
                             } header: {
                                 Text(group)

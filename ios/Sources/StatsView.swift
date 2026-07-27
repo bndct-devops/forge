@@ -343,12 +343,41 @@ struct StatsView: View {
             guard let d = ISO8601DateFormatter().date(from: w.week_start + "T00:00:00Z") else { return nil }
             return (d, w)
         }
+        let rpeColor = Color(red: 0.427, green: 0.529, blue: 0.671)
+        let hasRpe = weeks.contains { $0.1.avg_rpe != nil }
+        let maxVol = max(1, weeks.map(\.1.volume).max() ?? 1)
         return chartCard("Weekly volume") {
+            if hasRpe {
+                HStack(spacing: 14) {
+                    HStack(spacing: 5) {
+                        Circle().fill(FG.ember).frame(width: 8, height: 8)
+                        Text("Volume").font(.system(size: 11)).foregroundStyle(FG.muted)
+                    }
+                    HStack(spacing: 5) {
+                        Circle().fill(rpeColor).frame(width: 8, height: 8)
+                        Text("Avg RPE").font(.system(size: 11)).foregroundStyle(FG.muted)
+                    }
+                }
+            }
             Chart {
                 ForEach(weeks, id: \.1.id) { d, w in
                     BarMark(x: .value("Week", d, unit: .weekOfYear), y: .value("Volume", w.volume))
                         .foregroundStyle(FG.ember)
                         .cornerRadius(3)
+                }
+                ForEach(weeks, id: \.1.id) { d, w in
+                    // RPE (5–10) mapped onto the volume scale — one axis per chart
+                    if let rpe = w.avg_rpe {
+                        LineMark(x: .value("Week", d, unit: .weekOfYear),
+                                 y: .value("Avg RPE", (min(10, max(5, rpe)) - 5) / 5 * maxVol),
+                                 series: .value("s", "rpe"))
+                            .foregroundStyle(rpeColor)
+                            .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 4]))
+                        PointMark(x: .value("Week", d, unit: .weekOfYear),
+                                  y: .value("Avg RPE", (min(10, max(5, rpe)) - 5) / 5 * maxVol))
+                            .foregroundStyle(rpeColor)
+                            .symbolSize(20)
+                    }
                 }
                 if let sel = volumeSelection,
                    let near = weeks.min(by: {
@@ -361,7 +390,10 @@ struct StatsView: View {
                                     overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
                             ChartTip(title: "Week of \(near.0.formatted(.dateTime.day().month(.abbreviated)))",
                                      value: fmtVolume(near.1.volume),
-                                     secondary: "\(near.1.workouts) workout\(near.1.workouts == 1 ? "" : "s")")
+                                     secondary: [
+                                        "\(near.1.workouts) workout\(near.1.workouts == 1 ? "" : "s")",
+                                        near.1.avg_rpe.map { "avg RPE \(trim($0))" },
+                                     ].compactMap { $0 }.joined(separator: " · "))
                         }
                 }
             }

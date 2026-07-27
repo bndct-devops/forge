@@ -45,6 +45,7 @@ struct LibraryExercise: Codable, Identifiable {
     let muscle_group: String?
     let equipment: String?
     let grip: String?
+    let variant_of_id: Int?
     let is_custom: Bool
 }
 
