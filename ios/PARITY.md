@@ -8,7 +8,7 @@ reference — screens are ported, not reinterpreted. Status: ✅ done · 🟡 pa
 |---|---|---|
 | **WorkoutHomePage** | 🟡 | title/hero/templates/programs ✅ · Log-weight row ❌ · Plans ❌ · template create/reorder/menu ❌ |
 | **ActiveWorkoutPage** | 🟡 | table, prev column, ghosts, hints, trophy, types, RPE, rest bar, LA timer ✅ · plate calculator ❌ · exercise reorder ❌ · per-exercise rest editing ❌ · set swipe-delete (menu instead) 🟡 · superset creation ❌ |
-| — draft persistence | ❌ | in-memory only; app kill mid-workout loses unsynced sets |
+| — draft persistence | ✅ | draft snapshots to disk (debounced) and restores on launch; cleared on finish/discard |
 | **Program preview/detail** | 🟡 | cycle click-through + start ✅ · program editing (TMs, lifts, scheme) ❌ |
 | **ExercisesPage** | 🟡 | grouped searchable list ✅ · create custom exercise ❌ · variant grouping under parents ❌ |
 | **ExerciseDetailPage** | ✅ | muscle map, variation chips (+family toggle), pinned note, record tiles incl. best-set-volume, 1RM/weight/volume chart with 3M/1Y/ALL, training %, history ✅ · avg-RPE overlay on 1RM chart ❌ (needs dual axis) · custom-exercise edit/delete ❌ |
@@ -20,8 +20,8 @@ reference — screens are ported, not reinterpreted. Status: ✅ done · 🟡 pa
 | **RoutineEditorPage** | ❌ | template create/edit |
 | **SettingsPage** | 🟡 | unpair ✅ · units, insight toggles, tokens, backups, re-categorize ❌ |
 | **LoginPage / SetupPage / OIDC** | — | native pairs via PAT instead |
-| App icon | ❌ | placeholder grid icon |
-| Haptics / set-flash feedback | ❌ | PWA has touch feedback + set flash |
+| App icon | ✅ | PWA ember dumbbell via asset catalog |
+| Haptics / set-flash feedback | 🟡 | impact on set done, success on finish ✅ · set flash animation ❌ |
 
 ## Suggested build order (adjust freely)
 

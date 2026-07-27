@@ -302,6 +302,7 @@ struct ActiveWorkoutView: View {
                 guard store.exercises[exIdx].sets[setIdx].reps != nil else { return }
                 store.exercises[exIdx].sets[setIdx].done.toggle()
                 if !wasDone {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     focusedField = nil
                     rest.start(seconds: store.exercises[exIdx].restSeconds,
                                exercise: store.exercises[exIdx].name,
@@ -471,6 +472,8 @@ struct ActiveWorkoutView: View {
         do {
             try await ForgeAPI.sync(store.buildSync(finished: true))
             rest.stop()
+            WorkoutStore.clearPersisted()
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
             finished = true
         } catch {
             postError = error.localizedDescription

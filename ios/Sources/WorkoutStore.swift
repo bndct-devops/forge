@@ -1,11 +1,12 @@
 import Foundation
 import SwiftUI
+import Combine
 import ActivityKit
 
 // MARK: - draft models (local until Finish syncs them)
 
-struct DraftSet: Identifiable {
-    let id = UUID()
+struct DraftSet: Identifiable, Codable {
+    var id = UUID()
     var weight: Double?      // nil = empty field showing "kg" placeholder
     var reps: Int?
     var warmup = false
@@ -16,8 +17,13 @@ struct DraftSet: Identifiable {
     var previous: String?    // per-set reference column ("25 kg × 12" / prescription)
 }
 
-struct DraftExercise: Identifiable {
-    let id = UUID()
+struct AmrapHint: Codable {
+    var weight: Double
+    var beatReps: Int
+}
+
+struct DraftExercise: Identifiable, Codable {
+    var id = UUID()
     var exerciseId: Int
     var name: String
     var muscleGroup: String?
@@ -28,9 +34,20 @@ struct DraftExercise: Identifiable {
     var supersetWithNext = false
     var suggestedWeight: Double?
     var suggestionKind: String?
-    var amrapHint: (weight: Double, beatReps: Int)?
+    var amrapHint: AmrapHint?
     var note: String?
     var sets: [DraftSet]
+}
+
+/// Snapshot written to disk so an app kill mid-workout loses nothing.
+struct PersistedDraft: Codable {
+    var name: String
+    var startedAt: Date
+    var clientId: String
+    var serverId: Int?
+    var programId: Int?
+    var programLiftId: Int?
+    var exercises: [DraftExercise]
 }
 
 @MainActor
@@ -38,17 +55,19 @@ final class WorkoutStore: ObservableObject {
     @Published var name: String
     @Published var exercises: [DraftExercise] = []
     @Published var loading = true
-    let startedAt = Date()
-    let clientId = UUID().uuidString
+    private(set) var startedAt = Date()
+    private(set) var clientId = UUID().uuidString
     var serverId: Int?
     var programId: Int?
     var programLiftId: Int?
     let rest = RestTimer()  // lives with the workout so minimizing keeps the timer + Live Activity
+    private var persistCancellable: AnyCancellable?
 
     // MARK: from a routine (local draft, created at finish via sync)
 
     init(routine: Routine?) {
         self.name = routine?.name ?? "Workout"
+        startPersisting()
         Task { await load(routine: routine) }
     }
 
@@ -121,7 +140,7 @@ final class WorkoutStore: ObservableObject {
                 sets = [DraftSet()]
             }
             let amrap = server.amrap_target.flatMap { t in
-                t.we_id == se.id ? (weight: t.weight, beatReps: t.beat_reps) : nil
+                t.we_id == se.id ? AmrapHint(weight: t.weight, beatReps: t.beat_reps) : nil
             }
             out.append(DraftExercise(
                 exerciseId: se.exercise_id,
@@ -141,6 +160,59 @@ final class WorkoutStore: ObservableObject {
         }
         exercises = out
         loading = false
+        startPersisting()
+    }
+
+    // MARK: from a persisted draft (app was killed mid-workout)
+
+    init(restored draft: PersistedDraft) {
+        self.name = draft.name
+        self.startedAt = draft.startedAt
+        self.clientId = draft.clientId
+        self.serverId = draft.serverId
+        self.programId = draft.programId
+        self.programLiftId = draft.programLiftId
+        self.exercises = draft.exercises
+        self.loading = false
+        startPersisting()
+    }
+
+    // MARK: persistence
+
+    private static var draftURL: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("forge-draft.json")
+    }
+
+    static func loadPersisted() -> PersistedDraft? {
+        guard let data = try? Data(contentsOf: draftURL) else { return nil }
+        return try? JSONDecoder().decode(PersistedDraft.self, from: data)
+    }
+
+    static func clearPersisted() {
+        try? FileManager.default.removeItem(at: draftURL)
+    }
+
+    private func startPersisting() {
+        // objectWillChange fires before every mutation; the debounce writes
+        // the settled state shortly after.
+        persistCancellable = objectWillChange
+            .debounce(for: .milliseconds(400), scheduler: DispatchQueue.main)
+            .sink { [weak self] in self?.persist() }
+    }
+
+    private func persist() {
+        guard !loading else { return }
+        let draft = PersistedDraft(
+            name: name, startedAt: startedAt, clientId: clientId,
+            serverId: serverId, programId: programId, programLiftId: programLiftId,
+            exercises: exercises
+        )
+        let dir = Self.draftURL.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        if let data = try? JSONEncoder().encode(draft) {
+            try? data.write(to: Self.draftURL, options: .atomic)
+        }
     }
 
     // MARK: editing
@@ -212,6 +284,7 @@ final class WorkoutStore: ObservableObject {
 
     func discard() async {
         rest.stop()
+        Self.clearPersisted()
         if let serverId {
             try? await ForgeAPI.deleteWorkout(id: serverId)
         }

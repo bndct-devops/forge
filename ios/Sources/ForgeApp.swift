@@ -31,6 +31,13 @@ final class AppState: ObservableObject {
     @Published var showWorkout = false
     @Published var startError: String?
 
+    init() {
+        // restore a draft the app was killed on — nothing logged is lost
+        if let draft = WorkoutStore.loadPersisted() {
+            activeStore = WorkoutStore(restored: draft)
+        }
+    }
+
     var hasActive: Bool { activeStore != nil }
 
     func start(routine: Routine?) {
@@ -52,6 +59,7 @@ final class AppState: ObservableObject {
     func end() {
         showWorkout = false
         activeStore = nil
+        WorkoutStore.clearPersisted()
     }
 }
 
