@@ -9,8 +9,15 @@ dev-dist/
 *.tsbuildinfo
 deploy.local.yml
 *.local.yml
+*.local.md
+.env
 
 # docs site
 website/node_modules/
 website/dist/
 website/.astro/
+
+# iOS companion — generated project + build products
+ios/Forge.xcodeproj/
+ios/build/
+ios/build-device/

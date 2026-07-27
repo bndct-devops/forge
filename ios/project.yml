@@ -1,0 +1,48 @@
+name: Forge
+options:
+  bundleIdPrefix: dev.bndct
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+targets:
+  ForgeCompanion:
+    type: application
+    platform: iOS
+    sources: [Sources, Shared]
+    dependencies:
+      - target: ForgeWidgets
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: Forge
+        UILaunchScreen: {}
+        UIUserInterfaceStyle: Dark
+        NSSupportsLiveActivities: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.bndct.forge.companion
+        DEVELOPMENT_TEAM: JQ59SV57W8
+        CODE_SIGN_STYLE: Automatic
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: "0.1"
+        SWIFT_VERSION: "5.9"
+        TARGETED_DEVICE_FAMILY: "1"
+  ForgeWidgets:
+    type: app-extension
+    platform: iOS
+    sources: [Widgets, Shared]
+    info:
+      path: Widgets/Info.plist
+      properties:
+        CFBundleDisplayName: Forge Widgets
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.bndct.forge.companion.widgets
+        DEVELOPMENT_TEAM: JQ59SV57W8
+        CODE_SIGN_STYLE: Automatic
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: "0.1"
+        SWIFT_VERSION: "5.9"
+        TARGETED_DEVICE_FAMILY: "1"
