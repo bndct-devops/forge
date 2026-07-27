@@ -6,6 +6,7 @@ struct HistoryView: View {
     @State private var loading = true
     @State private var canLoadMore = true
     @State private var monthAnchor = Date()
+    @State private var debugOpenFirst = false
 
     var body: some View {
         NavigationStack {
@@ -30,9 +31,18 @@ struct HistoryView: View {
             }
             .navigationTitle("History")
             .navigationBarTitleDisplayMode(.large)
+            .navigationDestination(isPresented: $debugOpenFirst) {
+                WorkoutDetailView(workoutId: workouts.first?.id ?? 0) {}
+            }
         }
         .preferredColorScheme(.dark)
-        .task { await load(reset: true) }
+        .task {
+            await load(reset: true)
+            // debug hook: `-open-workout` pushes the newest workout
+            if CommandLine.arguments.contains("-open-workout"), !workouts.isEmpty {
+                debugOpenFirst = true
+            }
+        }
         .refreshable { await load(reset: true) }
     }
 

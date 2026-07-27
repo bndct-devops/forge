@@ -251,6 +251,7 @@ struct WorkoutFull: Codable {
 }
 
 struct WorkoutFullExercise: Codable {
+    let id: Int?
     let exercise_id: Int?
     let name: String
     let muscle_group: String?
@@ -258,6 +259,7 @@ struct WorkoutFullExercise: Codable {
 }
 
 struct WorkoutFullSet: Codable {
+    let id: Int?
     let weight: Double?
     let reps: Int?
     let is_warmup: Bool?
@@ -897,6 +899,27 @@ struct ForgeAPI {
 
     static func workoutDetail(id: Int) async throws -> WorkoutFull {
         try JSONDecoder().decode(WorkoutFull.self, from: await request("/api/workouts/\(id)"))
+    }
+
+    static func patchSet(id: Int, weight: Double?, reps: Int?, warmup: Bool?) async throws {
+        var payload: [String: Any] = [:]
+        if let weight { payload["weight"] = weight }
+        if let reps { payload["reps"] = reps }
+        if let warmup { payload["is_warmup"] = warmup }
+        let body = try JSONSerialization.data(withJSONObject: payload)
+        _ = try await request("/api/sets/\(id)", method: "PATCH", body: body)
+    }
+
+    static func deleteSet(id: Int) async throws {
+        _ = try await request("/api/sets/\(id)", method: "DELETE")
+    }
+
+    static func addSet(workoutId: Int, workoutExerciseId: Int) async throws {
+        _ = try await request("/api/workouts/\(workoutId)/exercises/\(workoutExerciseId)/sets", method: "POST")
+    }
+
+    static func removeWorkoutExercise(workoutId: Int, workoutExerciseId: Int) async throws {
+        _ = try await request("/api/workouts/\(workoutId)/exercises/\(workoutExerciseId)", method: "DELETE")
     }
 
     static func patchWorkout(id: Int, name: String?, notes: String?) async throws {

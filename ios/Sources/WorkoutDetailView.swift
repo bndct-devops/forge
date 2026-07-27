@@ -10,6 +10,7 @@ struct WorkoutDetailView: View {
     @State private var renaming = false
     @State private var newName = ""
     @State private var confirmDelete = false
+    @State private var editMode = false
 
     var body: some View {
         ZStack {
@@ -75,24 +76,65 @@ struct WorkoutDetailView: View {
                                     }
                                 }
                                 ForEach(Array(ex.sets.enumerated()), id: \.offset) { i, s in
-                                    HStack(spacing: 10) {
-                                        Text("\(i + 1)")
-                                            .font(.system(size: 13, weight: .semibold).monospacedDigit())
-                                            .foregroundStyle(FG.muted)
-                                            .frame(width: 20, alignment: .leading)
-                                        Text("\(trim(s.weight ?? 0)) kg × \(s.reps ?? 0)")
-                                            .font(.system(size: 14).monospacedDigit())
-                                            .foregroundStyle(.white)
-                                        if s.is_warmup == true { badge("W") }
-                                        if s.set_type == "drop" { badge("D") }
-                                        if s.set_type == "failure" { badge("F") }
-                                        if let rpe = s.rpe { badge("@\(trim(rpe))") }
-                                        Spacer()
-                                        if s.is_pr == true {
-                                            Image(systemName: "trophy.fill").font(.system(size: 12)).foregroundStyle(FG.gold)
+                                    if editMode, let setId = s.id {
+                                        EditableSetRow(index: i + 1, set: s, setId: setId) {
+                                            await load()
+                                            await onChanged()
                                         }
+                                    } else {
+                                        HStack(spacing: 10) {
+                                            Text("\(i + 1)")
+                                                .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                                                .foregroundStyle(FG.muted)
+                                                .frame(width: 20, alignment: .leading)
+                                            Text("\(trim(s.weight ?? 0)) kg × \(s.reps ?? 0)")
+                                                .font(.system(size: 14).monospacedDigit())
+                                                .foregroundStyle(.white)
+                                            if s.is_warmup == true { badge("W") }
+                                            if s.set_type == "drop" { badge("D") }
+                                            if s.set_type == "failure" { badge("F") }
+                                            if let rpe = s.rpe { badge("@\(trim(rpe))") }
+                                            Spacer()
+                                            if s.is_pr == true {
+                                                Image(systemName: "trophy.fill").font(.system(size: 12)).foregroundStyle(FG.gold)
+                                            }
+                                        }
+                                        .padding(.vertical, 3)
                                     }
-                                    .padding(.vertical, 3)
+                                }
+                                if editMode, let weId = ex.id {
+                                    HStack {
+                                        Button {
+                                            Task {
+                                                try? await ForgeAPI.addSet(workoutId: workoutId, workoutExerciseId: weId)
+                                                await load()
+                                                await onChanged()
+                                            }
+                                        } label: {
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "plus").font(.system(size: 11, weight: .semibold))
+                                                Text("Add set").font(.system(size: 13, weight: .medium))
+                                            }
+                                            .foregroundStyle(FG.ember)
+                                        }
+                                        .buttonStyle(.plain)
+                                        Spacer()
+                                        Button {
+                                            Task {
+                                                try? await ForgeAPI.removeWorkoutExercise(workoutId: workoutId, workoutExerciseId: weId)
+                                                await load()
+                                                await onChanged()
+                                            }
+                                        } label: {
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "trash").font(.system(size: 11))
+                                                Text("Remove exercise").font(.system(size: 13, weight: .medium))
+                                            }
+                                            .foregroundStyle(FG.destructive)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                    .padding(.top, 6)
                                 }
                             }
                             .padding(14)
@@ -116,6 +158,12 @@ struct WorkoutDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
+                    Button {
+                        withAnimation(.easeOut(duration: 0.2)) { editMode.toggle() }
+                    } label: {
+                        Label(editMode ? "Done editing" : "Edit sets",
+                              systemImage: editMode ? "checkmark" : "slider.horizontal.3")
+                    }
                     Button {
                         newName = workout?.name ?? ""
                         renaming = true
@@ -206,6 +254,92 @@ struct WorkoutDetailView: View {
     private func load() async {
         workout = try? await ForgeAPI.workoutDetail(id: workoutId)
         loading = false
+        // debug hook: `-edit-sets` starts in edit mode
+        if CommandLine.arguments.contains("-edit-sets") { editMode = true }
+    }
+}
+
+/// Inline editor for one logged set: weight/reps fields that PATCH on
+/// commit, warm-up toggle, delete.
+private struct EditableSetRow: View {
+    let index: Int
+    let set: WorkoutFullSet
+    let setId: Int
+    let onChanged: () async -> Void
+
+    @State private var weightText = ""
+    @State private var repsText = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text("\(index)")
+                .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                .foregroundStyle(FG.muted)
+                .frame(width: 20, alignment: .leading)
+            TextField("kg", text: $weightText)
+                .keyboardType(.decimalPad)
+                .multilineTextAlignment(.center)
+                .font(.system(size: 14).monospacedDigit())
+                .foregroundStyle(.white)
+                .frame(width: 62, height: 34)
+                .background(RoundedRectangle(cornerRadius: 9).fill(FG.secondary))
+                .focused($focused)
+            Text("×").font(.system(size: 13)).foregroundStyle(FG.muted)
+            TextField("reps", text: $repsText)
+                .keyboardType(.numberPad)
+                .multilineTextAlignment(.center)
+                .font(.system(size: 14).monospacedDigit())
+                .foregroundStyle(.white)
+                .frame(width: 50, height: 34)
+                .background(RoundedRectangle(cornerRadius: 9).fill(FG.secondary))
+                .focused($focused)
+            Button {
+                Task {
+                    try? await ForgeAPI.patchSet(id: setId, weight: nil, reps: nil,
+                                                 warmup: !(set.is_warmup ?? false))
+                    await onChanged()
+                }
+            } label: {
+                Text("W")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(set.is_warmup == true ? FG.ember : FG.muted)
+                    .frame(width: 30, height: 30)
+                    .background(RoundedRectangle(cornerRadius: 8)
+                        .fill(set.is_warmup == true ? FG.emberSoft : FG.secondary))
+            }
+            .buttonStyle(.plain)
+            Spacer()
+            Button {
+                Task {
+                    try? await ForgeAPI.deleteSet(id: setId)
+                    await onChanged()
+                }
+            } label: {
+                Image(systemName: "trash")
+                    .font(.system(size: 12)).foregroundStyle(FG.muted)
+                    .frame(width: 30, height: 30)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.vertical, 3)
+        .onAppear {
+            weightText = set.weight.map(trim) ?? ""
+            repsText = set.reps.map(String.init) ?? ""
+        }
+        .onChange(of: focused) { _, isFocused in
+            if !isFocused { commit() }
+        }
+    }
+
+    private func commit() {
+        let w = Double(weightText.replacingOccurrences(of: ",", with: "."))
+        let r = Int(repsText)
+        guard w != set.weight || r != set.reps, w != nil || r != nil else { return }
+        Task {
+            try? await ForgeAPI.patchSet(id: setId, weight: w, reps: r, warmup: nil)
+            await onChanged()
+        }
     }
 }
 

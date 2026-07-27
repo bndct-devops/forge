@@ -13,7 +13,7 @@ reference — screens are ported, not reinterpreted. Status: ✅ done · 🟡 pa
 | **ExercisesPage** | 🟡 | grouped searchable list ✅ · create custom exercise ✅ (+ button, form sheet) · variant grouping under parents ❌ |
 | **ExerciseDetailPage** | ✅ | muscle map, variation chips (+family toggle), pinned note, record tiles incl. best-set-volume, 1RM/weight/volume chart with 3M/1Y/ALL, training %, history ✅ · custom-exercise edit/delete ✅ (pencil on custom exercises) · avg-RPE overlay on 1RM chart ❌ (needs dual axis) |
 | **HistoryPage** | ✅ | list + calendar views, load-more |
-| **WorkoutDetailPage** | 🟡 | view, rename, delete ✅ · set editing ❌ |
+| **WorkoutDetailPage** | ✅ | view, rename, delete, exercise links ✅ · Edit sets mode: inline weight/reps PATCH, warm-up toggle, delete set, add set, remove exercise ✅ |
 | **StatsPage** | 🟡 | Overview (streak+goal, nudges, stalls, tiles, highlights, calendar heatmap, year review) ✅ · Trends core (weekly volume, training days, rep ranges, PRs/month, muscle split w/ per-group trend, push/pull) ✅ · deep trends ✅ (block-vs-last, form&fatigue, top lifts, TM headroom, cycles, cycle report, velocity, relative, standards, trajectory, recovery, detraining, pacing, time-of-day) · RPE overlay on weekly volume ❌ |
 | **RecordsPage** | ✅ | searchable records page pushed from Stats overview |
 | **MeasurePage** | ✅ | kinds list, trend tiles, logged-vs-trend chart, add/delete entries (reached from Stats overview) · Home log-weight shortcut row ❌ |
