@@ -711,6 +711,11 @@ struct ActiveWorkoutView: View {
             queuedOffline = true
             finished = true
         }
+        if finished {
+            let start = store.startedAt
+            let end = store.finishIntent ?? Date()
+            Task { await HealthSync.saveWorkout(start: start, end: end) }
+        }
         finishing = false
     }
 

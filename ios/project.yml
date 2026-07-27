@@ -18,6 +18,8 @@ targets:
         UILaunchScreen: {}
         UIUserInterfaceStyle: Dark
         NSSupportsLiveActivities: true
+        NSHealthShareUsageDescription: Forge reads your body weight so scale entries appear in Measurements automatically.
+        NSHealthUpdateUsageDescription: Forge saves finished workouts to Apple Health so they count toward your activity.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.bndct.forge.companion

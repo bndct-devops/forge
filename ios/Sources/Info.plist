@@ -20,6 +20,10 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Forge reads your body weight so scale entries appear in Measurements automatically.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Forge saves finished workouts to Apple Health so they count toward your activity.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>UILaunchScreen</key>

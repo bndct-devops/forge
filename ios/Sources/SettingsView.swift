@@ -33,6 +33,7 @@ struct SettingsView: View {
                         preferencesCard
                         insightsCard
                         remindersCard
+                        healthCard
                         serverCard
                         unpairButton
                         Color.clear.frame(height: 30)
@@ -107,6 +108,36 @@ struct SettingsView: View {
             divider
             toggleRow("Weekly digest", "a summary notification once a week",
                       $weeklyDigest, field: "weekly_digest")
+        }
+    }
+
+    @State private var healthSync = HealthSync.enabled
+
+    private var healthCard: some View {
+        card("Apple Health") {
+            Toggle(isOn: Binding(
+                get: { healthSync },
+                set: { on in
+                    healthSync = on
+                    HealthSync.enabled = on
+                    if on {
+                        Task {
+                            _ = await HealthSync.requestAuthorization()
+                            await HealthSync.importLatestWeight()
+                        }
+                    }
+                }
+            )) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Sync with Apple Health")
+                        .font(.system(size: 14, weight: .medium)).foregroundStyle(.white)
+                    Text("workouts count toward your rings · scale entries import to Measurements")
+                        .font(.system(size: 12)).foregroundStyle(FG.muted)
+                }
+            }
+            .tint(FG.ember)
+            .padding(.vertical, 9)
+            .disabled(!HealthSync.available)
         }
     }
 
@@ -288,11 +319,15 @@ struct SettingsView: View {
             weeklyDigest = me.weekly_digest ?? false
             weighInReminder = me.weigh_in_reminder ?? false
             weighInHour = me.weigh_in_hour ?? 7
+            LocalNotifications.syncWeighInReminder(enabled: weighInReminder, hour: weighInHour)
         }
         loading = false
     }
 
     private func save(_ fields: [String: Any]) {
         Task { try? await ForgeAPI.updateMe(fields) }
+        if fields.keys.contains("weigh_in_reminder") || fields.keys.contains("weigh_in_hour") {
+            LocalNotifications.syncWeighInReminder(enabled: weighInReminder, hour: weighInHour)
+        }
     }
 }

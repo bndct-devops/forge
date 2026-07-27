@@ -415,6 +415,8 @@ final class RestTimer: ObservableObject {
                 content: .init(state: state, staleDate: nil)
             )
         }
+        LocalNotifications.requestAuthorization()
+        LocalNotifications.scheduleRestDone(at: endDate!, exercise: exercise, nextSet: nextSet)
     }
 
     func adjust(by seconds: Int) {
@@ -429,6 +431,7 @@ final class RestTimer: ObservableObject {
             let state = RestActivityAttributes.ContentState(endDate: endDate, exercise: exercise, nextSet: 0)
             Task { await activity.update(ActivityContent(state: state, staleDate: nil)) }
         }
+        LocalNotifications.scheduleRestDone(at: newEnd, exercise: exercise, nextSet: 0)
     }
 
     func stop() {
@@ -437,5 +440,6 @@ final class RestTimer: ObservableObject {
             Task { await activity.end(nil, dismissalPolicy: .immediate) }
         }
         activity = nil
+        LocalNotifications.cancelRestDone()
     }
 }
