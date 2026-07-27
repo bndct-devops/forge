@@ -1,4 +1,5 @@
 import SwiftUI
+import WidgetKit
 
 struct HomeView: View {
     @EnvironmentObject private var state: AppState
@@ -253,11 +254,35 @@ struct HomeView: View {
             if CommandLine.arguments.contains("-demo-start"), let first = routines.first {
                 state.start(routine: first)
             }
+            Task { await refreshWidgetSnapshot(programs: programs) }
         } catch {
             self.error = error.localizedDescription
         }
         loading = false
     }
+}
+
+/// Refresh the home-screen widget's data: next program session + streak.
+func refreshWidgetSnapshot(programs: [Program]) async {
+    let stats = try? await ForgeAPI.stats()
+    let goal = (try? await ForgeAPI.me())?.weekly_goal ?? 3
+    let program = programs.first
+    let next = program?.next
+    WidgetSnapshot(
+        programName: program?.name,
+        nextExercise: next?.exercise_name,
+        prescription: next?.sets.map { "\(trim($0.weight))×\($0.reps)\($0.amrap ? "+" : "")" }
+            .joined(separator: " · "),
+        accessory: next.flatMap { n in
+            program?.lifts?.first { $0.id == n.lift_id }?.routine_name
+        },
+        week: next?.week,
+        streakWeeks: stats?.streak_weeks ?? 0,
+        weekWorkouts: stats?.weeks.last?.workouts ?? 0,
+        weeklyGoal: goal,
+        updated: Date()
+    ).save()
+    WidgetCenter.shared.reloadAllTimelines()
 }
 
 extension Routine: Equatable {
