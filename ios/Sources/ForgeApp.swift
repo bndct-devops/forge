@@ -112,8 +112,19 @@ final class AppState: ObservableObject {
 
 struct RootView: View {
     @AppStorage("forge_base_url") private var baseURL = ""
-    @AppStorage("forge_token") private var token = ""
+    @AppStorage("forge_paired") private var paired = false
     @StateObject private var state = AppState()
+
+    init() {
+        // pre-Keychain builds kept the PAT in UserDefaults — move it over
+        Keychain.migrateTokenFromDefaults()
+        if !UserDefaults.standard.bool(forKey: "forge_paired"),
+           Keychain.get("forge_token")?.isEmpty == false,
+           UserDefaults.standard.string(forKey: "forge_base_url")?.isEmpty == false {
+            UserDefaults.standard.set(true, forKey: "forge_paired")
+        }
+    }
+
     @State private var tab: Int = {
         // debug hook: `-tab history|exercises|stats` selects a tab at launch
         if let i = CommandLine.arguments.firstIndex(of: "-tab"), i + 1 < CommandLine.arguments.count {
@@ -123,7 +134,7 @@ struct RootView: View {
     }()
 
     var body: some View {
-        if baseURL.isEmpty || token.isEmpty {
+        if baseURL.isEmpty || !paired {
             PairingView()
         } else {
             ZStack {

@@ -8,7 +8,8 @@ struct HomeView: View {
     @State private var error: String?
     @State private var previewProgram: Program?
     @AppStorage("forge_base_url") private var storedURL = ""
-    @AppStorage("forge_token") private var storedToken = ""
+    @AppStorage("forge_paired") private var storedPaired = false
+    @State private var showSettings = false
 
     var body: some View {
         ZStack {
@@ -20,11 +21,8 @@ struct HomeView: View {
                             .font(.system(size: 32, weight: .bold))
                             .foregroundStyle(.white)
                         Spacer()
-                        Menu {
-                            Button("Unpair", role: .destructive) {
-                                storedURL = ""
-                                storedToken = ""
-                            }
+                        Button {
+                            showSettings = true
                         } label: {
                             Image(systemName: "gearshape").font(.system(size: 17)).foregroundStyle(FG.muted).padding(6)
                         }
@@ -149,10 +147,30 @@ struct HomeView: View {
                 .padding(.horizontal, 18)
             }
         }
-        .task { await load() }
+        .task {
+            await load()
+            // debug hook: `-settings` opens the settings sheet at launch
+            if CommandLine.arguments.contains("-settings") { showSettings = true }
+        }
         .refreshable { await load() }
         .sheet(item: $previewProgram) { p in
             ProgramDetailView(program: p)
+        }
+        .sheet(isPresented: $showSettings) {
+            NavigationStack {
+                SettingsView {
+                    Keychain.delete("forge_token")
+                    UserDefaults.standard.removeObject(forKey: "forge_token")
+                    showSettings = false
+                    storedURL = ""
+                    storedPaired = false
+                }
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Done") { showSettings = false }.foregroundStyle(FG.ember)
+                    }
+                }
+            }
         }
         .onChange(of: state.showWorkout) { _, showing in
             if !showing { Task { await load() } }

@@ -670,6 +670,16 @@ struct Me: Codable {
     let unit: String?
     let weekly_goal: Int?
     let plate_config: String?
+    let default_rest_seconds: Int?
+    let gap_nudges: Bool?
+    let deload_hints: Bool?
+    let weekly_digest: Bool?
+    let weigh_in_reminder: Bool?
+    let weigh_in_hour: Int?
+}
+
+struct ServerHealth: Codable {
+    let version: String?
 }
 
 // MARK: - measurements
@@ -741,7 +751,9 @@ enum APIError: LocalizedError {
 
 struct ForgeAPI {
     static var baseURL: String { UserDefaults.standard.string(forKey: "forge_base_url") ?? "" }
-    static var token: String { UserDefaults.standard.string(forKey: "forge_token") ?? "" }
+    static var token: String {
+        Keychain.get("forge_token") ?? UserDefaults.standard.string(forKey: "forge_token") ?? ""
+    }
 
     private static func request(_ path: String, method: String = "GET", body: Data? = nil) async throws -> Data {
         guard let url = URL(string: baseURL.trimmingCharacters(in: .init(charactersIn: "/")) + path) else {
@@ -842,6 +854,15 @@ struct ForgeAPI {
     static func updatePlateConfig(_ config: String) async throws {
         let body = try JSONSerialization.data(withJSONObject: ["plate_config": config])
         _ = try await request("/api/auth/me", method: "PATCH", body: body)
+    }
+
+    static func updateMe(_ fields: [String: Any]) async throws {
+        let body = try JSONSerialization.data(withJSONObject: fields)
+        _ = try await request("/api/auth/me", method: "PATCH", body: body)
+    }
+
+    static func health() async throws -> ServerHealth {
+        try JSONDecoder().decode(ServerHealth.self, from: await request("/api/health"))
     }
 
     static func measurements() async throws -> [MeasureKind] {

@@ -2,7 +2,7 @@ import SwiftUI
 
 struct PairingView: View {
     @AppStorage("forge_base_url") private var storedURL = ""
-    @AppStorage("forge_token") private var storedToken = ""
+    @AppStorage("forge_paired") private var storedPaired = false
     @State private var url = "https://forge.bndct.dev"
     @State private var token = ""
     @State private var busy = false
@@ -74,16 +74,22 @@ struct PairingView: View {
     private func pair() async {
         busy = true
         error = nil
+        let previousURL = UserDefaults.standard.string(forKey: "forge_base_url") ?? ""
+        let previousToken = Keychain.get("forge_token")
         UserDefaults.standard.set(url, forKey: "forge_base_url")
-        UserDefaults.standard.set(token, forKey: "forge_token")
+        Keychain.set(token, key: "forge_token")
         do {
             try await ForgeAPI.ping()
             storedURL = url
-            storedToken = token
+            storedPaired = true
         } catch {
             self.error = error.localizedDescription
-            UserDefaults.standard.set(storedURL, forKey: "forge_base_url")
-            UserDefaults.standard.set(storedToken, forKey: "forge_token")
+            UserDefaults.standard.set(previousURL, forKey: "forge_base_url")
+            if let previousToken {
+                Keychain.set(previousToken, key: "forge_token")
+            } else {
+                Keychain.delete("forge_token")
+            }
         }
         busy = false
     }

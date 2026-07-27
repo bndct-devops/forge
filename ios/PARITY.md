@@ -18,7 +18,7 @@ reference — screens are ported, not reinterpreted. Status: ✅ done · 🟡 pa
 | **RecordsPage** | ✅ | searchable records page pushed from Stats overview |
 | **MeasurePage** | ✅ | kinds list, trend tiles, logged-vs-trend chart, add/delete entries (reached from Stats overview) · Home log-weight shortcut row ❌ |
 | **RoutineEditorPage** | ❌ | template create/edit |
-| **SettingsPage** | 🟡 | unpair ✅ · units, insight toggles, tokens, backups, re-categorize ❌ |
+| **SettingsPage** | ✅ | native scope: unit, default rest, weekly goal, insight toggles, weigh-in reminder, server info, unpair (token now in Keychain) · server admin (users/backups/tokens/OIDC/re-categorize) stays in the PWA by design |
 | **LoginPage / SetupPage / OIDC** | — | native pairs via PAT instead |
 | App icon | ✅ | PWA ember dumbbell via asset catalog |
 | Haptics / set-flash feedback | ✅ | impact on set done, success on finish, set-flash ember pulse, press feedback on cards, sliding-pill segmented controls, animated set/exercise mutations, finish-screen pop |
