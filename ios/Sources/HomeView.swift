@@ -56,41 +56,6 @@ struct HomeView: View {
                         Text(startError).font(.system(size: 13)).foregroundStyle(FG.destructive).padding(.top, 12)
                     }
 
-                    if !routines.isEmpty {
-                        Text("Templates")
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundStyle(.white)
-                            .padding(.top, 28)
-
-                        ForEach(routines) { r in
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text(r.name)
-                                    .font(.system(size: 17, weight: .semibold))
-                                    .foregroundStyle(.white)
-                                Text(r.exercises.map { "\($0.set_count) × \($0.name)" }.joined(separator: ", "))
-                                    .font(.system(size: 14))
-                                    .foregroundStyle(FG.muted)
-                                    .lineLimit(2)
-                                Button {
-                                    state.start(routine: r)
-                                } label: {
-                                    Text("Start workout")
-                                        .font(.system(size: 15, weight: .semibold))
-                                        .foregroundStyle(FG.ember)
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 44)
-                                        .background(RoundedRectangle(cornerRadius: 12).fill(FG.emberSoft))
-                                }
-                                .buttonStyle(Pressable())
-                                .disabled(state.hasActive)
-                            }
-                            .padding(16)
-                            .background(RoundedRectangle(cornerRadius: 16).fill(FG.card))
-                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(FG.border, lineWidth: 1))
-                            .padding(.top, 12)
-                        }
-                    }
-
                     if !programs.isEmpty {
                         Text("Programs")
                             .font(.system(size: 22, weight: .bold))
@@ -140,6 +105,41 @@ struct HomeView: View {
                                 .overlay(RoundedRectangle(cornerRadius: 16).stroke(FG.border, lineWidth: 1))
                             }
                             .buttonStyle(Pressable())
+                            .padding(.top, 12)
+                        }
+                    }
+
+                    if !routines.isEmpty {
+                        Text("Templates")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.top, 28)
+
+                        ForEach(routines) { r in
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text(r.name)
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                Text(r.exercises.map { "\($0.set_count) × \($0.name)" }.joined(separator: ", "))
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(FG.muted)
+                                    .lineLimit(2)
+                                Button {
+                                    state.start(routine: r)
+                                } label: {
+                                    Text("Start workout")
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundStyle(FG.ember)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 44)
+                                        .background(RoundedRectangle(cornerRadius: 12).fill(FG.emberSoft))
+                                }
+                                .buttonStyle(Pressable())
+                                .disabled(state.hasActive)
+                            }
+                            .padding(16)
+                            .background(RoundedRectangle(cornerRadius: 16).fill(FG.card))
+                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(FG.border, lineWidth: 1))
                             .padding(.top, 12)
                         }
                     }
