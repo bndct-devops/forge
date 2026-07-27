@@ -4,10 +4,15 @@ struct HomeView: View {
     @State private var routines: [Routine] = []
     @State private var loading = true
     @State private var error: String?
-    @State private var activeRoutine: Routine?
-    @State private var startEmpty = false
+    @State private var activeStore: WorkoutStore?
+    @State private var showWorkout = false
     @AppStorage("forge_base_url") private var storedURL = ""
     @AppStorage("forge_token") private var storedToken = ""
+
+    private func start(_ routine: Routine?) {
+        activeStore = WorkoutStore(routine: routine)
+        showWorkout = true
+    }
 
     var body: some View {
         ZStack {
@@ -46,7 +51,7 @@ struct HomeView: View {
 
                     ForEach(routines) { r in
                         Button {
-                            activeRoutine = r
+                            start(r)
                         } label: {
                             VStack(alignment: .leading, spacing: 6) {
                                 HStack {
@@ -67,7 +72,7 @@ struct HomeView: View {
                     }
 
                     Button {
-                        startEmpty = true
+                        start(nil)
                     } label: {
                         HStack {
                             Image(systemName: "plus")
@@ -86,15 +91,58 @@ struct HomeView: View {
                 }
                 .padding(18)
             }
+            if let store = activeStore, !showWorkout {
+                resumeBar(store)
+            }
         }
         .preferredColorScheme(.dark)
         .task { await load() }
         .refreshable { await load() }
-        .fullScreenCover(item: $activeRoutine) { r in
-            ActiveWorkoutView(store: WorkoutStore(routine: r))
+        .fullScreenCover(isPresented: $showWorkout) {
+            if let store = activeStore {
+                ActiveWorkoutView(
+                    store: store,
+                    onMinimize: { showWorkout = false },
+                    onEnd: {
+                        showWorkout = false
+                        activeStore = nil
+                    }
+                )
+            }
         }
-        .fullScreenCover(isPresented: $startEmpty) {
-            ActiveWorkoutView(store: WorkoutStore(routine: nil))
+    }
+
+    private func resumeBar(_ store: WorkoutStore) -> some View {
+        VStack {
+            Spacer()
+            Button {
+                showWorkout = true
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "dumbbell.fill").font(.system(size: 14)).foregroundStyle(FG.ember)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(store.name).font(.system(size: 14, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
+                        HStack(spacing: 4) {
+                            Text(store.startedAt, style: .timer)
+                            Text("· \(store.doneSets) sets")
+                        }
+                        .font(.system(size: 11).monospacedDigit())
+                        .foregroundStyle(FG.muted)
+                    }
+                    Spacer()
+                    Text("Resume")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(FG.ember)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(RoundedRectangle(cornerRadius: 16).fill(FG.card))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(FG.border, lineWidth: 1))
+                .shadow(color: .black.opacity(0.4), radius: 16, y: 6)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
         }
     }
 
@@ -103,7 +151,7 @@ struct HomeView: View {
             routines = try await ForgeAPI.routines()
             error = nil
             if CommandLine.arguments.contains("-demo-start"), let first = routines.first {
-                activeRoutine = first
+                start(first)
             }
         } catch {
             self.error = error.localizedDescription

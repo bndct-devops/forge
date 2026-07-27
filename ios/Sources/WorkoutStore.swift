@@ -33,6 +33,7 @@ final class WorkoutStore: ObservableObject {
     @Published var exercises: [DraftExercise] = []
     @Published var loading = true
     let startedAt = Date()
+    let rest = RestTimer()  // lives with the workout so minimizing keeps the timer + Live Activity
 
     init(routine: Routine?) {
         self.name = routine?.name ?? "Workout"
