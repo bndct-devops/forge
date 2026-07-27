@@ -53,6 +53,9 @@ struct HomeView: View {
                     .padding(.top, 16)
                     .disabled(state.hasActive)
 
+                    WeightQuickLogView()
+                        .padding(.top, 12)
+
                     if loading {
                         ProgressView().tint(FG.ember).frame(maxWidth: .infinity).padding(.vertical, 40)
                     } else if let error {
@@ -263,4 +266,106 @@ extension Routine: Equatable {
 
 extension Program: Equatable {
     static func == (lhs: Program, rhs: Program) -> Bool { lhs.id == rhs.id }
+}
+
+// MARK: - quick weight log (PWA's WeightQuickLog row)
+
+struct WeightQuickLogView: View {
+    @State private var latest: MeasureLatest?
+    @State private var ratePerWeek: Double?
+    @State private var open = false
+    @State private var value = ""
+    @State private var busy = false
+
+    var body: some View {
+        Button {
+            value = ""
+            open = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "scalemass")
+                    .font(.system(size: 14)).foregroundStyle(FG.ember)
+                    .frame(width: 34, height: 34)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(FG.emberSoft))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Log weight").font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
+                    if let latest {
+                        (Text("\(trim(latest.value)) kg · \(relativeMeasureDate(latest.measured_at))")
+                         + Text(ratePerWeek.map { r in
+                             "  \(r > 0 ? "+" : "")\(trim(r))/wk"
+                         } ?? ""))
+                            .font(.system(size: 12).monospacedDigit())
+                            .foregroundStyle(FG.muted)
+                    } else {
+                        Text("track it on the scale days")
+                            .font(.system(size: 12)).foregroundStyle(FG.muted)
+                    }
+                }
+                Spacer()
+                Image(systemName: "plus").font(.system(size: 13, weight: .semibold)).foregroundStyle(FG.muted)
+            }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 14).fill(FG.card))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(FG.border, lineWidth: 1))
+        }
+        .buttonStyle(Pressable())
+        .task { await load() }
+        .sheet(isPresented: $open) {
+            NavigationStack {
+                ZStack {
+                    FG.background.ignoresSafeArea()
+                    VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Weight (kg)")
+                                .font(.system(size: 13, weight: .medium)).foregroundStyle(.white)
+                            TextField(latest.map { trim($0.value) } ?? "0", text: $value)
+                                .keyboardType(.decimalPad)
+                                .font(.system(size: 22, weight: .semibold).monospacedDigit())
+                                .foregroundStyle(.white)
+                                .multilineTextAlignment(.center)
+                                .frame(height: 54)
+                                .background(RoundedRectangle(cornerRadius: 12).fill(FG.card))
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(FG.border, lineWidth: 1))
+                        }
+                        Button {
+                            Task { await save() }
+                        } label: {
+                            Text(busy ? "…" : "Save")
+                                .font(.system(size: 15, weight: .semibold))
+                                .frame(maxWidth: .infinity).frame(height: 48)
+                                .background(RoundedRectangle(cornerRadius: 14).fill(FG.ember))
+                                .foregroundStyle(.black.opacity(0.8))
+                        }
+                        .disabled(busy || Double(value.replacingOccurrences(of: ",", with: ".")) == nil)
+                        .opacity(Double(value.replacingOccurrences(of: ",", with: ".")) == nil ? 0.5 : 1)
+                        Spacer()
+                    }
+                    .padding(18)
+                }
+                .navigationTitle("Log weight")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Cancel") { open = false }.foregroundStyle(FG.muted)
+                    }
+                }
+            }
+            .presentationDetents([.height(280)])
+            .preferredColorScheme(.dark)
+        }
+    }
+
+    private func load() async {
+        latest = (try? await ForgeAPI.measurements())?.first { $0.kind == "Weight" }?.latest
+        ratePerWeek = (try? await ForgeAPI.measurementTrend(kind: "Weight"))?.rate_per_week
+    }
+
+    private func save() async {
+        guard let v = Double(value.replacingOccurrences(of: ",", with: ".")), v > 0 else { return }
+        busy = true
+        try? await ForgeAPI.addMeasurement(kind: "Weight", value: v, measuredAt: Date())
+        open = false
+        busy = false
+        await load()
+    }
 }

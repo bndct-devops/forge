@@ -14,6 +14,7 @@ struct ActiveWorkoutView: View {
     @State private var showPicker = false
     @State private var plateExerciseIdx: PlateTarget?
     @State private var swapTargetIdx: PlateTarget?
+    @State private var peekTargetIdx: PlateTarget?
     @State private var noteTargetIdx: Int?
     @State private var noteDraft = ""
     @State private var flashedSetId: UUID?
@@ -85,6 +86,14 @@ struct ActiveWorkoutView: View {
         }
         .fullScreenCover(item: $swapTargetIdx) { target in
             ExercisePicker { store.swapExercise(at: target.idx, with: $0) }
+        }
+        .sheet(item: $peekTargetIdx) { target in
+            if store.exercises.indices.contains(target.idx) {
+                RecentSessionsSheet(
+                    exerciseId: store.exercises[target.idx].exerciseId,
+                    name: store.exercises[target.idx].name
+                )
+            }
         }
         .alert("Exercise note", isPresented: Binding(
             get: { noteTargetIdx != nil },
@@ -239,6 +248,11 @@ struct ActiveWorkoutView: View {
                     } label: {
                         Label(ex.note == nil ? "Add exercise note" : "Edit exercise note",
                               systemImage: "note.text")
+                    }
+                    Button {
+                        peekTargetIdx = PlateTarget(idx: i)
+                    } label: {
+                        Label("Recent sessions", systemImage: "clock.arrow.circlepath")
                     }
                     Button {
                         plateExerciseIdx = PlateTarget(idx: i)
@@ -711,5 +725,61 @@ struct ExercisePicker: View {
         }
         .preferredColorScheme(.dark)
         .task { all = (try? await ForgeAPI.exercises()) ?? [] }
+    }
+}
+
+/// Quick peek at the last sessions of an exercise, without leaving the workout.
+struct RecentSessionsSheet: View {
+    let exerciseId: Int
+    let name: String
+    @State private var sessions: [RecentWorkout] = []
+    @State private var loading = true
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                FG.background.ignoresSafeArea()
+                if loading {
+                    ProgressView().tint(FG.ember)
+                } else if sessions.isEmpty {
+                    Text("No previous sessions of this exercise yet.")
+                        .font(.system(size: 13)).foregroundStyle(FG.muted)
+                } else {
+                    ScrollView {
+                        VStack(spacing: 10) {
+                            ForEach(sessions, id: \.workout_id) { s in
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack {
+                                        Text(s.name)
+                                            .font(.system(size: 14, weight: .medium)).foregroundStyle(.white)
+                                            .lineLimit(1)
+                                        Spacer()
+                                        Text(String(s.date.prefix(10)))
+                                            .font(.system(size: 12).monospacedDigit()).foregroundStyle(FG.muted)
+                                    }
+                                    Text(s.sets.map { "\(trim($0.weight ?? 0))×\($0.reps)\($0.is_pr ? " 🏆" : "")" }
+                                        .joined(separator: "  ·  "))
+                                        .font(.system(size: 13).monospacedDigit())
+                                        .foregroundStyle(FG.muted)
+                                }
+                                .padding(13)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(RoundedRectangle(cornerRadius: 13).fill(FG.card))
+                                .overlay(RoundedRectangle(cornerRadius: 13).stroke(FG.border, lineWidth: 1))
+                            }
+                        }
+                        .padding(18)
+                    }
+                }
+            }
+            .navigationTitle("Recent — \(name)")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .presentationDetents([.medium, .large])
+        .preferredColorScheme(.dark)
+        .task {
+            sessions = (try? await ForgeAPI.recent(exerciseId: exerciseId)) ?? []
+            loading = false
+        }
     }
 }
