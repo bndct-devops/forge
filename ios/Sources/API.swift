@@ -319,12 +319,130 @@ struct StatsWeek: Codable, Identifiable {
     let week_start: String
     let volume: Double
     let workouts: Int
+    let avg_rpe: Double?
+}
+
+struct StatsCalendarDay: Codable, Identifiable {
+    var id: String { date }
+    let date: String
+    let workouts: Int
+}
+
+struct StatsNamedCount: Codable {
+    let name: String
+    let sessions: Int
+}
+
+struct StatsExtras: Codable {
+    let avg_per_week: Double
+    let avg_duration_seconds: Int
+    let avg_volume: Double
+    let total_time_seconds: Int
+    let longest_streak_weeks: Int
+    let top_exercise: StatsNamedCount?
+    let busiest_weekday: String?
+    let month_volume: Double
+    let prev_month_volume: Double
+}
+
+struct StatsStall: Codable, Identifiable, Hashable {
+    var id: Int { exercise_id }
+    let exercise_id: Int
+    let name: String
+    let weight: Double
+    let sessions: Int
+}
+
+struct StatsNudge: Codable, Identifiable {
+    var id: String { group }
+    let group: String
+    let days: Int
+}
+
+struct YearMonthVolume: Codable, Identifiable {
+    var id: String { month }
+    let month: String
+    let volume: Double
+}
+
+struct YearBiggestPR: Codable {
+    let name: String
+    let weight: Double
+    let reps: Int
+}
+
+struct YearBusiestMonth: Codable {
+    let name: String
+    let volume: Double
+}
+
+struct YearReview: Codable {
+    let year: Int
+    let workouts: Int
+    let volume: Double
+    let sets: Int
+    let prs: Int
+    let longest_streak_weeks: Int
+    let top_exercise: StatsNamedCount?
+    let busiest_month: YearBusiestMonth
+    let months: [YearMonthVolume]
+    let biggest_pr: YearBiggestPR?
+}
+
+struct TrendWeekday: Codable, Identifiable {
+    var id: String { day }
+    let day: String
+    let workouts: Int
+}
+
+struct TrendRepRange: Codable, Identifiable {
+    var id: String { range }
+    let range: String
+    let sets: Int
+}
+
+struct TrendPRMonth: Codable, Identifiable {
+    var id: String { month }
+    let month: String
+    let prs: Int
+}
+
+struct StatsTrends: Codable {
+    let weekdays: [TrendWeekday]
+    let rep_ranges: [TrendRepRange]
+    let prs_by_month: [TrendPRMonth]
+}
+
+struct MuscleGroupSets: Codable, Identifiable {
+    var id: String { group }
+    let group: String
+    let sets: Int
+}
+
+struct MuscleTrendWeek: Codable, Identifiable {
+    var id: String { week_start }
+    let week_start: String
+    let sets: Int
 }
 
 struct StatsResponse: Codable {
     let totals: StatsTotals
     let streak_weeks: Int
     let weeks: [StatsWeek]
+    let calendar: [StatsCalendarDay]
+    let extras: StatsExtras?
+    let stalls: [StatsStall]?
+    let nudges: [StatsNudge]?
+    let year: YearReview?
+    let trends: StatsTrends
+    let muscle_groups: [MuscleGroupSets]
+    let muscle_trend: [String: [MuscleTrendWeek]]
+    let split_days: Int
+}
+
+struct Me: Codable {
+    let unit: String?
+    let weekly_goal: Int?
 }
 
 struct RecordBestWeight: Codable {
@@ -451,7 +569,12 @@ struct ForgeAPI {
     }
 
     static func stats() async throws -> StatsResponse {
-        try JSONDecoder().decode(StatsResponse.self, from: await request("/api/stats"))
+        let tz = TimeZone.current.secondsFromGMT() / 60
+        return try JSONDecoder().decode(StatsResponse.self, from: await request("/api/stats?tz_offset=\(tz)"))
+    }
+
+    static func me() async throws -> Me {
+        try JSONDecoder().decode(Me.self, from: await request("/api/auth/me"))
     }
 
     static func records() async throws -> [RecordEntry] {
