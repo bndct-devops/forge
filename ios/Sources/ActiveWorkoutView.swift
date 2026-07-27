@@ -185,6 +185,16 @@ struct ActiveWorkoutView: View {
                 .padding(.bottom, 6)
             }
 
+            if let note = ex.note {
+                HStack(alignment: .top, spacing: 5) {
+                    Image(systemName: "note.text").font(.system(size: 11))
+                    Text(note)
+                }
+                .font(.system(size: 12))
+                .foregroundStyle(FG.muted)
+                .padding(.bottom, 6)
+            }
+
             HStack(spacing: 8) {
                 Text("SET").frame(width: 26, alignment: .leading)
                 Text("PREVIOUS").frame(maxWidth: .infinity, alignment: .leading)
@@ -258,17 +268,31 @@ struct ActiveWorkoutView: View {
             )
 
             Menu {
-                Button("warm-up \(set.warmup ? "✓" : "")") { store.exercises[exIdx].sets[setIdx].warmup.toggle() }
+                Button("warm-up \(set.warmup ? "✓" : "")") {
+                    store.exercises[exIdx].sets[setIdx].warmup.toggle()
+                    store.exercises[exIdx].sets[setIdx].setType = nil
+                }
+                Button("drop set \(set.setType == "drop" ? "✓" : "")") {
+                    store.exercises[exIdx].sets[setIdx].setType = set.setType == "drop" ? nil : "drop"
+                    store.exercises[exIdx].sets[setIdx].warmup = false
+                }
+                Button("failure \(set.setType == "failure" ? "✓" : "")") {
+                    store.exercises[exIdx].sets[setIdx].setType = set.setType == "failure" ? nil : "failure"
+                    store.exercises[exIdx].sets[setIdx].warmup = false
+                }
+                Divider()
                 ForEach([7.0, 8, 8.5, 9, 9.5, 10], id: \.self) { r in
                     Button("RPE \(trim(r)) \(set.rpe == r ? "✓" : "")") { store.exercises[exIdx].sets[setIdx].rpe = r }
                 }
                 if set.rpe != nil {
-                    Button("clear") { store.exercises[exIdx].sets[setIdx].rpe = nil }
+                    Button("clear RPE") { store.exercises[exIdx].sets[setIdx].rpe = nil }
                 }
+                Divider()
+                Button("Remove set", role: .destructive) { store.removeSet(exIdx: exIdx, setIdx: setIdx) }
             } label: {
-                Text(set.rpe.map { "@\(trim($0))" } ?? "RPE")
+                Text(setBadge(set))
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(set.rpe != nil ? FG.ember : FG.muted)
+                    .foregroundStyle(set.warmup || set.setType != nil || set.rpe != nil ? FG.ember : FG.muted)
                     .frame(width: 44, height: 38)
                     .overlay(RoundedRectangle(cornerRadius: 9).stroke(FG.border, lineWidth: 1))
             }
@@ -300,6 +324,15 @@ struct ActiveWorkoutView: View {
         .background(RoundedRectangle(cornerRadius: 8).fill(set.done ? FG.ember.opacity(0.14) : .clear))
         .padding(.horizontal, -6)
         .animation(.easeOut(duration: 0.25), value: set.done)
+    }
+
+    private func setBadge(_ set: DraftSet) -> String {
+        var parts: [String] = []
+        if set.warmup { parts.append("W") }
+        if set.setType == "drop" { parts.append("D") }
+        if set.setType == "failure" { parts.append("F") }
+        if let r = set.rpe { parts.append("@\(trim(r))") }
+        return parts.isEmpty ? "RPE" : parts.joined(separator: " ")
     }
 
     private func valueField(id: String, width: CGFloat, placeholder: String, keyboard: UIKeyboardType,

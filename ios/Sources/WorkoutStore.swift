@@ -9,6 +9,7 @@ struct DraftSet: Identifiable {
     var weight: Double?      // nil = empty field showing "kg" placeholder
     var reps: Int?
     var warmup = false
+    var setType: String?   // "drop" | "failure"
     var rpe: Double?
     var done = false
     var amrap = false
@@ -28,6 +29,7 @@ struct DraftExercise: Identifiable {
     var suggestedWeight: Double?
     var suggestionKind: String?
     var amrapHint: (weight: Double, beatReps: Int)?
+    var note: String?
     var sets: [DraftSet]
 }
 
@@ -133,6 +135,7 @@ final class WorkoutStore: ObservableObject {
                 suggestedWeight: se.suggested_weight,
                 suggestionKind: se.suggestion_kind,
                 amrapHint: amrap,
+                note: se.note?.isEmpty == false ? se.note : nil,
                 sets: sets
             ))
         }
@@ -163,6 +166,11 @@ final class WorkoutStore: ObservableObject {
         exercises.remove(at: index)
     }
 
+    func removeSet(exIdx: Int, setIdx: Int) {
+        guard exercises[exIdx].sets.indices.contains(setIdx) else { return }
+        exercises[exIdx].sets.remove(at: setIdx)
+    }
+
     func addSet(to exIdx: Int) {
         let template = exercises[exIdx].sets.last
         exercises[exIdx].sets.append(DraftSet(weight: template?.weight, reps: template?.reps))
@@ -183,7 +191,7 @@ final class WorkoutStore: ObservableObject {
             let sets = ex.sets.compactMap { s -> SyncSet? in
                 guard s.done, let reps = s.reps else { return nil }
                 return SyncSet(weight: s.weight, reps: reps, is_completed: true,
-                               is_warmup: s.warmup, set_type: nil, rpe: s.rpe)
+                               is_warmup: s.warmup, set_type: s.setType, rpe: s.rpe)
             }
             if !sets.isEmpty {
                 exs.append(SyncExercise(

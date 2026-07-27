@@ -77,7 +77,13 @@ struct Program: Codable, Identifiable {
     let current_week: Int
     let cycle_number: Int?
     let cycle_length: Int?
+    let lifts: [ProgramLift]?
     let next: ProgramNext?
+}
+
+struct ProgramLift: Codable {
+    let id: Int
+    let routine_name: String?
 }
 
 struct ProgramNext: Codable {
@@ -128,6 +134,7 @@ struct ServerExercise: Codable {
     let rep_max: Int?
     let suggested_weight: Double?
     let suggestion_kind: String?
+    let note: String?
     let previous_sets: [RecentSet]?
     let sets: [ServerSet]
 }

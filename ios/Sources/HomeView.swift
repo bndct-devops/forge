@@ -122,6 +122,11 @@ struct HomeView: View {
                                                 Text(next.sets.map { "\(trim($0.weight))×\($0.reps)\($0.amrap ? "+" : "")" }.joined(separator: " · ") + " kg")
                                                     .font(.system(size: 16, weight: .semibold).monospacedDigit())
                                                     .foregroundStyle(.white)
+                                                if let accessory = p.lifts?.first(where: { $0.id == next.lift_id })?.routine_name {
+                                                    Text("+ \(accessory)")
+                                                        .font(.system(size: 12))
+                                                        .foregroundStyle(FG.muted)
+                                                }
                                             }
                                             Spacer()
                                             if startingProgram {
