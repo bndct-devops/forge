@@ -161,6 +161,7 @@ struct RootView: View {
             .animation(.spring(duration: 0.35), value: state.showWorkout)
             .environmentObject(state)
             .preferredColorScheme(.dark)
+            .task { await SyncQueue.shared.flush() }
             .fullScreenCover(isPresented: $state.showWorkout) {
                 if let store = state.activeStore {
                     ActiveWorkoutView(

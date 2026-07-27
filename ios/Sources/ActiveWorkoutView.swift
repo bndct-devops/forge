@@ -18,6 +18,7 @@ struct ActiveWorkoutView: View {
     @State private var noteDraft = ""
     @State private var flashedSetId: UUID?
     @State private var donePopped = false
+    @State private var queuedOffline = false
     @State private var confirmDiscard = false
     @State private var finishing = false
     @State private var finished = false
@@ -606,14 +607,24 @@ struct ActiveWorkoutView: View {
     private func finish() async {
         finishing = true
         postError = nil
+        let doc = store.buildSync(finished: true)
         do {
-            try await ForgeAPI.sync(store.buildSync(finished: true))
+            try await ForgeAPI.sync(doc)
             rest.stop()
             WorkoutStore.clearPersisted()
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             finished = true
-        } catch {
+        } catch let error as APIError {
+            // the server rejected the payload — a retry sends the same thing
             postError = error.localizedDescription
+        } catch {
+            // offline: queue it, it syncs automatically when the network is back
+            SyncQueue.shared.enqueue(doc)
+            rest.stop()
+            WorkoutStore.clearPersisted()
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            queuedOffline = true
+            finished = true
         }
         finishing = false
     }
@@ -628,10 +639,17 @@ struct ActiveWorkoutView: View {
                 .onAppear {
                     withAnimation(.spring(duration: 0.45, bounce: 0.45)) { donePopped = true }
                 }
-            Text("Saved to Forge").font(.system(size: 22, weight: .semibold)).foregroundStyle(.white)
+            Text(queuedOffline ? "Saved on this phone" : "Saved to Forge")
+                .font(.system(size: 22, weight: .semibold)).foregroundStyle(.white)
             Text("\(store.doneSets) sets · \(trim(store.volume)) kg · \(Int(Date().timeIntervalSince(store.startedAt) / 60)) min")
                 .font(.system(size: 14).monospacedDigit())
                 .foregroundStyle(FG.muted)
+            if queuedOffline {
+                Text("No connection — it syncs to Forge automatically once you're back online.")
+                    .font(.system(size: 13)).foregroundStyle(FG.muted)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 30)
+            }
             if let postError {
                 Text(postError).font(.system(size: 13)).foregroundStyle(.red)
             }
