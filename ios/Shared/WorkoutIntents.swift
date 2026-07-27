@@ -90,18 +90,28 @@ enum DraftFallback {
             guard var sets = ex["sets"] as? [[String: Any]] else { continue }
             for (si, var set) in sets.enumerated() {
                 let done = set["done"] as? Bool ?? false
-                let reps = set["reps"] as? Int
-                if !done, reps != nil {
-                    set["done"] = true
-                    sets[si] = set
-                    ex["sets"] = sets
-                    exercises[ei] = ex
-                    restSeconds = ex["restSeconds"] as? Int ?? 120
-                    exerciseName = ex["name"] as? String ?? ""
-                    nextSetNumber = si + 2
-                    mutated = true
-                    break outer
+                guard !done else { continue }
+                // fill blanks from the previous done set / plan, like the app
+                let prevDone = sets[..<si].last {
+                    ($0["done"] as? Bool ?? false) && $0["reps"] is Int
                 }
+                if set["reps"] as? Int == nil {
+                    set["reps"] = prevDone?["reps"] as? Int ?? ex["repMin"] as? Int
+                }
+                guard set["reps"] as? Int != nil else { break outer }
+                if set["weight"] as? Double == nil, !(set["weight"] is NSNumber) {
+                    set["weight"] = prevDone?["weight"] as? Double
+                        ?? ex["suggestedWeight"] as? Double
+                }
+                set["done"] = true
+                sets[si] = set
+                ex["sets"] = sets
+                exercises[ei] = ex
+                restSeconds = ex["restSeconds"] as? Int ?? 120
+                exerciseName = ex["name"] as? String ?? ""
+                nextSetNumber = si + 2
+                mutated = true
+                break outer
             }
         }
         guard mutated else { return }

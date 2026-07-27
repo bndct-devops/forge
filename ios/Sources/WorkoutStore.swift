@@ -321,23 +321,31 @@ final class WorkoutStore: ObservableObject {
         exercises[exIdx].sets.append(DraftSet(weight: template?.weight, reps: template?.reps))
     }
 
-    /// The lock-screen ✓: mark the next planned set done and restart rest —
-    /// same semantics as tapping the check in the table.
+    /// The lock-screen ✓: complete the FIRST undone set. Empty fields fill
+    /// with the best guess — the previous set of the exercise, then the rep
+    /// minimum / suggested weight — because "set done" from the lock screen
+    /// means "I did what was planned"; numbers stay editable in the table.
     func completeNextSet() {
         for exIdx in exercises.indices {
-            for setIdx in exercises[exIdx].sets.indices {
-                let set = exercises[exIdx].sets[setIdx]
-                if !set.done, set.reps != nil {
-                    exercises[exIdx].sets[setIdx].done = true
-                    finishIntent = nil
-                    let ex = exercises[exIdx]
-                    if !ex.supersetWithNext, ex.restSeconds > 0 {
-                        rest.start(seconds: ex.restSeconds, exercise: ex.name,
-                                   nextSet: setIdx + 2, workoutName: name)
-                    }
-                    return
-                }
+            guard let setIdx = exercises[exIdx].sets.firstIndex(where: { !$0.done }) else { continue }
+            let ex = exercises[exIdx]
+            var set = ex.sets[setIdx]
+            let prevDone = ex.sets[..<setIdx].last { $0.done && $0.reps != nil }
+            if set.reps == nil {
+                set.reps = prevDone?.reps ?? ex.repMin
             }
+            guard set.reps != nil else { return } // nothing sensible to record
+            if set.weight == nil {
+                set.weight = prevDone?.weight ?? ex.suggestedWeight
+            }
+            set.done = true
+            exercises[exIdx].sets[setIdx] = set
+            finishIntent = nil
+            if !ex.supersetWithNext, ex.restSeconds > 0 {
+                rest.start(seconds: ex.restSeconds, exercise: ex.name,
+                           nextSet: setIdx + 2, workoutName: name)
+            }
+            return
         }
     }
 
