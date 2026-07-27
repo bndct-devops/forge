@@ -47,6 +47,18 @@ struct ActiveWorkoutView: View {
                 } else {
                     ScrollView {
                         VStack(spacing: 12) {
+                            if let postError {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .font(.system(size: 13)).foregroundStyle(FG.destructive)
+                                    Text("Couldn't save: \(postError)")
+                                        .font(.system(size: 13)).foregroundStyle(.white)
+                                }
+                                .padding(12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(RoundedRectangle(cornerRadius: 12)
+                                    .fill(FG.destructive.opacity(0.15)))
+                            }
                             ForEach(store.exercises.indices, id: \.self) { i in
                                 exerciseCard(i)
                             }

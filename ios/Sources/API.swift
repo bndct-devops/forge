@@ -170,6 +170,7 @@ struct ServerSet: Codable {
 // MARK: - sync document (the PWA's offline finish path — advances programs)
 
 struct SyncSet: Codable {
+    var position: Int
     var weight: Double?
     var reps: Int
     var is_completed: Bool
@@ -794,9 +795,19 @@ struct ForgeAPI {
         let (data, resp) = try await URLSession.shared.data(for: req)
         let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(code) else {
-            if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let detail = obj["detail"] as? String {
-                throw APIError.server(detail)
+            if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let detail = obj["detail"] as? String {
+                    throw APIError.server(detail)
+                }
+                // FastAPI validation errors: detail is a list of {loc, msg}
+                if let items = obj["detail"] as? [[String: Any]] {
+                    let msgs = items.prefix(3).compactMap { item -> String? in
+                        guard let msg = item["msg"] as? String else { return nil }
+                        let loc = (item["loc"] as? [Any])?.map { "\($0)" }.joined(separator: ".") ?? ""
+                        return loc.isEmpty ? msg : "\(loc): \(msg)"
+                    }
+                    if !msgs.isEmpty { throw APIError.server(msgs.joined(separator: " · ")) }
+                }
             }
             throw APIError.http(code)
         }

@@ -327,10 +327,12 @@ final class WorkoutStore: ObservableObject {
         let iso = ISO8601DateFormatter()
         var exs: [SyncExercise] = []
         for (i, ex) in exercises.enumerated() {
-            let sets = ex.sets.compactMap { s -> SyncSet? in
-                guard s.done, let reps = s.reps else { return nil }
-                return SyncSet(weight: s.weight, reps: reps, is_completed: true,
-                               is_warmup: s.warmup, set_type: s.setType, rpe: s.rpe)
+            var sets: [SyncSet] = []
+            for s in ex.sets {
+                guard s.done, let reps = s.reps else { continue }
+                sets.append(SyncSet(position: sets.count, weight: s.weight, reps: reps,
+                                    is_completed: true, is_warmup: s.warmup,
+                                    set_type: s.setType, rpe: s.rpe))
             }
             if !sets.isEmpty {
                 exs.append(SyncExercise(
