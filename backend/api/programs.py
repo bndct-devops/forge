@@ -432,7 +432,12 @@ def start_program_workout(
         if routine is not None and routine.owner_id == user.id:
             from backend.api.workouts import seed_from_routine
 
-            w.exercises += seed_from_routine(db, user, routine, position_offset=1)
+            w.exercises += seed_from_routine(
+                db, user, routine, position_offset=1,
+                program_tm=lift.training_max,
+                program_exercise_id=lift.exercise_id,
+                rounding=p.rounding or 2.5,
+            )
     db.add(w)
     db.commit()
     data = serialize_workout(db, w)

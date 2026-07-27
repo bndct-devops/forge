@@ -211,3 +211,18 @@ struct ResumeBar: View {
         }
     }
 }
+
+/// Selects a text field's whole content when it gains focus, so typing
+/// replaces the prefilled value instead of appending to it.
+extension View {
+    func selectAllOnFocus() -> some View {
+        onReceive(NotificationCenter.default.publisher(
+            for: UITextField.textDidBeginEditingNotification
+        )) { note in
+            guard let field = note.object as? UITextField else { return }
+            DispatchQueue.main.async {
+                field.selectAll(nil)
+            }
+        }
+    }
+}

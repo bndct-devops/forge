@@ -119,6 +119,9 @@ class WorkoutUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
     notes: str | None = None
     started_at: datetime | None = None
+    # Correct the recorded end (e.g. a finish that only synced after retries).
+    # Only valid on already-finished workouts — it never runs the finish pipeline.
+    finished_at: datetime | None = None
 
 
 class WorkoutExerciseOrder(BaseModel):

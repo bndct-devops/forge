@@ -30,6 +30,9 @@ struct WorkoutDetailView: View {
                                 if let s = w.total_sets { headStat("\(s)", "sets") }
                                 if let p = w.pr_count, p > 0 { headStat("\(p)", "PR", gold: true) }
                             }
+                            if editMode {
+                                timeEditor(w)
+                            }
                         }
                         .padding(.top, 4)
 
@@ -243,6 +246,45 @@ struct WorkoutDetailView: View {
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(FG.border, lineWidth: 1))
             .padding(24)
         }
+    }
+
+    /// Edit-mode start/end pickers — corrects mis-stamped times (e.g. a
+    /// finish that only synced after retries).
+    private func timeEditor(_ w: WorkoutFull) -> some View {
+        let iso = ISO8601DateFormatter()
+        let started = iso.date(from: String(w.started_at.prefix(19)) + "Z") ?? Date()
+        let finished = w.finished_at.flatMap { iso.date(from: String($0.prefix(19)) + "Z") }
+        return VStack(alignment: .leading, spacing: 2) {
+            DatePicker("Started", selection: Binding(
+                get: { started },
+                set: { newValue in
+                    Task {
+                        try? await ForgeAPI.patchWorkout(id: workoutId, startedAt: newValue)
+                        await load()
+                        await onChanged()
+                    }
+                }
+            ))
+            .font(.system(size: 13, weight: .medium))
+            .foregroundStyle(.white)
+            .tint(FG.ember)
+            if let finished {
+                DatePicker("Finished", selection: Binding(
+                    get: { finished },
+                    set: { newValue in
+                        Task {
+                            try? await ForgeAPI.patchWorkout(id: workoutId, finishedAt: newValue)
+                            await load()
+                            await onChanged()
+                        }
+                    }
+                ))
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.white)
+                .tint(FG.ember)
+            }
+        }
+        .padding(.top, 8)
     }
 
     private func headStat(_ value: String, _ unit: String, gold: Bool = false) -> some View {

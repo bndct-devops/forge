@@ -967,10 +967,14 @@ struct ForgeAPI {
         _ = try await request("/api/workouts/\(workoutId)/exercises/\(workoutExerciseId)", method: "DELETE")
     }
 
-    static func patchWorkout(id: Int, name: String?, notes: String?) async throws {
+    static func patchWorkout(id: Int, name: String? = nil, notes: String? = nil,
+                             startedAt: Date? = nil, finishedAt: Date? = nil) async throws {
+        let iso = ISO8601DateFormatter()
         var payload: [String: String] = [:]
         if let name { payload["name"] = name }
         if let notes { payload["notes"] = notes }
+        if let startedAt { payload["started_at"] = iso.string(from: startedAt) }
+        if let finishedAt { payload["finished_at"] = iso.string(from: finishedAt) }
         let body = try JSONSerialization.data(withJSONObject: payload)
         _ = try await request("/api/workouts/\(id)", method: "PATCH", body: body)
     }

@@ -314,6 +314,18 @@ struct ActiveWorkoutView: View {
                 .foregroundStyle(FG.ember)
                 .padding(.bottom, 6)
             }
+            // rep-range overshoot: a done set far past rep_max means the
+            // weight is too light — say so mid-session, not post-hoc
+            if let repMax = ex.repMax,
+               ex.sets.contains(where: { $0.done && !$0.warmup && ($0.reps ?? 0) >= repMax + 3 }) {
+                HStack(spacing: 5) {
+                    Image(systemName: "arrow.up.circle").font(.system(size: 11, weight: .semibold))
+                    Text("Well past the \(ex.repMin.map { "\($0)–" } ?? "")\(repMax) rep range — add weight next set")
+                }
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(FG.gold)
+                .padding(.bottom, 6)
+            }
             if let sw = ex.suggestedWeight {
                 if ex.suggestionKind == "deload" {
                     HStack(spacing: 5) {
@@ -322,6 +334,14 @@ struct ActiveWorkoutView: View {
                     }
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(FG.gold)
+                    .padding(.bottom, 6)
+                } else if ex.suggestionKind == "target" {
+                    HStack(spacing: 5) {
+                        Image(systemName: "scope").font(.system(size: 11, weight: .semibold))
+                        Text("Target: ~\(trim(sw)) kg to start — seeded from your TM, adjust to the rep range")
+                    }
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(FG.ember)
                     .padding(.bottom, 6)
                 } else {
                     HStack(spacing: 5) {
@@ -464,6 +484,8 @@ struct ActiveWorkoutView: View {
                     store.exercises[exIdx].sets[setIdx].done.toggle()
                 }
                 if !wasDone {
+                    // still training — a stale finish attempt no longer marks the end
+                    store.finishIntent = nil
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     focusedField = nil
                     // PWA set flash: brighter ember that settles into the done tint
@@ -518,6 +540,7 @@ struct ActiveWorkoutView: View {
             .font(.system(size: 15, weight: .semibold).monospacedDigit())
             .foregroundStyle(.white)
             .focused($focusedField, equals: id)
+            .selectAllOnFocus()
             .frame(width: width, height: 38)
             .background(RoundedRectangle(cornerRadius: 9).fill(FG.background))
             .overlay(

@@ -43,6 +43,7 @@ struct DraftExercise: Identifiable, Codable {
 struct PersistedDraft: Codable {
     var name: String
     var startedAt: Date
+    var finishIntent: Date?
     var clientId: String
     var serverId: Int?
     var programId: Int?
@@ -56,6 +57,9 @@ final class WorkoutStore: ObservableObject {
     @Published var exercises: [DraftExercise] = []
     @Published var loading = true
     private(set) var startedAt = Date()
+    /// Stamped on the FIRST finish attempt so failed syncs and retries all
+    /// carry the real end time, not the retry time.
+    var finishIntent: Date?
     private(set) var clientId = UUID().uuidString
     var serverId: Int?
     var programId: Int?
@@ -168,6 +172,7 @@ final class WorkoutStore: ObservableObject {
     init(restored draft: PersistedDraft) {
         self.name = draft.name
         self.startedAt = draft.startedAt
+        self.finishIntent = draft.finishIntent
         self.clientId = draft.clientId
         self.serverId = draft.serverId
         self.programId = draft.programId
@@ -204,7 +209,8 @@ final class WorkoutStore: ObservableObject {
     private func persist() {
         guard !loading else { return }
         let draft = PersistedDraft(
-            name: name, startedAt: startedAt, clientId: clientId,
+            name: name, startedAt: startedAt, finishIntent: finishIntent,
+            clientId: clientId,
             serverId: serverId, programId: programId, programLiftId: programLiftId,
             exercises: exercises
         )
@@ -342,10 +348,13 @@ final class WorkoutStore: ObservableObject {
                 ))
             }
         }
+        if finished, finishIntent == nil {
+            finishIntent = Date()
+        }
         return SyncWorkout(
             id: serverId, client_id: clientId, name: name, notes: nil,
             started_at: iso.string(from: startedAt),
-            finished_at: finished ? iso.string(from: Date()) : nil,
+            finished_at: finished ? iso.string(from: finishIntent ?? Date()) : nil,
             program_id: programId, program_lift_id: programLiftId,
             exercises: exs
         )

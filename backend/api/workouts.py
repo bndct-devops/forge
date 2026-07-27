@@ -403,11 +403,26 @@ def _stalled(sessions: list[list[tuple[float, int]]], rep_max: int) -> float | N
 
 
 def seed_from_routine(
-    db: Session, user: User, routine: Routine, position_offset: int = 0
+    db: Session,
+    user: User,
+    routine: Routine,
+    position_offset: int = 0,
+    program_tm: float | None = None,
+    program_exercise_id: int | None = None,
+    rounding: float = 2.5,
 ) -> list[WorkoutExercise]:
     """WorkoutExercises (with empty sets) for a routine's entries, each with
     its double-progression suggestion computed against history. Used by
-    template starts and by program sessions with an accessory template."""
+    template starts and by program sessions with an accessory template.
+
+    Program context (program_tm + program_exercise_id): accessory slots that
+    are variants of the main lift and have no history yet get a first-session
+    target seeded from the TM, so "(Volume)" slots aren't a blind guess."""
+    main_family = None
+    if program_exercise_id is not None:
+        main = db.get(Exercise, program_exercise_id)
+        if main is not None:
+            main_family = main.variant_of_id or main.id
     exercises: list[WorkoutExercise] = []
     for re_ in routine.exercises:
         suggestion = None
@@ -431,6 +446,14 @@ def seed_from_routine(
                         step = re_.increment or 2.5
                         suggestion = max(step, round(stall_weight * 0.9 / step) * step)
                         kind = "deload"
+            if suggestion is None and not working and program_tm and main_family is not None:
+                acc = db.get(Exercise, re_.exercise_id)
+                if acc is not None and (acc.variant_of_id or acc.id) == main_family:
+                    # ~55% of the main lift's TM lands in rep-range territory
+                    # for its volume variants — a starting point, not gospel
+                    step = rounding or 2.5
+                    suggestion = max(step, round(program_tm * 0.55 / step) * step)
+                    kind = "target"
         we = WorkoutExercise(
             exercise_id=re_.exercise_id,
             position=position_offset + re_.position,
@@ -662,6 +685,19 @@ def update_workout(
             duration = workout.finished_at - workout.started_at
             workout.finished_at = started + duration
         workout.started_at = started
+        date_changed = True
+    if body.finished_at is not None:
+        if workout.finished_at is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Finish the workout first — this only corrects the recorded end time",
+            )
+        finished = body.finished_at
+        if finished.tzinfo is not None:
+            finished = finished.astimezone(timezone.utc).replace(tzinfo=None)
+        if finished <= workout.started_at:
+            raise HTTPException(status_code=400, detail="End time must be after the start")
+        workout.finished_at = finished
         date_changed = True
     db.add(workout)
     db.commit()

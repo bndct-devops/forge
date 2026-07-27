@@ -312,6 +312,12 @@ export default function ActiveWorkoutPage() {
                         Deload: {we.suggested_weight} {user?.unit ?? 'kg'} suggested after 3 stalled
                         sessions
                       </p>
+                    ) : we.suggestion_kind === 'target' ? (
+                      <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-primary">
+                        <TrendingUp size={13} className="shrink-0" />
+                        Target: ~{we.suggested_weight} {user?.unit ?? 'kg'} to start — seeded from
+                        your TM, adjust to the rep range
+                      </p>
                     ) : (
                       <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-primary">
                         <TrendingUp size={13} className="shrink-0" />

@@ -279,21 +279,47 @@ export default function WorkoutDetailPage() {
             <h1 className="truncate text-2xl">{workout.name}</h1>
           )}
           {editing ? (
-            <input
-              type="datetime-local"
-              defaultValue={toDatetimeLocal(workout.started_at)}
-              onBlur={(e) => {
-                if (!e.target.value) return
-                const iso = new Date(e.target.value).toISOString()
-                if (iso !== parseUTC(workout.started_at).toISOString()) {
-                  api<Workout>(`/workouts/${workout.id}`, {
-                    method: 'PATCH',
-                    body: { started_at: iso },
-                  }).then(replaceWorkout)
-                }
-              }}
-              className="rounded-md border border-input bg-card px-2 py-0.5 text-sm text-muted-foreground outline-none focus:ring-2 focus:ring-ring"
-            />
+            <span className="flex flex-wrap items-center gap-1.5">
+              <input
+                type="datetime-local"
+                defaultValue={toDatetimeLocal(workout.started_at)}
+                onBlur={(e) => {
+                  if (!e.target.value) return
+                  const iso = new Date(e.target.value).toISOString()
+                  if (iso !== parseUTC(workout.started_at).toISOString()) {
+                    api<Workout>(`/workouts/${workout.id}`, {
+                      method: 'PATCH',
+                      body: { started_at: iso },
+                    }).then(replaceWorkout)
+                  }
+                }}
+                className="rounded-md border border-input bg-card px-2 py-0.5 text-sm text-muted-foreground outline-none focus:ring-2 focus:ring-ring"
+              />
+              {workout.finished_at && (
+                <>
+                  <span className="text-sm text-muted-foreground">–</span>
+                  <input
+                    type="datetime-local"
+                    defaultValue={toDatetimeLocal(workout.finished_at)}
+                    onBlur={(e) => {
+                      if (!e.target.value || !workout.finished_at) return
+                      const iso = new Date(e.target.value).toISOString()
+                      if (iso !== parseUTC(workout.finished_at).toISOString()) {
+                        api<Workout>(`/workouts/${workout.id}`, {
+                          method: 'PATCH',
+                          body: { finished_at: iso },
+                        })
+                          .then(replaceWorkout)
+                          .catch((err) =>
+                            toast(err instanceof Error ? err.message : 'Could not update the end time'),
+                          )
+                      }
+                    }}
+                    className="rounded-md border border-input bg-card px-2 py-0.5 text-sm text-muted-foreground outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </>
+              )}
+            </span>
           ) : (
             <p className="text-sm text-muted-foreground">
               {formatRelativeDate(workout.started_at)} at {formatTime(workout.started_at)}

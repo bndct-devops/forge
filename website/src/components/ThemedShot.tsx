@@ -9,11 +9,12 @@ interface Props {
   className?: string
   fallback?: Theme
   clickable?: boolean // default true — click to open a lightbox
+  flat?: boolean // no hover lift/shadow — the landing page shows shots as plain evidence
 }
 
 /** An app screenshot that follows the site theme: swaps between
  *  /shots/{light,dark,black}/<name>.png as the viewer toggles. */
-export function ThemedShot({ name, alt, className, fallback = 'dark', clickable = true }: Props) {
+export function ThemedShot({ name, alt, className, fallback = 'dark', clickable = true, flat = false }: Props) {
   const [theme, setTheme] = useState<Theme>(fallback)
   const [open, setOpen] = useState(false)
 
@@ -45,7 +46,7 @@ export function ThemedShot({ name, alt, className, fallback = 'dark', clickable 
         alt={alt}
         loading="lazy"
         onClick={clickable ? () => setOpen(true) : undefined}
-        className={['fade-in', 'themed-shot', clickable ? 'cursor-zoom-in' : '', className]
+        className={['fade-in', flat ? '' : 'themed-shot', clickable ? 'cursor-zoom-in' : '', className]
           .filter(Boolean)
           .join(' ')}
         key={src}
