@@ -16,7 +16,7 @@ reference — screens are ported, not reinterpreted. Status: ✅ done · 🟡 pa
 | **WorkoutDetailPage** | 🟡 | view, rename, delete ✅ · set editing ❌ |
 | **StatsPage** | 🟡 | Overview (streak+goal, nudges, stalls, tiles, highlights, calendar heatmap, year review) ✅ · Trends core (weekly volume, training days, rep ranges, PRs/month, muscle split w/ per-group trend, push/pull) ✅ · deep trends ❌ (block-vs-last, form&fatigue, top lifts, TM headroom, cycles, cycle report, velocity, relative, standards, trajectory, recovery, pacing, time-of-day) · RPE overlay on weekly volume ❌ |
 | **RecordsPage** | ✅ | searchable records page pushed from Stats overview |
-| **MeasurePage** | ❌ | weight/body-fat/height logging + trends (the Home log-weight row feeds this) |
+| **MeasurePage** | ✅ | kinds list, trend tiles, logged-vs-trend chart, add/delete entries (reached from Stats overview) · Home log-weight shortcut row ❌ |
 | **RoutineEditorPage** | ❌ | template create/edit |
 | **SettingsPage** | 🟡 | unpair ✅ · units, insight toggles, tokens, backups, re-categorize ❌ |
 | **LoginPage / SetupPage / OIDC** | — | native pairs via PAT instead |

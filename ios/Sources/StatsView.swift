@@ -8,8 +8,16 @@ struct StatsView: View {
     @State private var stats: StatsResponse?
     @State private var recordEntries: [RecordEntry] = []
     @State private var weeklyGoal = 3
-    // debug hook: `-stats-trends` opens the Trends tab at launch
+    // debug hooks: `-stats-trends` opens the Trends tab; `-measure <kind>`
+    // pushes a measurement detail at launch
     @State private var tab = CommandLine.arguments.contains("-stats-trends") ? 1 : 0 // 0 overview, 1 trends
+    @State private var debugMeasureKind: String? = {
+        if let i = CommandLine.arguments.firstIndex(of: "-measure"), i + 1 < CommandLine.arguments.count {
+            return CommandLine.arguments[i + 1]
+        }
+        return nil
+    }()
+    @State private var showDebugMeasure = false
     @State private var expandedGroup: String?
     @State private var loading = true
 
@@ -51,9 +59,15 @@ struct StatsView: View {
             .navigationDestination(for: StatsStall.self) { stall in
                 ExerciseDetailView(exerciseId: stall.exercise_id, name: stall.name)
             }
+            .navigationDestination(isPresented: $showDebugMeasure) {
+                MeasureDetailView(kind: debugMeasureKind ?? "Weight")
+            }
         }
         .preferredColorScheme(.dark)
-        .task { await load() }
+        .task {
+            await load()
+            if debugMeasureKind != nil { showDebugMeasure = true }
+        }
         .refreshable { await load() }
     }
 
@@ -229,26 +243,39 @@ struct StatsView: View {
     }
 
     private var recordsLink: some View {
-        NavigationLink {
-            RecordsListView(entries: recordEntries)
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "trophy")
-                    .font(.system(size: 15)).foregroundStyle(FG.ember)
-                    .frame(width: 36, height: 36)
-                    .background(RoundedRectangle(cornerRadius: 10).fill(FG.emberSoft))
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Records").font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
-                    Text("all-time bests").font(.system(size: 12)).foregroundStyle(FG.muted)
-                }
-                Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 12)).foregroundStyle(FG.muted)
+        HStack(spacing: 10) {
+            NavigationLink {
+                RecordsListView(entries: recordEntries)
+            } label: {
+                navTile("trophy", "Records", "all-time bests")
             }
-            .padding(13)
-            .background(RoundedRectangle(cornerRadius: 14).fill(FG.card))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(FG.border, lineWidth: 1))
+            .buttonStyle(.plain)
+            NavigationLink {
+                MeasureListView()
+            } label: {
+                navTile("ruler", "Measurements", "body tracking")
+            }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
+    }
+
+    private func navTile(_ icon: String, _ title: String, _ sub: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 15)).foregroundStyle(FG.ember)
+                .frame(width: 36, height: 36)
+                .background(RoundedRectangle(cornerRadius: 10).fill(FG.emberSoft))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
+                    .lineLimit(1).minimumScaleFactor(0.8)
+                Text(sub).font(.system(size: 12)).foregroundStyle(FG.muted).lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 14).fill(FG.card))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(FG.border, lineWidth: 1))
     }
 
     // MARK: calendar heatmap

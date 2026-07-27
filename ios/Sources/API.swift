@@ -445,6 +445,41 @@ struct Me: Codable {
     let weekly_goal: Int?
 }
 
+// MARK: - measurements
+
+struct MeasureKind: Codable, Identifiable {
+    var id: String { kind }
+    let kind: String
+    let count: Int
+    let latest: MeasureLatest?
+}
+
+struct MeasureLatest: Codable {
+    let value: Double
+    let measured_at: String
+}
+
+struct MeasureEntry: Codable, Identifiable {
+    let id: Int
+    let value: Double
+    let measured_at: String
+}
+
+struct MeasureTrendPoint: Codable, Identifiable {
+    var id: String { measured_at }
+    let measured_at: String
+    let actual: Double
+    let trend: Double
+}
+
+struct MeasureTrend: Codable {
+    let points: [MeasureTrendPoint]
+    let trend: Double?
+    let rate_per_week: Double?
+    let change_28d: Double?
+    let bmi: Double?
+}
+
 struct RecordBestWeight: Codable {
     let weight: Double
     let reps: Int
@@ -575,6 +610,32 @@ struct ForgeAPI {
 
     static func me() async throws -> Me {
         try JSONDecoder().decode(Me.self, from: await request("/api/auth/me"))
+    }
+
+    static func measurements() async throws -> [MeasureKind] {
+        try JSONDecoder().decode([MeasureKind].self, from: await request("/api/measurements"))
+    }
+
+    static func measurements(kind: String) async throws -> [MeasureEntry] {
+        let k = kind.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? kind
+        return try JSONDecoder().decode([MeasureEntry].self, from: await request("/api/measurements/\(k)"))
+    }
+
+    static func measurementTrend(kind: String) async throws -> MeasureTrend {
+        let k = kind.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? kind
+        return try JSONDecoder().decode(MeasureTrend.self, from: await request("/api/measurements/\(k)/trend"))
+    }
+
+    static func addMeasurement(kind: String, value: Double, measuredAt: Date) async throws {
+        let iso = ISO8601DateFormatter()
+        let body = try JSONSerialization.data(withJSONObject: [
+            "kind": kind, "value": value, "measured_at": iso.string(from: measuredAt),
+        ] as [String: Any])
+        _ = try await request("/api/measurements", method: "POST", body: body)
+    }
+
+    static func deleteMeasurement(id: Int) async throws {
+        _ = try await request("/api/measurements/\(id)", method: "DELETE")
     }
 
     static func records() async throws -> [RecordEntry] {
