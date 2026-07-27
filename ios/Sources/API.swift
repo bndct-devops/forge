@@ -201,6 +201,106 @@ struct PreviewAccessory: Codable {
     let rep_max: Int?
 }
 
+// MARK: - workout history
+
+struct WorkoutListItem: Codable, Identifiable {
+    let id: Int
+    let name: String
+    let started_at: String
+    let finished_at: String?
+    let duration_seconds: Int?
+    let exercise_summaries: [String]?
+    let total_volume: Double?
+    let total_sets: Int?
+    let pr_count: Int?
+}
+
+struct WorkoutFull: Codable {
+    let id: Int
+    let name: String
+    let notes: String?
+    let started_at: String
+    let finished_at: String?
+    let duration_seconds: Int?
+    let total_volume: Double?
+    let total_sets: Int?
+    let pr_count: Int?
+    let exercises: [WorkoutFullExercise]
+}
+
+struct WorkoutFullExercise: Codable {
+    let name: String
+    let muscle_group: String?
+    let sets: [WorkoutFullSet]
+}
+
+struct WorkoutFullSet: Codable {
+    let weight: Double?
+    let reps: Int?
+    let is_warmup: Bool?
+    let is_pr: Bool?
+    let set_type: String?
+    let rpe: Double?
+}
+
+// MARK: - exercise detail stats
+
+struct ExerciseStats: Codable {
+    let exercise: LibraryExercise
+    let note: String?
+    let variations: [ExerciseVariation]
+    let records: ExerciseRecords?
+    let chart: [ExerciseChartPoint]
+    let history: [ExerciseHistoryEntry]
+}
+
+struct ExerciseVariation: Codable, Identifiable {
+    let id: Int
+    let name: String
+}
+
+struct ExerciseRecords: Codable {
+    let best_weight: RecordSetRef?
+    let best_1rm: Record1RMRef?
+    let best_volume_set: RecordVolumeRef?
+    let total_reps: Int?
+    let total_volume: Double?
+    let times_performed: Int?
+}
+
+struct RecordSetRef: Codable {
+    let weight: Double
+    let reps: Int
+}
+
+struct Record1RMRef: Codable {
+    let value: Double
+    let weight: Double?
+    let reps: Int?
+}
+
+struct RecordVolumeRef: Codable {
+    let value: Double
+    let weight: Double?
+    let reps: Int?
+}
+
+struct ExerciseChartPoint: Codable {
+    let date: String
+    let best_1rm: Double?
+    let best_weight: Double?
+    let volume: Double?
+    let avg_rpe: Double?
+}
+
+struct ExerciseHistoryEntry: Codable, Identifiable {
+    var id: Int { workout_id }
+    let workout_id: Int
+    let workout_name: String
+    let date: String
+    let sets: [RecentSet]
+}
+
 // MARK: - stats
 
 struct StatsTotals: Codable {
@@ -314,6 +414,27 @@ struct ForgeAPI {
     static func sync(_ doc: SyncWorkout) async throws {
         let body = try JSONEncoder().encode(doc)
         _ = try await request("/api/workouts/sync", method: "PUT", body: body)
+    }
+
+    static func workouts(limit: Int = 20, offset: Int = 0) async throws -> [WorkoutListItem] {
+        try JSONDecoder().decode([WorkoutListItem].self,
+                                 from: await request("/api/workouts?limit=\(limit)&offset=\(offset)"))
+    }
+
+    static func workoutDetail(id: Int) async throws -> WorkoutFull {
+        try JSONDecoder().decode(WorkoutFull.self, from: await request("/api/workouts/\(id)"))
+    }
+
+    static func patchWorkout(id: Int, name: String?, notes: String?) async throws {
+        var payload: [String: String] = [:]
+        if let name { payload["name"] = name }
+        if let notes { payload["notes"] = notes }
+        let body = try JSONSerialization.data(withJSONObject: payload)
+        _ = try await request("/api/workouts/\(id)", method: "PATCH", body: body)
+    }
+
+    static func exerciseStats(id: Int) async throws -> ExerciseStats {
+        try JSONDecoder().decode(ExerciseStats.self, from: await request("/api/exercises/\(id)/stats"))
     }
 
     static func programPreview(id: Int) async throws -> [PreviewSession] {

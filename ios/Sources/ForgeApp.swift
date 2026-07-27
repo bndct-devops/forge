@@ -59,19 +59,32 @@ struct RootView: View {
     @AppStorage("forge_base_url") private var baseURL = ""
     @AppStorage("forge_token") private var token = ""
     @StateObject private var state = AppState()
+    @State private var tab: Int = {
+        // debug hook: `-tab history|exercises|stats` selects a tab at launch
+        if let i = CommandLine.arguments.firstIndex(of: "-tab"), i + 1 < CommandLine.arguments.count {
+            return ["workout": 0, "history": 1, "exercises": 2, "stats": 3][CommandLine.arguments[i + 1]] ?? 0
+        }
+        return 0
+    }()
 
     var body: some View {
         if baseURL.isEmpty || token.isEmpty {
             PairingView()
         } else {
             ZStack {
-                TabView {
+                TabView(selection: $tab) {
                     HomeView()
                         .tabItem { Label("Workout", systemImage: "dumbbell.fill") }
+                        .tag(0)
+                    HistoryView()
+                        .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
+                        .tag(1)
                     ExercisesView()
                         .tabItem { Label("Exercises", systemImage: "figure.strengthtraining.traditional") }
+                        .tag(2)
                     StatsView()
                         .tabItem { Label("Stats", systemImage: "chart.line.uptrend.xyaxis") }
+                        .tag(3)
                 }
                 .tint(FG.ember)
                 if let store = state.activeStore, !state.showWorkout {
