@@ -178,6 +178,71 @@ struct SyncWorkout: Codable {
     var exercises: [SyncExercise]
 }
 
+// MARK: - program preview
+
+struct PreviewSession: Codable, Identifiable {
+    var id: Int { offset }
+    let offset: Int
+    let week: Int
+    let cycle_number: Int
+    let exercise_id: Int
+    let exercise_name: String
+    let training_max: Double
+    let sets: [PrescribedSet]
+    let beat_reps: Int?
+    let routine_name: String?
+    let accessories: [PreviewAccessory]?
+}
+
+struct PreviewAccessory: Codable {
+    let name: String
+    let set_count: Int
+    let rep_min: Int?
+    let rep_max: Int?
+}
+
+// MARK: - stats
+
+struct StatsTotals: Codable {
+    let workouts: Int
+    let volume: Double
+    let sets: Int
+    let prs: Int
+    let since: String?
+}
+
+struct StatsWeek: Codable, Identifiable {
+    var id: String { week_start }
+    let week_start: String
+    let volume: Double
+    let workouts: Int
+}
+
+struct StatsResponse: Codable {
+    let totals: StatsTotals
+    let streak_weeks: Int
+    let weeks: [StatsWeek]
+}
+
+struct RecordBestWeight: Codable {
+    let weight: Double
+    let reps: Int
+}
+
+struct RecordBest1RM: Codable {
+    let value: Double
+}
+
+struct RecordEntry: Codable, Identifiable {
+    var id: Int { exercise_id }
+    let exercise_id: Int
+    let name: String
+    let muscle_group: String?
+    let best_weight: RecordBestWeight?
+    let best_1rm: RecordBest1RM?
+    let sessions: Int
+}
+
 // MARK: - client
 
 enum APIError: LocalizedError {
@@ -249,5 +314,17 @@ struct ForgeAPI {
     static func sync(_ doc: SyncWorkout) async throws {
         let body = try JSONEncoder().encode(doc)
         _ = try await request("/api/workouts/sync", method: "PUT", body: body)
+    }
+
+    static func programPreview(id: Int) async throws -> [PreviewSession] {
+        try JSONDecoder().decode([PreviewSession].self, from: await request("/api/programs/\(id)/preview"))
+    }
+
+    static func stats() async throws -> StatsResponse {
+        try JSONDecoder().decode(StatsResponse.self, from: await request("/api/stats"))
+    }
+
+    static func records() async throws -> [RecordEntry] {
+        try JSONDecoder().decode([RecordEntry].self, from: await request("/api/stats/records"))
     }
 }

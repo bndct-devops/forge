@@ -23,15 +23,109 @@ enum FG {
     static let destructive = Color(red: 1.0, green: 0.396, blue: 0.341)  // #ff6557
 }
 
+/// Workout session state, shared app-wide so the active workout and its
+/// resume bar overlay every tab.
+@MainActor
+final class AppState: ObservableObject {
+    @Published var activeStore: WorkoutStore?
+    @Published var showWorkout = false
+    @Published var startError: String?
+
+    var hasActive: Bool { activeStore != nil }
+
+    func start(routine: Routine?) {
+        activeStore = WorkoutStore(routine: routine)
+        showWorkout = true
+    }
+
+    func startProgram(id: Int) async {
+        startError = nil
+        do {
+            let server = try await ForgeAPI.startProgramWorkout(programId: id)
+            activeStore = WorkoutStore(server: server)
+            showWorkout = true
+        } catch {
+            startError = error.localizedDescription
+        }
+    }
+
+    func end() {
+        showWorkout = false
+        activeStore = nil
+    }
+}
+
 struct RootView: View {
     @AppStorage("forge_base_url") private var baseURL = ""
     @AppStorage("forge_token") private var token = ""
+    @StateObject private var state = AppState()
 
     var body: some View {
         if baseURL.isEmpty || token.isEmpty {
             PairingView()
         } else {
-            HomeView()
+            ZStack {
+                TabView {
+                    HomeView()
+                        .tabItem { Label("Workout", systemImage: "dumbbell.fill") }
+                    ExercisesView()
+                        .tabItem { Label("Exercises", systemImage: "figure.strengthtraining.traditional") }
+                    StatsView()
+                        .tabItem { Label("Stats", systemImage: "chart.line.uptrend.xyaxis") }
+                }
+                .tint(FG.ember)
+                if let store = state.activeStore, !state.showWorkout {
+                    ResumeBar(store: store) { state.showWorkout = true }
+                }
+            }
+            .environmentObject(state)
+            .preferredColorScheme(.dark)
+            .fullScreenCover(isPresented: $state.showWorkout) {
+                if let store = state.activeStore {
+                    ActiveWorkoutView(
+                        store: store,
+                        onMinimize: { state.showWorkout = false },
+                        onEnd: { state.end() }
+                    )
+                }
+            }
+        }
+    }
+}
+
+struct ResumeBar: View {
+    @ObservedObject var store: WorkoutStore
+    let onResume: () -> Void
+
+    var body: some View {
+        VStack {
+            Spacer()
+            Button(action: onResume) {
+                HStack(spacing: 12) {
+                    Image(systemName: "dumbbell.fill").font(.system(size: 14)).foregroundStyle(FG.ember)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(store.name).font(.system(size: 14, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
+                        HStack(spacing: 4) {
+                            Text(store.startedAt, style: .timer)
+                            Text("· \(store.doneSets) \(store.doneSets == 1 ? "set" : "sets")")
+                        }
+                        .font(.system(size: 11).monospacedDigit())
+                        .foregroundStyle(FG.muted)
+                    }
+                    Spacer()
+                    Text("Resume")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(FG.ember)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(RoundedRectangle(cornerRadius: 16).fill(FG.card))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(FG.border, lineWidth: 1))
+                .shadow(color: .black.opacity(0.4), radius: 16, y: 6)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 60)
         }
     }
 }
