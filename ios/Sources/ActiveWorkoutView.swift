@@ -90,7 +90,7 @@ struct ActiveWorkoutView: View {
                 Text(store.name).font(.system(size: 16, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
                 HStack(spacing: 6) {
                     Text(store.startedAt, style: .timer)
-                    Text("· \(store.doneSets) sets · \(trim(store.volume)) kg")
+                    Text("· \(store.doneSets) \(store.doneSets == 1 ? "set" : "sets") · \(trim(store.volume)) kg")
                 }
                 .font(.system(size: 12).monospacedDigit())
                 .foregroundStyle(FG.muted)
@@ -156,7 +156,34 @@ struct ActiveWorkoutView: View {
                     Image(systemName: "ellipsis").font(.system(size: 13)).foregroundStyle(FG.muted).padding(6)
                 }
             }
-            .padding(.bottom, 10)
+            if let sw = ex.suggestedWeight {
+                if ex.suggestionKind == "deload" {
+                    HStack(spacing: 5) {
+                        Image(systemName: "arrow.down.right").font(.system(size: 11, weight: .semibold))
+                        Text("Deload: \(trim(sw)) kg suggested after 3 stalled sessions")
+                    }
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(FG.gold)
+                    .padding(.bottom, 6)
+                } else {
+                    HStack(spacing: 5) {
+                        Image(systemName: "arrow.up.right").font(.system(size: 11, weight: .semibold))
+                        Text("Progression: \(trim(sw)) kg suggested\(ex.repMin != nil && ex.repMax != nil ? " · target \(ex.repMin!)–\(ex.repMax!) reps" : "")")
+                    }
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(FG.ember)
+                    .padding(.bottom, 6)
+                }
+            }
+            if let amrap = ex.amrapHint {
+                HStack(spacing: 5) {
+                    Image(systemName: "trophy.fill").font(.system(size: 11)).foregroundStyle(FG.gold)
+                    (Text("\(trim(amrap.weight)) kg × \(amrap.beatReps)+ ").foregroundColor(.white).fontWeight(.medium)
+                        + Text("on the top set beats your best").foregroundColor(FG.muted))
+                }
+                .font(.system(size: 12))
+                .padding(.bottom, 6)
+            }
 
             HStack(spacing: 8) {
                 Text("SET").frame(width: 26, alignment: .leading)
@@ -212,7 +239,9 @@ struct ActiveWorkoutView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             valueField(
-                id: "\(exIdx)-\(setIdx)-w", width: 58, placeholder: "kg", keyboard: .decimalPad,
+                id: "\(exIdx)-\(setIdx)-w", width: 58,
+                placeholder: store.exercises[exIdx].suggestedWeight.map(trim) ?? "kg",
+                keyboard: .decimalPad,
                 get: { store.exercises[exIdx].sets[setIdx].weight.map(trim) ?? "" },
                 set: { txt in
                     store.exercises[exIdx].sets[setIdx].weight =
@@ -222,7 +251,8 @@ struct ActiveWorkoutView: View {
 
             valueField(
                 id: "\(exIdx)-\(setIdx)-r", width: 48,
-                placeholder: set.amrap ? "\(set.reps ?? 0)+" : "reps", keyboard: .numberPad,
+                placeholder: store.exercises[exIdx].repMin.map(String.init) ?? "reps",
+                keyboard: .numberPad,
                 get: { store.exercises[exIdx].sets[setIdx].reps.map(String.init) ?? "" },
                 set: { txt in store.exercises[exIdx].sets[setIdx].reps = Int(txt) }
             )
@@ -257,14 +287,19 @@ struct ActiveWorkoutView: View {
             } label: {
                 Image(systemName: "checkmark")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(set.done ? .black.opacity(0.8) : FG.muted.opacity(0.6))
+                    .foregroundStyle(set.done ? .white : FG.muted.opacity(0.6))
                     .frame(width: 38, height: 38)
-                    .background(RoundedRectangle(cornerRadius: 9).fill(set.done ? FG.ember : .clear))
-                    .overlay(RoundedRectangle(cornerRadius: 9).stroke(set.done ? FG.ember : FG.border, lineWidth: 1))
+                    .background(RoundedRectangle(cornerRadius: 9).fill(set.done ? FG.success : FG.secondary))
+                    .overlay(RoundedRectangle(cornerRadius: 9).stroke(set.done ? FG.success : FG.border, lineWidth: 1))
+                    .opacity(!set.done && set.reps == nil ? 0.4 : 1)
             }
             .buttonStyle(.plain)
         }
         .padding(.vertical, 7)
+        .padding(.horizontal, 6)
+        .background(RoundedRectangle(cornerRadius: 8).fill(set.done ? FG.ember.opacity(0.14) : .clear))
+        .padding(.horizontal, -6)
+        .animation(.easeOut(duration: 0.25), value: set.done)
     }
 
     private func valueField(id: String, width: CGFloat, placeholder: String, keyboard: UIKeyboardType,
@@ -348,13 +383,41 @@ struct ActiveWorkoutView: View {
                     Text("rest · \(rest.exercise)").font(.system(size: 11)).foregroundStyle(FG.muted).lineLimit(1)
                 }
                 Spacer()
-                Button("+30s") { rest.extend(by: 30) }
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(FG.ember)
+                Button {
+                    rest.adjust(by: -15)
+                } label: {
+                    HStack(spacing: 2) {
+                        Image(systemName: "minus").font(.system(size: 10, weight: .bold))
+                        Text("15")
+                    }
+                    .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10).padding(.vertical, 8)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(FG.secondary))
+                }
+                Button {
+                    rest.adjust(by: 15)
+                } label: {
+                    HStack(spacing: 2) {
+                        Image(systemName: "plus").font(.system(size: 10, weight: .bold))
+                        Text("15")
+                    }
+                    .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10).padding(.vertical, 8)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(FG.secondary))
+                }
                 Button {
                     rest.stop()
                 } label: {
-                    Image(systemName: "forward.fill").font(.system(size: 14)).foregroundStyle(FG.muted)
+                    HStack(spacing: 4) {
+                        Image(systemName: "forward.fill").font(.system(size: 11))
+                        Text("Skip")
+                    }
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.black.opacity(0.8))
+                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(FG.ember))
                 }
             }
             .padding(.horizontal, 16)

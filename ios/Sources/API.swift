@@ -75,6 +75,8 @@ struct Program: Codable, Identifiable {
     let name: String
     let scheme_name: String
     let current_week: Int
+    let cycle_number: Int?
+    let cycle_length: Int?
     let next: ProgramNext?
 }
 
@@ -101,6 +103,13 @@ struct ServerWorkout: Codable {
     let program_lift_id: Int?
     let exercises: [ServerExercise]
     let program: ProgramStartInfo?
+    let amrap_target: AmrapTarget?
+}
+
+struct AmrapTarget: Codable {
+    let we_id: Int
+    let weight: Double
+    let beat_reps: Int
 }
 
 struct ProgramStartInfo: Codable {
@@ -109,6 +118,7 @@ struct ProgramStartInfo: Codable {
 }
 
 struct ServerExercise: Codable {
+    let id: Int
     let exercise_id: Int
     let name: String
     let muscle_group: String?
@@ -116,6 +126,8 @@ struct ServerExercise: Codable {
     let superset_with_next: Bool?
     let rep_min: Int?
     let rep_max: Int?
+    let suggested_weight: Double?
+    let suggestion_kind: String?
     let previous_sets: [RecentSet]?
     let sets: [ServerSet]
 }

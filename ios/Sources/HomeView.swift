@@ -20,13 +20,11 @@ struct HomeView: View {
         ZStack {
             FG.background.ignoresSafeArea()
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack(spacing: 10) {
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(FG.ember)
-                            .frame(width: 34, height: 34)
-                            .overlay(Image(systemName: "dumbbell.fill").font(.system(size: 15)).foregroundStyle(.black.opacity(0.8)))
-                        Text("Forge").font(.system(size: 21, weight: .semibold)).foregroundStyle(.white)
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        Text("Workout")
+                            .font(.system(size: 32, weight: .bold))
+                            .foregroundStyle(.white)
                         Spacer()
                         Menu {
                             Button("Unpair", role: .destructive) {
@@ -34,108 +32,123 @@ struct HomeView: View {
                                 storedToken = ""
                             }
                         } label: {
-                            Image(systemName: "gearshape").foregroundStyle(FG.muted).padding(6)
+                            Image(systemName: "gearshape").font(.system(size: 17)).foregroundStyle(FG.muted).padding(6)
                         }
                     }
-                    .padding(.top, 6)
-
-                    if loading {
-                        ProgressView().tint(FG.ember).frame(maxWidth: .infinity).padding(.vertical, 30)
-                    } else if let error {
-                        Text(error).font(.system(size: 13)).foregroundStyle(.red)
-                    }
-
-                    if !programs.isEmpty {
-                        Text("PROGRAMS")
-                            .font(.system(size: 11, weight: .semibold))
-                            .tracking(0.6)
-                            .foregroundStyle(FG.muted)
-                            .padding(.top, 10)
-
-                        ForEach(programs) { p in
-                            Button {
-                                Task { await startProgram(p) }
-                            } label: {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    HStack {
-                                        Text(p.name).font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)
-                                        Text("W\(p.next?.week ?? p.current_week)")
-                                            .font(.system(size: 10, weight: .semibold))
-                                            .foregroundStyle(FG.ember)
-                                            .padding(.horizontal, 6).padding(.vertical, 2)
-                                            .background(Capsule().fill(FG.emberSoft))
-                                        Spacer()
-                                        if startingProgram {
-                                            ProgressView().tint(FG.ember)
-                                        } else {
-                                            Image(systemName: "play.fill").font(.system(size: 13)).foregroundStyle(FG.ember)
-                                        }
-                                    }
-                                    if let next = p.next {
-                                        Text("next: \(next.exercise_name)")
-                                            .font(.system(size: 13, weight: .medium))
-                                            .foregroundStyle(.white.opacity(0.9))
-                                        Text(next.sets.map { "\(trim($0.weight))×\($0.reps)\($0.amrap ? "+" : "")" }.joined(separator: " · "))
-                                            .font(.system(size: 12).monospacedDigit())
-                                            .foregroundStyle(FG.muted)
-                                    }
-                                }
-                                .padding(14)
-                                .background(RoundedRectangle(cornerRadius: 14).fill(FG.card))
-                                .overlay(RoundedRectangle(cornerRadius: 14).stroke(FG.border, lineWidth: 1))
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(startingProgram || activeStore != nil)
-                        }
-                    }
-
-                    Text("ROUTINES")
-                        .font(.system(size: 11, weight: .semibold))
-                        .tracking(0.6)
-                        .foregroundStyle(FG.muted)
-                        .padding(.top, 10)
-
-                    ForEach(routines) { r in
-                        Button {
-                            start(r)
-                        } label: {
-                            VStack(alignment: .leading, spacing: 6) {
-                                HStack {
-                                    Text(r.name).font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)
-                                    Spacer()
-                                    Image(systemName: "play.fill").font(.system(size: 13)).foregroundStyle(FG.ember)
-                                }
-                                Text(r.exercises.map(\.name).joined(separator: " · "))
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(FG.muted)
-                                    .lineLimit(2)
-                            }
-                            .padding(14)
-                            .background(RoundedRectangle(cornerRadius: 14).fill(FG.card))
-                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(FG.border, lineWidth: 1))
-                        }
-                        .buttonStyle(.plain)
-                    }
+                    .padding(.top, 8)
 
                     Button {
                         start(nil)
                     } label: {
-                        HStack {
-                            Image(systemName: "plus")
-                            Text("Empty workout")
+                        HStack(spacing: 8) {
+                            Image(systemName: "play.fill").font(.system(size: 15))
+                            Text("Start empty workout").font(.system(size: 17, weight: .semibold))
                         }
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(FG.muted)
+                        .foregroundStyle(.black.opacity(0.85))
                         .frame(maxWidth: .infinity)
-                        .frame(height: 46)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14)
-                                .stroke(FG.border, style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
-                        )
+                        .frame(height: 56)
+                        .background(RoundedRectangle(cornerRadius: 16).fill(FG.ember))
                     }
                     .buttonStyle(.plain)
+                    .padding(.top, 16)
+                    .disabled(activeStore != nil)
+
+                    if loading {
+                        ProgressView().tint(FG.ember).frame(maxWidth: .infinity).padding(.vertical, 40)
+                    } else if let error {
+                        Text(error).font(.system(size: 13)).foregroundStyle(FG.destructive).padding(.top, 16)
+                    }
+
+                    if !routines.isEmpty {
+                        Text("Templates")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.top, 28)
+
+                        ForEach(routines) { r in
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text(r.name)
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                Text(r.exercises.map { "\($0.set_count) × \($0.name)" }.joined(separator: ", "))
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(FG.muted)
+                                    .lineLimit(2)
+                                Button {
+                                    start(r)
+                                } label: {
+                                    Text("Start workout")
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundStyle(FG.ember)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 44)
+                                        .background(RoundedRectangle(cornerRadius: 12).fill(FG.emberSoft))
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(activeStore != nil)
+                            }
+                            .padding(16)
+                            .background(RoundedRectangle(cornerRadius: 16).fill(FG.card))
+                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(FG.border, lineWidth: 1))
+                            .padding(.top, 12)
+                        }
+                    }
+
+                    if !programs.isEmpty {
+                        Text("Programs")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.top, 28)
+
+                        ForEach(programs) { p in
+                            VStack(alignment: .leading, spacing: 10) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(p.name)
+                                        .font(.system(size: 17, weight: .semibold))
+                                        .foregroundStyle(.white)
+                                    Text("\(p.scheme_name) · Cycle \(p.cycle_number ?? 1) · Week \(p.current_week)/\(p.cycle_length ?? 4)")
+                                        .font(.system(size: 13))
+                                        .foregroundStyle(FG.muted)
+                                }
+                                if let next = p.next {
+                                    Button {
+                                        Task { await startProgram(p) }
+                                    } label: {
+                                        HStack(spacing: 10) {
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text("Next · \(next.exercise_name)")
+                                                    .font(.system(size: 13))
+                                                    .foregroundStyle(FG.muted)
+                                                Text(next.sets.map { "\(trim($0.weight))×\($0.reps)\($0.amrap ? "+" : "")" }.joined(separator: " · ") + " kg")
+                                                    .font(.system(size: 16, weight: .semibold).monospacedDigit())
+                                                    .foregroundStyle(.white)
+                                            }
+                                            Spacer()
+                                            if startingProgram {
+                                                ProgressView().tint(FG.ember)
+                                            } else {
+                                                Image(systemName: "chevron.right")
+                                                    .font(.system(size: 13, weight: .semibold))
+                                                    .foregroundStyle(FG.muted)
+                                            }
+                                        }
+                                        .padding(14)
+                                        .background(RoundedRectangle(cornerRadius: 12).fill(FG.secondary.opacity(0.7)))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .disabled(startingProgram || activeStore != nil)
+                                }
+                            }
+                            .padding(16)
+                            .background(RoundedRectangle(cornerRadius: 16).fill(FG.card))
+                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(FG.border, lineWidth: 1))
+                            .padding(.top, 12)
+                        }
+                    }
+
+                    Color.clear.frame(height: 90)
                 }
-                .padding(18)
+                .padding(.horizontal, 18)
             }
             if let store = activeStore, !showWorkout {
                 resumeBar(store)
@@ -152,6 +165,7 @@ struct HomeView: View {
                     onEnd: {
                         showWorkout = false
                         activeStore = nil
+                        Task { await load() }
                     }
                 )
             }
@@ -170,7 +184,7 @@ struct HomeView: View {
                         Text(store.name).font(.system(size: 14, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
                         HStack(spacing: 4) {
                             Text(store.startedAt, style: .timer)
-                            Text("· \(store.doneSets) sets")
+                            Text("· \(store.doneSets) \(store.doneSets == 1 ? "set" : "sets")")
                         }
                         .font(.system(size: 11).monospacedDigit())
                         .foregroundStyle(FG.muted)

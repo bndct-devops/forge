@@ -25,6 +25,9 @@ struct DraftExercise: Identifiable {
     var repMin: Int?
     var repMax: Int?
     var supersetWithNext = false
+    var suggestedWeight: Double?
+    var suggestionKind: String?
+    var amrapHint: (weight: Double, beatReps: Int)?
     var sets: [DraftSet]
 }
 
@@ -61,9 +64,10 @@ final class WorkoutStore: ObservableObject {
             var sets: [DraftSet] = []
             for i in 0..<max(1, re.set_count) {
                 let ps = i < prevSets.count ? prevSets[i] : nil
+                // values only from real history; targets stay ghost placeholders
                 sets.append(DraftSet(
                     weight: ps?.weight,
-                    reps: ps?.reps ?? re.rep_min,
+                    reps: ps?.reps,
                     previous: ps.map { "\(trim($0.weight ?? 0)) kg × \($0.reps)" }
                 ))
             }
@@ -95,11 +99,10 @@ final class WorkoutStore: ObservableObject {
             let prescribed = exIdx == 0 ? (server.program?.sets ?? []) : []
             var sets: [DraftSet] = []
             for (i, s) in se.sets.enumerated() {
-                let p = i < prescribed.count ? prescribed[i] : nil
+                // PREVIOUS column shows real history; the prescription lives
+                // in the prefilled values (PWA semantics).
                 let prevText: String?
-                if let p {
-                    prevText = "\(trim(p.weight)) × \(p.reps)\(p.amrap ? "+" : "")"
-                } else if let ps = se.previous_sets, i < ps.count {
+                if let ps = se.previous_sets, i < ps.count {
                     prevText = "\(trim(ps[i].weight ?? 0)) kg × \(ps[i].reps)"
                 } else {
                     prevText = nil
@@ -108,12 +111,15 @@ final class WorkoutStore: ObservableObject {
                     weight: s.weight,
                     reps: s.reps,
                     warmup: s.is_warmup ?? false,
-                    amrap: p?.amrap ?? false,
+                    amrap: i < prescribed.count ? prescribed[i].amrap : false,
                     previous: prevText
                 ))
             }
             if sets.isEmpty {
                 sets = [DraftSet()]
+            }
+            let amrap = server.amrap_target.flatMap { t in
+                t.we_id == se.id ? (weight: t.weight, beatReps: t.beat_reps) : nil
             }
             out.append(DraftExercise(
                 exerciseId: se.exercise_id,
@@ -124,6 +130,9 @@ final class WorkoutStore: ObservableObject {
                 repMin: se.rep_min,
                 repMax: se.rep_max,
                 supersetWithNext: se.superset_with_next ?? false,
+                suggestedWeight: se.suggested_weight,
+                suggestionKind: se.suggestion_kind,
+                amrapHint: amrap,
                 sets: sets
             ))
         }
@@ -229,9 +238,14 @@ final class RestTimer: ObservableObject {
         }
     }
 
-    func extend(by seconds: Int) {
+    func adjust(by seconds: Int) {
         guard let end = endDate else { return }
-        endDate = end.addingTimeInterval(TimeInterval(seconds))
+        let newEnd = end.addingTimeInterval(TimeInterval(seconds))
+        if newEnd <= Date() {
+            stop()
+            return
+        }
+        endDate = newEnd
         if let activity, let endDate {
             let state = RestActivityAttributes.ContentState(endDate: endDate, exercise: exercise, nextSet: 0)
             Task { await activity.update(ActivityContent(state: state, staleDate: nil)) }
