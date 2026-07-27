@@ -14,6 +14,8 @@ struct ExerciseDetailView: View {
     @State private var noteText = ""
     @State private var noteFocusedOnce = false
     @State private var chartSelection: Date?
+    @State private var editing = false
+    @Environment(\.dismiss) private var dismiss
     @FocusState private var noteFocused: Bool
 
     init(exerciseId: Int, name: String) {
@@ -45,6 +47,33 @@ struct ExerciseDetailView: View {
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if stats?.exercise.is_custom == true {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        editing = true
+                    } label: {
+                        Image(systemName: "pencil").foregroundStyle(FG.muted)
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $editing) {
+            ExerciseFormView(
+                title: "Edit exercise", submitLabel: "Save",
+                initial: stats?.exercise,
+                onSubmit: { name, group, equipment, grip in
+                    _ = try await ForgeAPI.updateExercise(
+                        id: exerciseId, name: name, muscleGroup: group,
+                        equipment: equipment, grip: grip)
+                    await load()
+                },
+                onDelete: {
+                    try await ForgeAPI.deleteExercise(id: exerciseId)
+                    dismiss()
+                }
+            )
+        }
         .preferredColorScheme(.dark)
         .task(id: "\(exerciseId)-\(includeFamily)") { await load() }
     }

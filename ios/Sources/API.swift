@@ -741,10 +741,12 @@ struct RecordEntry: Codable, Identifiable {
 enum APIError: LocalizedError {
     case badURL
     case http(Int)
+    case server(String)
     var errorDescription: String? {
         switch self {
         case .badURL: return "invalid base URL"
         case .http(let code): return code == 401 ? "unauthorized — check the token" : "server returned \(code)"
+        case .server(let detail): return detail
         }
     }
 }
@@ -768,7 +770,13 @@ struct ForgeAPI {
         }
         let (data, resp) = try await URLSession.shared.data(for: req)
         let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
-        guard (200..<300).contains(code) else { throw APIError.http(code) }
+        guard (200..<300).contains(code) else {
+            if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let detail = obj["detail"] as? String {
+                throw APIError.server(detail)
+            }
+            throw APIError.http(code)
+        }
         return data
     }
 
@@ -782,6 +790,30 @@ struct ForgeAPI {
 
     static func exercises() async throws -> [LibraryExercise] {
         try JSONDecoder().decode([LibraryExercise].self, from: await request("/api/exercises"))
+    }
+
+    static func createExercise(name: String, muscleGroup: String, equipment: String,
+                               grip: String?) async throws -> LibraryExercise {
+        let body = try JSONSerialization.data(withJSONObject: [
+            "name": name, "muscle_group": muscleGroup, "equipment": equipment,
+            "grip": grip as Any,
+        ])
+        return try JSONDecoder().decode(LibraryExercise.self,
+                                        from: await request("/api/exercises", method: "POST", body: body))
+    }
+
+    static func updateExercise(id: Int, name: String, muscleGroup: String, equipment: String,
+                               grip: String?) async throws -> LibraryExercise {
+        let body = try JSONSerialization.data(withJSONObject: [
+            "name": name, "muscle_group": muscleGroup, "equipment": equipment,
+            "grip": grip as Any,
+        ])
+        return try JSONDecoder().decode(LibraryExercise.self,
+                                        from: await request("/api/exercises/\(id)", method: "PATCH", body: body))
+    }
+
+    static func deleteExercise(id: Int) async throws {
+        _ = try await request("/api/exercises/\(id)", method: "DELETE")
     }
 
     static func recent(exerciseId: Int) async throws -> [RecentWorkout] {

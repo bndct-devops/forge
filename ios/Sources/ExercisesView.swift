@@ -4,6 +4,7 @@ struct ExercisesView: View {
     @State private var all: [LibraryExercise] = []
     @State private var query = ""
     @State private var loading = true
+    @State private var creating = false
     @State private var path = NavigationPath()
 
     private struct ExerciseRef: Hashable {
@@ -50,8 +51,25 @@ struct ExercisesView: View {
             }
             .navigationTitle("Exercises")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        creating = true
+                    } label: {
+                        Image(systemName: "plus").foregroundStyle(FG.ember)
+                    }
+                }
+            }
             .navigationDestination(for: ExerciseRef.self) { ref in
                 ExerciseDetailView(exerciseId: ref.id, name: ref.name)
+            }
+            .sheet(isPresented: $creating) {
+                ExerciseFormView(title: "New exercise", submitLabel: "Create") { name, group, equipment, grip in
+                    let created = try await ForgeAPI.createExercise(
+                        name: name, muscleGroup: group, equipment: equipment, grip: grip)
+                    all = (try? await ForgeAPI.exercises()) ?? all
+                    path.append(ExerciseRef(id: created.id, name: created.name))
+                }
             }
         }
         .preferredColorScheme(.dark)
