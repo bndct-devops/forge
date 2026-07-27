@@ -193,6 +193,9 @@ struct HomeView: View {
             if CommandLine.arguments.contains("-edit-template"), let first = routines.first {
                 editorTarget = EditorTarget(id: first.id)
             }
+            if CommandLine.arguments.contains("-program"), let first = programs.first {
+                previewProgram = first
+            }
         }
         .refreshable { await load() }
         .sheet(item: $previewProgram) { p in

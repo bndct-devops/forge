@@ -9,7 +9,7 @@ reference — screens are ported, not reinterpreted. Status: ✅ done · 🟡 pa
 | **WorkoutHomePage** | 🟡 | title/hero/programs-first/templates ✅ · template create/edit/delete via menu ✅ · Log-weight row ❌ · Plans ❌ · template drag-reorder ❌ |
 | **ActiveWorkoutPage** | 🟡 | table, prev column, ghosts, hints, trophy, types, RPE, rest bar, LA timer ✅ · plate calculator ✅ (per-side diagram, warm-up ramp, bar/plate config synced) · exercise reorder ✅ (move up/down) · per-exercise rest editing ✅ (tap the rest chip) · superset toggle with next ✅ (rest deferred to pair end) · set swipe-delete (menu instead) 🟡 · two-stage superset picker ❌ · swap exercise ✅ (keeps sets, refreshes ghosts) · add-warm-up-sets shortcut ✅ · exercise note editing in menu ✅ · chart/peek of recent sessions from menu ❌ |
 | — draft persistence | ✅ | draft snapshots to disk (debounced) and restores on launch; cleared on finish/discard |
-| **Program preview/detail** | 🟡 | cycle click-through + start ✅ · program editing (TMs, lifts, scheme) ❌ |
+| **Program preview/detail** | 🟡 | cycle click-through + start ✅ · program editing ✅ (name, rounding, TMs, increments, accessory routine, add/remove lifts via pencil) · program creation ❌ (PWA) |
 | **ExercisesPage** | 🟡 | grouped searchable list ✅ · create custom exercise ✅ (+ button, form sheet) · variant grouping under parents ❌ |
 | **ExerciseDetailPage** | ✅ | muscle map, variation chips (+family toggle), pinned note, record tiles incl. best-set-volume, 1RM/weight/volume chart with 3M/1Y/ALL, training %, history ✅ · custom-exercise edit/delete ✅ (pencil on custom exercises) · avg-RPE overlay on 1RM chart ❌ (needs dual axis) |
 | **HistoryPage** | ✅ | list + calendar views, load-more |

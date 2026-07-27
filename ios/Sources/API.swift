@@ -90,6 +90,7 @@ struct Program: Codable, Identifiable {
     let id: Int
     let name: String
     let scheme_name: String
+    let rounding: Double?
     let current_week: Int
     let cycle_number: Int?
     let cycle_length: Int?
@@ -97,8 +98,13 @@ struct Program: Codable, Identifiable {
     let next: ProgramNext?
 }
 
-struct ProgramLift: Codable {
+struct ProgramLift: Codable, Identifiable {
     let id: Int
+    let exercise_id: Int?
+    let name: String?
+    let training_max: Double?
+    let increment: Double?
+    let routine_id: Int?
     let routine_name: String?
 }
 
@@ -859,6 +865,15 @@ struct ForgeAPI {
 
     static func programs() async throws -> [Program] {
         try JSONDecoder().decode([Program].self, from: await request("/api/programs"))
+    }
+
+    static func patchProgram(id: Int, name: String, rounding: Double,
+                             lifts: [[String: Any?]]) async throws {
+        let body = try JSONSerialization.data(withJSONObject: [
+            "name": name, "rounding": rounding,
+            "lifts": lifts.map { $0.mapValues { $0 ?? NSNull() } },
+        ])
+        _ = try await request("/api/programs/\(id)", method: "PATCH", body: body)
     }
 
     static func startProgramWorkout(programId: Int) async throws -> ServerWorkout {

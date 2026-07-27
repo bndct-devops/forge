@@ -9,6 +9,7 @@ struct ProgramDetailView: View {
     @State private var sessions: [PreviewSession] = []
     @State private var loading = true
     @State private var starting = false
+    @State private var editing = false
 
     var body: some View {
         NavigationStack {
@@ -120,6 +121,13 @@ struct ProgramDetailView: View {
                 }
             }
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        editing = true
+                    } label: {
+                        Image(systemName: "pencil").font(.system(size: 14, weight: .semibold)).foregroundStyle(FG.muted)
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         dismiss()
@@ -129,10 +137,17 @@ struct ProgramDetailView: View {
                 }
             }
         }
+        .sheet(isPresented: $editing) {
+            ProgramEditorView(program: program) {
+                sessions = (try? await ForgeAPI.programPreview(id: program.id)) ?? sessions
+            }
+        }
         .preferredColorScheme(.dark)
         .task {
             sessions = (try? await ForgeAPI.programPreview(id: program.id)) ?? []
             loading = false
+            // debug hook: `-edit-program` opens the editor sheet
+            if CommandLine.arguments.contains("-edit-program") { editing = true }
         }
     }
 }
