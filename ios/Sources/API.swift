@@ -230,6 +230,7 @@ struct WorkoutFull: Codable {
 }
 
 struct WorkoutFullExercise: Codable {
+    let exercise_id: Int?
     let name: String
     let muscle_group: String?
     let sets: [WorkoutFullSet]

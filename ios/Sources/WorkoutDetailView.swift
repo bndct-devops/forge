@@ -45,10 +45,26 @@ struct WorkoutDetailView: View {
                         ForEach(Array(w.exercises.enumerated()), id: \.offset) { _, ex in
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack {
-                                    Text(ex.name)
-                                        .font(.system(size: 15, weight: .semibold))
-                                        .foregroundStyle(FG.ember)
-                                        .lineLimit(1)
+                                    if let exerciseId = ex.exercise_id {
+                                        NavigationLink {
+                                            ExerciseDetailView(exerciseId: exerciseId, name: ex.name)
+                                        } label: {
+                                            HStack(spacing: 4) {
+                                                Text(ex.name)
+                                                    .font(.system(size: 15, weight: .semibold))
+                                                    .lineLimit(1)
+                                                Image(systemName: "chevron.right")
+                                                    .font(.system(size: 10, weight: .semibold))
+                                            }
+                                            .foregroundStyle(FG.ember)
+                                        }
+                                        .buttonStyle(.plain)
+                                    } else {
+                                        Text(ex.name)
+                                            .font(.system(size: 15, weight: .semibold))
+                                            .foregroundStyle(FG.ember)
+                                            .lineLimit(1)
+                                    }
                                     Spacer()
                                     if let mg = ex.muscle_group {
                                         Text(mg)
