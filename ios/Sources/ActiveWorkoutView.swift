@@ -20,6 +20,7 @@ struct ActiveWorkoutView: View {
     @State private var flashedSetId: UUID?
     @State private var donePopped = false
     @State private var queuedOffline = false
+    @State private var finishSummary: FinishSummary?
     @State private var confirmDiscard = false
     @State private var finishing = false
     @State private var finished = false
@@ -43,7 +44,8 @@ struct ActiveWorkoutView: View {
                     ProgressView().tint(FG.ember)
                     Spacer()
                 } else if finished {
-                    doneView
+                    FinishSummaryView(store: store, summary: finishSummary,
+                                      queuedOffline: queuedOffline, onDone: onEnd)
                 } else {
                     ScrollView {
                         VStack(spacing: 12) {
@@ -125,6 +127,28 @@ struct ActiveWorkoutView: View {
             if CommandLine.arguments.contains("-plates") {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
                     plateExerciseIdx = PlateTarget(idx: 0)
+                }
+            }
+            // debug hook: `-preview-finish` shows the summary with mock data
+            if CommandLine.arguments.contains("-preview-finish") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                    for i in store.exercises.indices {
+                        for j in store.exercises[i].sets.indices {
+                            store.exercises[i].sets[j].done = true
+                        }
+                    }
+                    finishSummary = FinishSummary(
+                        id: 99, name: store.name, duration_seconds: 4244,
+                        total_volume: 7505, total_sets: 16,
+                        prs: [FinishPR(exercise_name: "Plate-Loaded Shoulder Press", kind: "weight",
+                                       value: 65, reps: 7),
+                              FinishPR(exercise_name: "Plate-Loaded Lat Pulldown (Neutral)", kind: "weight",
+                                       value: 75, reps: 8)],
+                        workout_number: 8, week_workouts: 1,
+                        comparison: FinishComparison(prev_volume: 6900, prev_sets: 14,
+                                                     prev_date: "2026-07-25T20:28:00")
+                    )
+                    finished = true
                 }
             }
         }
@@ -635,7 +659,7 @@ struct ActiveWorkoutView: View {
         postError = nil
         let doc = store.buildSync(finished: true)
         do {
-            try await ForgeAPI.sync(doc)
+            finishSummary = try await ForgeAPI.sync(doc)
             rest.stop()
             WorkoutStore.clearPersisted()
             UINotificationFeedbackGenerator().notificationOccurred(.success)

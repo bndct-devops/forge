@@ -201,6 +201,38 @@ struct SyncWorkout: Codable {
     var exercises: [SyncExercise]
 }
 
+// MARK: - finish summary (sync response)
+
+struct FinishPR: Codable, Identifiable {
+    var id: String { "\(exercise_name ?? "")-\(kind ?? "")-\(value ?? 0)-\(reps ?? 0)" }
+    let exercise_name: String?
+    let kind: String?      // "weight" | "reps"
+    let value: Double?
+    let reps: Int?
+}
+
+struct FinishComparison: Codable {
+    let prev_volume: Double?
+    let prev_sets: Int?
+    let prev_date: String?
+}
+
+struct FinishSummary: Codable {
+    let id: Int?
+    let name: String?
+    let duration_seconds: Int?
+    let total_volume: Double?
+    let total_sets: Int?
+    let prs: [FinishPR]?
+    let workout_number: Int?
+    let week_workouts: Int?
+    let comparison: FinishComparison?
+}
+
+struct SyncResponse: Codable {
+    let finish: FinishSummary?
+}
+
 // MARK: - program preview
 
 struct PreviewSession: Codable, Identifiable {
@@ -898,9 +930,11 @@ struct ForgeAPI {
         _ = try await request("/api/workouts/\(id)", method: "DELETE")
     }
 
-    static func sync(_ doc: SyncWorkout) async throws {
+    @discardableResult
+    static func sync(_ doc: SyncWorkout) async throws -> FinishSummary? {
         let body = try JSONEncoder().encode(doc)
-        _ = try await request("/api/workouts/sync", method: "PUT", body: body)
+        let data = try await request("/api/workouts/sync", method: "PUT", body: body)
+        return (try? JSONDecoder().decode(SyncResponse.self, from: data))?.finish
     }
 
     static func workouts(limit: Int = 20, offset: Int = 0) async throws -> [WorkoutListItem] {
