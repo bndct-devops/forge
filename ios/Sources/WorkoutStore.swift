@@ -249,6 +249,62 @@ final class WorkoutStore: ObservableObject {
         exercises[index].supersetWithNext.toggle()
     }
 
+    /// Replace the exercise identity, keeping the logged sets (PWA swap
+    /// semantics); the PREVIOUS ghosts refresh from the new lift's history.
+    func swapExercise(at index: Int, with ex: LibraryExercise) {
+        guard exercises.indices.contains(index) else { return }
+        exercises[index].exerciseId = ex.id
+        exercises[index].name = ex.name
+        exercises[index].muscleGroup = ex.muscle_group
+        exercises[index].suggestedWeight = nil
+        exercises[index].suggestionKind = nil
+        exercises[index].amrapHint = nil
+        exercises[index].note = nil
+        Task {
+            let prev = (try? await ForgeAPI.recent(exerciseId: ex.id))?.first?.sets ?? []
+            guard exercises.indices.contains(index), exercises[index].exerciseId == ex.id else { return }
+            for i in exercises[index].sets.indices {
+                let ps = i < prev.count ? prev[i] : nil
+                exercises[index].sets[i].previous = ps.map { "\(trim($0.weight ?? 0)) kg × \($0.reps)" }
+            }
+        }
+    }
+
+    /// The PWA's warm-up ramp: 40/60/80% of the heaviest weight in play,
+    /// snapped to 2.5 and deduped, inserted before the working sets.
+    func warmupRamp(at index: Int) -> [(weight: Double, reps: Int)] {
+        guard exercises.indices.contains(index) else { return [] }
+        let ex = exercises[index]
+        let filled = ex.sets.compactMap(\.weight).filter { $0 > 0 }
+        guard let target = filled.max() ?? ex.suggestedWeight, target > 0 else { return [] }
+        let step = 2.5
+        var seen = Set<Double>()
+        var out: [(Double, Int)] = []
+        for (pct, reps) in [(0.4, 10), (0.6, 6), (0.8, 3)] {
+            let w = max(step, ((target * pct) / step).rounded() * step)
+            if w < target, !seen.contains(w) {
+                seen.insert(w)
+                out.append((w, reps))
+            }
+        }
+        return out
+    }
+
+    func addWarmupSets(at index: Int) {
+        let ramp = warmupRamp(at: index)
+        guard !ramp.isEmpty, exercises.indices.contains(index) else { return }
+        let sets = ramp.map { DraftSet(weight: $0.weight, reps: $0.reps, warmup: true, done: false) }
+        exercises[index].sets.insert(contentsOf: sets, at: 0)
+    }
+
+    func setNote(at index: Int, text: String) {
+        guard exercises.indices.contains(index) else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        exercises[index].note = trimmed.isEmpty ? nil : trimmed
+        let id = exercises[index].exerciseId
+        Task { try? await ForgeAPI.putExerciseNote(id: id, text: trimmed) }
+    }
+
     func removeSet(exIdx: Int, setIdx: Int) {
         guard exercises[exIdx].sets.indices.contains(setIdx) else { return }
         exercises[exIdx].sets.remove(at: setIdx)

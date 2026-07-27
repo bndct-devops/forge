@@ -207,35 +207,9 @@ struct DeepTrendsSections: View {
                         legendDot(Self.seriesColors[i % Self.seriesColors.count], name)
                     }
                 }
-                chart(rows: rows, names: series.names)
+                MultiSeriesChart(rows: rows, names: series.names, suffix: suffix)
             }
         }
-    }
-
-    private func chart(rows: [(Date, String, Double)], names: [String]) -> some View {
-        Chart {
-            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                LineMark(x: .value("Week", row.0), y: .value("Value", row.2),
-                         series: .value("Lift", row.1))
-                    .foregroundStyle(by: .value("Lift", row.1))
-                    .lineStyle(StrokeStyle(lineWidth: 2))
-                PointMark(x: .value("Week", row.0), y: .value("Value", row.2))
-                    .foregroundStyle(by: .value("Lift", row.1))
-                    .symbolSize(22)
-            }
-        }
-        .chartForegroundStyleScale(domain: names,
-                                   range: Array(Self.seriesColors.prefix(max(1, names.count))))
-        .chartLegend(.hidden)
-        .chartYScale(domain: .automatic(includesZero: false))
-        .chartXAxis {
-            AxisMarks(values: .automatic(desiredCount: 4)) { _ in
-                AxisValueLabel(format: .dateTime.day().month(.abbreviated))
-                    .font(.system(size: 10)).foregroundStyle(FG.muted)
-            }
-        }
-        .chartYAxis { deepYAxis() }
-        .frame(height: 190)
     }
 
     // MARK: TM headroom
@@ -603,5 +577,86 @@ struct DeepTrendsSections: View {
     private func restClock(_ seconds: Double) -> String {
         let s = Int(seconds.rounded())
         return "\(s / 60):\(String(format: "%02d", s % 60))"
+    }
+}
+
+/// Multi-series line chart with its own selection tooltip (top lifts,
+/// relative strength).
+private struct MultiSeriesChart: View {
+    let rows: [(Date, String, Double)]
+    let names: [String]
+    let suffix: String
+    @State private var selection: Date?
+
+    var body: some View {
+        Chart {
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                LineMark(x: .value("Week", row.0), y: .value("Value", row.2),
+                         series: .value("Lift", row.1))
+                    .foregroundStyle(by: .value("Lift", row.1))
+                    .lineStyle(StrokeStyle(lineWidth: 2))
+                PointMark(x: .value("Week", row.0), y: .value("Value", row.2))
+                    .foregroundStyle(by: .value("Lift", row.1))
+                    .symbolSize(22)
+            }
+            if let sel = selection,
+               let near = rows.map(\.0).min(by: {
+                   abs($0.timeIntervalSince(sel)) < abs($1.timeIntervalSince(sel))
+               }) {
+                RuleMark(x: .value("Week", near))
+                    .foregroundStyle(FG.muted.opacity(0.5))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                    .annotation(position: .top, spacing: 6,
+                                overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
+                        tip(for: near)
+                    }
+            }
+        }
+        .chartXSelection(value: $selection)
+        .chartForegroundStyleScale(domain: names,
+                                   range: Array(DeepTrendsSections.seriesColors.prefix(max(1, names.count))))
+        .chartLegend(.hidden)
+        .chartYScale(domain: .automatic(includesZero: false))
+        .chartXAxis {
+            AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                AxisValueLabel(format: .dateTime.day().month(.abbreviated))
+                    .font(.system(size: 10)).foregroundStyle(FG.muted)
+            }
+        }
+        .chartYAxis {
+            AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { value in
+                AxisGridLine().foregroundStyle(FG.border.opacity(0.6))
+                AxisValueLabel {
+                    if let v = value.as(Double.self) {
+                        Text(v >= 1000 ? "\(Int((v / 1000).rounded()))k" : trim(v))
+                    }
+                }
+                .font(.system(size: 10).monospacedDigit())
+                .foregroundStyle(FG.muted)
+            }
+        }
+        .frame(height: 190)
+    }
+
+    private func tip(for week: Date) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Week of \(week.formatted(.dateTime.day().month(.abbreviated)))")
+                .font(.system(size: 10)).foregroundStyle(FG.muted)
+            ForEach(Array(names.enumerated()), id: \.element) { i, name in
+                if let v = rows.first(where: { $0.0 == week && $0.1 == name })?.2 {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(DeepTrendsSections.seriesColors[i % DeepTrendsSections.seriesColors.count])
+                            .frame(width: 6, height: 6)
+                        Text("\(trim(v))\(suffix)")
+                            .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                            .foregroundStyle(.white)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 9).padding(.vertical, 6)
+        .background(RoundedRectangle(cornerRadius: 9).fill(FG.secondary))
+        .overlay(RoundedRectangle(cornerRadius: 9).stroke(FG.border, lineWidth: 1))
     }
 }

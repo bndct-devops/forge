@@ -19,6 +19,7 @@ struct StatsView: View {
     }()
     @State private var showDebugMeasure = false
     @State private var expandedGroup: String?
+    @State private var volumeSelection: Date?
     @State private var loading = true
 
     var body: some View {
@@ -359,11 +360,28 @@ struct StatsView: View {
             return (d, w)
         }
         return chartCard("Weekly volume") {
-            Chart(weeks, id: \.1.id) { d, w in
-                BarMark(x: .value("Week", d, unit: .weekOfYear), y: .value("Volume", w.volume))
-                    .foregroundStyle(FG.ember)
-                    .cornerRadius(3)
+            Chart {
+                ForEach(weeks, id: \.1.id) { d, w in
+                    BarMark(x: .value("Week", d, unit: .weekOfYear), y: .value("Volume", w.volume))
+                        .foregroundStyle(FG.ember)
+                        .cornerRadius(3)
+                }
+                if let sel = volumeSelection,
+                   let near = weeks.min(by: {
+                       abs($0.0.timeIntervalSince(sel)) < abs($1.0.timeIntervalSince(sel))
+                   }) {
+                    RuleMark(x: .value("Week", near.0, unit: .weekOfYear))
+                        .foregroundStyle(FG.muted.opacity(0.5))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                        .annotation(position: .top, spacing: 6,
+                                    overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
+                            ChartTip(title: "Week of \(near.0.formatted(.dateTime.day().month(.abbreviated)))",
+                                     value: fmtVolume(near.1.volume),
+                                     secondary: "\(near.1.workouts) workout\(near.1.workouts == 1 ? "" : "s")")
+                        }
+                }
             }
+            .chartXSelection(value: $volumeSelection)
             .chartXAxis {
                 AxisMarks(values: .automatic(desiredCount: 4)) { _ in
                     AxisValueLabel(format: .dateTime.day().month(.abbreviated))

@@ -68,6 +68,7 @@ struct MeasureDetailView: View {
     @State private var adding = false
     @State private var value = ""
     @State private var when = Date()
+    @State private var chartSelection: Date?
 
     private var unit: String { measureUnit(kind) }
 
@@ -182,7 +183,22 @@ struct MeasureDetailView: View {
                                 .interpolationMethod(.monotone)
                         }
                     }
+                    if let sel = chartSelection,
+                       let near = rows.min(by: {
+                           abs($0.date.timeIntervalSince(sel)) < abs($1.date.timeIntervalSince(sel))
+                       }) {
+                        RuleMark(x: .value("Date", near.date))
+                            .foregroundStyle(FG.muted.opacity(0.5))
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                            .annotation(position: .top, spacing: 6,
+                                        overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
+                                ChartTip(title: near.date.formatted(.dateTime.day().month(.abbreviated)),
+                                         value: "\(trim(near.actual)) \(unit)",
+                                         secondary: near.trend.map { "trend \(trim($0)) \(unit)" })
+                            }
+                    }
                 }
+                .chartXSelection(value: $chartSelection)
                 .chartYScale(domain: .automatic(includesZero: false))
                 .chartXAxis {
                     AxisMarks(values: .automatic(desiredCount: 4)) { _ in

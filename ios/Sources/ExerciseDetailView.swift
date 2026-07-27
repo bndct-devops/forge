@@ -13,6 +13,7 @@ struct ExerciseDetailView: View {
     @State private var range = "all"
     @State private var noteText = ""
     @State private var noteFocusedOnce = false
+    @State private var chartSelection: Date?
     @FocusState private var noteFocused: Bool
 
     init(exerciseId: Int, name: String) {
@@ -325,7 +326,21 @@ struct ExerciseDetailView: View {
                     .foregroundStyle(FG.ember)
                     .symbolSize(28)
             }
+            if let sel = nearestPoint(data, to: chartSelection) {
+                RuleMark(x: .value("Date", sel.date))
+                    .foregroundStyle(FG.muted.opacity(0.5))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                    .annotation(position: .top, spacing: 6,
+                                overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
+                        ChartTip(title: sel.date.formatted(.dateTime.day().month(.abbreviated)),
+                                 value: metric == "best_reps" ? "\(Int(sel.value)) reps" : "\(trim(sel.value)) kg")
+                    }
+                PointMark(x: .value("Date", sel.date), y: .value(metricLabel, sel.value))
+                    .foregroundStyle(FG.ember)
+                    .symbolSize(70)
+            }
         }
+        .chartXSelection(value: $chartSelection)
         .chartYScale(domain: .automatic(includesZero: metric == "volume"))
         .chartXAxis {
             AxisMarks(values: .automatic(desiredCount: 4)) { _ in
@@ -343,6 +358,11 @@ struct ExerciseDetailView: View {
             }
         }
         .frame(height: 210)
+    }
+
+    private func nearestPoint(_ data: [ChartPoint], to date: Date?) -> ChartPoint? {
+        guard let date else { return nil }
+        return data.min { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) }
     }
 
     // MARK: training percentages
@@ -450,5 +470,30 @@ struct ExerciseDetailView: View {
                 metric = "best_reps"
             }
         }
+    }
+}
+
+/// Tooltip card shown on chart selection — the native stand-in for the PWA's
+/// hover tooltip.
+struct ChartTip: View {
+    let title: String
+    let value: String
+    var secondary: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(title).font(.system(size: 10)).foregroundStyle(FG.muted)
+            Text(value)
+                .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                .foregroundStyle(.white)
+            if let secondary {
+                Text(secondary)
+                    .font(.system(size: 10).monospacedDigit())
+                    .foregroundStyle(FG.muted)
+            }
+        }
+        .padding(.horizontal, 9).padding(.vertical, 6)
+        .background(RoundedRectangle(cornerRadius: 9).fill(FG.secondary))
+        .overlay(RoundedRectangle(cornerRadius: 9).stroke(FG.border, lineWidth: 1))
     }
 }

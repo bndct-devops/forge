@@ -13,6 +13,9 @@ struct ActiveWorkoutView: View {
 
     @State private var showPicker = false
     @State private var plateExerciseIdx: PlateTarget?
+    @State private var swapTargetIdx: PlateTarget?
+    @State private var noteTargetIdx: Int?
+    @State private var noteDraft = ""
     @State private var confirmDiscard = false
     @State private var finishing = false
     @State private var finished = false
@@ -76,6 +79,22 @@ struct ActiveWorkoutView: View {
         }
         .sheet(item: $plateExerciseIdx) { target in
             PlateCalculatorView(initialWeight: plateWeight(for: target.idx))
+        }
+        .fullScreenCover(item: $swapTargetIdx) { target in
+            ExercisePicker { store.swapExercise(at: target.idx, with: $0) }
+        }
+        .alert("Exercise note", isPresented: Binding(
+            get: { noteTargetIdx != nil },
+            set: { if !$0 { noteTargetIdx = nil } }
+        )) {
+            TextField("Seat height, cues, grip width", text: $noteDraft)
+            Button("Save") {
+                if let idx = noteTargetIdx { store.setNote(at: idx, text: noteDraft) }
+                noteTargetIdx = nil
+            }
+            Button("Cancel", role: .cancel) { noteTargetIdx = nil }
+        } message: {
+            Text("Pinned to this exercise everywhere.")
         }
         .onAppear {
             // debug hook: `-plates` opens the calculator on the first exercise
@@ -198,6 +217,25 @@ struct ActiveWorkoutView: View {
                             Label(ex.supersetWithNext ? "Remove superset with next" : "Superset with next exercise",
                                   systemImage: ex.supersetWithNext ? "personalhotspot.slash" : "link")
                         }
+                    }
+                    Button {
+                        swapTargetIdx = PlateTarget(idx: i)
+                    } label: {
+                        Label("Swap exercise", systemImage: "arrow.left.arrow.right")
+                    }
+                    if !store.warmupRamp(at: i).isEmpty {
+                        Button {
+                            withAnimation(.spring(duration: 0.3)) { store.addWarmupSets(at: i) }
+                        } label: {
+                            Label("Add warm-up sets", systemImage: "flame")
+                        }
+                    }
+                    Button {
+                        noteDraft = ex.note ?? ""
+                        noteTargetIdx = i
+                    } label: {
+                        Label(ex.note == nil ? "Add exercise note" : "Edit exercise note",
+                              systemImage: "note.text")
                     }
                     Button {
                         plateExerciseIdx = PlateTarget(idx: i)
