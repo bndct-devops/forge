@@ -439,7 +439,11 @@ struct ActiveWorkoutView: View {
 
             valueField(
                 id: "\(exIdx)-\(setIdx)-r", width: 48,
-                placeholder: store.exercises[exIdx].repMin.map(String.init) ?? "reps",
+                placeholder: {
+                    let ex = store.exercises[exIdx]
+                    if let lo = ex.repMin, let hi = ex.repMax { return "\(lo)–\(hi)" }
+                    return ex.repMin.map(String.init) ?? "reps"
+                }(),
                 keyboard: .numberPad,
                 get: { store.exercises[exIdx].sets[setIdx].reps.map(String.init) ?? "" },
                 set: { txt in store.exercises[exIdx].sets[setIdx].reps = Int(txt) }
