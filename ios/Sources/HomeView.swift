@@ -11,6 +11,14 @@ struct HomeView: View {
     @AppStorage("forge_paired") private var storedPaired = false
     @State private var showSettings = false
 
+    private struct EditorTarget: Identifiable {
+        let id: Int  // 0 = new
+        var routineId: Int? { id == 0 ? nil : id }
+    }
+
+    @State private var editorTarget: EditorTarget?
+    @State private var deleteTarget: Routine?
+
     var body: some View {
         ZStack {
             FG.background.ignoresSafeArea()
@@ -107,17 +115,48 @@ struct HomeView: View {
                         }
                     }
 
-                    if !routines.isEmpty {
+                    HStack {
                         Text("Templates")
                             .font(.system(size: 22, weight: .bold))
                             .foregroundStyle(.white)
-                            .padding(.top, 28)
+                        Spacer()
+                        Button {
+                            editorTarget = EditorTarget(id: 0)
+                        } label: {
+                            HStack(spacing: 3) {
+                                Image(systemName: "plus").font(.system(size: 12, weight: .semibold))
+                                Text("New").font(.system(size: 14, weight: .semibold))
+                            }
+                            .foregroundStyle(FG.ember)
+                        }
+                        .buttonStyle(Pressable())
+                    }
+                    .padding(.top, 28)
 
+                    if !routines.isEmpty {
                         ForEach(routines) { r in
                             VStack(alignment: .leading, spacing: 10) {
-                                Text(r.name)
-                                    .font(.system(size: 17, weight: .semibold))
-                                    .foregroundStyle(.white)
+                                HStack {
+                                    Text(r.name)
+                                        .font(.system(size: 17, weight: .semibold))
+                                        .foregroundStyle(.white)
+                                    Spacer()
+                                    Menu {
+                                        Button {
+                                            editorTarget = EditorTarget(id: r.id)
+                                        } label: {
+                                            Label("Edit template", systemImage: "pencil")
+                                        }
+                                        Button(role: .destructive) {
+                                            deleteTarget = r
+                                        } label: {
+                                            Label("Delete template", systemImage: "trash")
+                                        }
+                                    } label: {
+                                        Image(systemName: "ellipsis")
+                                            .font(.system(size: 13)).foregroundStyle(FG.muted).padding(6)
+                                    }
+                                }
                                 Text(r.exercises.map { "\($0.set_count) × \($0.name)" }.joined(separator: ", "))
                                     .font(.system(size: 14))
                                     .foregroundStyle(FG.muted)
@@ -149,12 +188,35 @@ struct HomeView: View {
         }
         .task {
             await load()
-            // debug hook: `-settings` opens the settings sheet at launch
+            // debug hooks: `-settings` / `-edit-template` open sheets at launch
             if CommandLine.arguments.contains("-settings") { showSettings = true }
+            if CommandLine.arguments.contains("-edit-template"), let first = routines.first {
+                editorTarget = EditorTarget(id: first.id)
+            }
         }
         .refreshable { await load() }
         .sheet(item: $previewProgram) { p in
             ProgramDetailView(program: p)
+        }
+        .sheet(item: $editorTarget) { target in
+            RoutineEditorView(routineId: target.routineId) { await load() }
+        }
+        .alert("Delete \"\(deleteTarget?.name ?? "")\"?", isPresented: Binding(
+            get: { deleteTarget != nil },
+            set: { if !$0 { deleteTarget = nil } }
+        )) {
+            Button("Delete", role: .destructive) {
+                if let r = deleteTarget {
+                    Task {
+                        try? await ForgeAPI.deleteRoutine(id: r.id)
+                        await load()
+                    }
+                }
+                deleteTarget = nil
+            }
+            Button("Cancel", role: .cancel) { deleteTarget = nil }
+        } message: {
+            Text("Logged workouts keep their history.")
         }
         .sheet(isPresented: $showSettings) {
             NavigationStack {

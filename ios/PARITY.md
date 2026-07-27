@@ -6,7 +6,7 @@ reference — screens are ported, not reinterpreted. Status: ✅ done · 🟡 pa
 
 | PWA page / feature | Status | Notes |
 |---|---|---|
-| **WorkoutHomePage** | 🟡 | title/hero/templates/programs ✅ · Log-weight row ❌ · Plans ❌ · template create/reorder/menu ❌ |
+| **WorkoutHomePage** | 🟡 | title/hero/programs-first/templates ✅ · template create/edit/delete via menu ✅ · Log-weight row ❌ · Plans ❌ · template drag-reorder ❌ |
 | **ActiveWorkoutPage** | 🟡 | table, prev column, ghosts, hints, trophy, types, RPE, rest bar, LA timer ✅ · plate calculator ✅ (per-side diagram, warm-up ramp, bar/plate config synced) · exercise reorder ✅ (move up/down) · per-exercise rest editing ✅ (tap the rest chip) · superset toggle with next ✅ (rest deferred to pair end) · set swipe-delete (menu instead) 🟡 · two-stage superset picker ❌ · swap exercise ✅ (keeps sets, refreshes ghosts) · add-warm-up-sets shortcut ✅ · exercise note editing in menu ✅ · chart/peek of recent sessions from menu ❌ |
 | — draft persistence | ✅ | draft snapshots to disk (debounced) and restores on launch; cleared on finish/discard |
 | **Program preview/detail** | 🟡 | cycle click-through + start ✅ · program editing (TMs, lifts, scheme) ❌ |
@@ -17,7 +17,7 @@ reference — screens are ported, not reinterpreted. Status: ✅ done · 🟡 pa
 | **StatsPage** | 🟡 | Overview (streak+goal, nudges, stalls, tiles, highlights, calendar heatmap, year review) ✅ · Trends core (weekly volume, training days, rep ranges, PRs/month, muscle split w/ per-group trend, push/pull) ✅ · deep trends ✅ (block-vs-last, form&fatigue, top lifts, TM headroom, cycles, cycle report, velocity, relative, standards, trajectory, recovery, detraining, pacing, time-of-day) · RPE overlay on weekly volume ❌ |
 | **RecordsPage** | ✅ | searchable records page pushed from Stats overview |
 | **MeasurePage** | ✅ | kinds list, trend tiles, logged-vs-trend chart, add/delete entries (reached from Stats overview) · Home log-weight shortcut row ❌ |
-| **RoutineEditorPage** | ❌ | template create/edit |
+| **RoutineEditorPage** | ✅ | name, sets stepper, rest, rep range, increment, superset toggle, move up/down, dirty guard |
 | **SettingsPage** | ✅ | native scope: unit, default rest, weekly goal, insight toggles, weigh-in reminder, server info, unpair (token now in Keychain) · server admin (users/backups/tokens/OIDC/re-categorize) stays in the PWA by design |
 | **LoginPage / SetupPage / OIDC** | — | native pairs via PAT instead |
 | App icon | ✅ | PWA ember dumbbell via asset catalog |

@@ -24,6 +24,21 @@ struct RoutineExercise: Codable, Identifiable {
     let increment: Double?
 }
 
+struct RoutinePayloadExercise: Codable {
+    var exercise_id: Int
+    var set_count: Int
+    var rest_seconds: Int?
+    var superset_with_next: Bool
+    var rep_min: Int?
+    var rep_max: Int?
+    var increment: Double?
+}
+
+struct RoutinePayload: Codable {
+    var name: String
+    var exercises: [RoutinePayloadExercise]
+}
+
 struct LibraryExercise: Codable, Identifiable {
     let id: Int
     let name: String
@@ -786,6 +801,23 @@ struct ForgeAPI {
 
     static func routines() async throws -> [Routine] {
         try JSONDecoder().decode([Routine].self, from: await request("/api/routines"))
+    }
+
+    static func routineDetail(id: Int) async throws -> Routine {
+        try JSONDecoder().decode(Routine.self, from: await request("/api/routines/\(id)"))
+    }
+
+    static func saveRoutine(id: Int?, _ payload: RoutinePayload) async throws {
+        let body = try JSONEncoder().encode(payload)
+        if let id {
+            _ = try await request("/api/routines/\(id)", method: "PUT", body: body)
+        } else {
+            _ = try await request("/api/routines", method: "POST", body: body)
+        }
+    }
+
+    static func deleteRoutine(id: Int) async throws {
+        _ = try await request("/api/routines/\(id)", method: "DELETE")
     }
 
     static func exercises() async throws -> [LibraryExercise] {
