@@ -156,6 +156,16 @@ struct WorkoutDetailView: View {
         .navigationTitle(workout?.name ?? "Workout")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            if let w = workout {
+                ToolbarItem(placement: .topBarTrailing) {
+                    ShareLink(
+                        item: shareImage(w),
+                        preview: SharePreview("Forge workout", image: shareImage(w))
+                    ) {
+                        Image(systemName: "square.and.arrow.up").foregroundStyle(FG.ember)
+                    }
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button {
@@ -249,6 +259,20 @@ struct WorkoutDetailView: View {
             .foregroundStyle(FG.ember)
             .padding(.horizontal, 5).padding(.vertical, 2)
             .background(RoundedRectangle(cornerRadius: 5).fill(FG.emberSoft))
+    }
+
+    @MainActor
+    private func shareImage(_ w: WorkoutFull) -> Image {
+        let date = ISO8601DateFormatter().date(from: String(w.started_at.prefix(19)) + "Z") ?? Date()
+        return renderShareCard(ShareCard(
+            name: w.name,
+            date: date,
+            volume: w.total_volume ?? 0,
+            sets: w.total_sets ?? 0,
+            minutes: (w.duration_seconds ?? 0) / 60,
+            prCount: w.pr_count ?? 0,
+            workoutNumber: nil
+        ))
     }
 
     private func load() async {

@@ -229,19 +229,13 @@ struct FinishSummaryView: View {
 
     @MainActor
     private func shareImage() -> Image {
-        let card = ShareCard(
+        renderShareCard(ShareCard(
             name: summary?.name ?? store.name,
             date: Date(),
             volume: volume, sets: sets, minutes: minutes,
             prCount: prs.count,
             workoutNumber: summary?.workout_number
-        )
-        let renderer = ImageRenderer(content: card)
-        renderer.scale = 3
-        if let ui = renderer.uiImage {
-            return Image(uiImage: ui)
-        }
-        return Image(systemName: "dumbbell.fill")
+        ))
     }
 
     // MARK: helpers
@@ -258,6 +252,16 @@ struct FinishSummaryView: View {
         default: return "th"
         }
     }
+}
+
+@MainActor
+func renderShareCard(_ card: ShareCard) -> Image {
+    let renderer = ImageRenderer(content: card)
+    renderer.scale = 3
+    if let ui = renderer.uiImage {
+        return Image(uiImage: ui)
+    }
+    return Image(systemName: "dumbbell.fill")
 }
 
 /// Staggered entrance: fade + rise, delayed per index.
@@ -279,8 +283,9 @@ private extension View {
     }
 }
 
-/// The branded stat card rendered for sharing.
-private struct ShareCard: View {
+/// The branded stat card rendered for sharing — used by the finish screen
+/// and past-workout detail pages.
+struct ShareCard: View {
     let name: String
     let date: Date
     let volume: Double
