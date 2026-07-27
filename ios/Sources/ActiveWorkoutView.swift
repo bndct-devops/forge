@@ -60,17 +60,13 @@ struct ActiveWorkoutView: View {
             if rest.active, !finished {
                 restBar
             }
+            if confirmDiscard {
+                discardModal
+            }
         }
         .preferredColorScheme(.dark)
         .fullScreenCover(isPresented: $showPicker) {
             ExercisePicker { store.addExercise($0) }
-        }
-        .confirmationDialog("Discard this workout?", isPresented: $confirmDiscard, titleVisibility: .visible) {
-            Button("Discard workout", role: .destructive) {
-                rest.stop()
-                onEnd()
-            }
-            Button("Keep going", role: .cancel) {}
         }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
@@ -101,10 +97,14 @@ struct ActiveWorkoutView: View {
             }
             Spacer()
             if !finished {
-                Button {
-                    confirmDiscard = true
+                Menu {
+                    Button(role: .destructive) {
+                        confirmDiscard = true
+                    } label: {
+                        Label("Discard workout", systemImage: "trash")
+                    }
                 } label: {
-                    Image(systemName: "trash").font(.system(size: 14)).foregroundStyle(FG.muted).padding(8)
+                    Image(systemName: "ellipsis").font(.system(size: 15, weight: .semibold)).foregroundStyle(FG.muted).padding(10)
                 }
                 Button {
                     Task { await finish() }
@@ -126,86 +126,106 @@ struct ActiveWorkoutView: View {
         .overlay(Rectangle().fill(FG.border).frame(height: 1), alignment: .bottom)
     }
 
-    // MARK: exercise card
+    // MARK: exercise card — the PWA table, ported
 
     private func exerciseCard(_ i: Int) -> some View {
         let ex = store.exercises[i]
-        return VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack {
-                    Text(ex.name).font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
-                    if ex.supersetWithNext {
-                        Text("superset").font(.system(size: 10, weight: .semibold)).foregroundStyle(FG.ember)
-                            .padding(.horizontal, 6).padding(.vertical, 2)
-                            .background(Capsule().fill(FG.emberSoft))
-                    }
-                    Spacer()
-                    if let mg = ex.muscleGroup {
-                        Text(mg)
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(FG.muted)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 3)
-                            .background(Capsule().fill(FG.secondary))
-                    }
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Text(ex.name)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(FG.ember)
+                    .lineLimit(1)
+                Spacer()
+                HStack(spacing: 4) {
+                    Image(systemName: "timer").font(.system(size: 10))
+                    Text("\(ex.restSeconds / 60):\(String(format: "%02d", ex.restSeconds % 60))")
                 }
-                if let prev = ex.previous {
-                    Text(prev).font(.system(size: 11)).foregroundStyle(FG.muted)
+                .font(.system(size: 12, weight: .medium).monospacedDigit())
+                .foregroundStyle(FG.muted)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Capsule().fill(FG.secondary))
+                Menu {
+                    Button(role: .destructive) {
+                        store.removeExercise(at: i)
+                    } label: {
+                        Label("Remove exercise", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis").font(.system(size: 13)).foregroundStyle(FG.muted).padding(6)
                 }
             }
+            .padding(.bottom, 10)
+
+            HStack(spacing: 8) {
+                Text("SET").frame(width: 26, alignment: .leading)
+                Text("PREVIOUS").frame(maxWidth: .infinity, alignment: .leading)
+                Text("KG").frame(width: 58)
+                Text("REPS").frame(width: 48)
+                Text("RPE").frame(width: 44)
+                Color.clear.frame(width: 38)
+            }
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(FG.muted)
+            .padding(.bottom, 4)
+
             ForEach(ex.sets.indices, id: \.self) { s in
                 setRow(exIdx: i, setIdx: s)
+                if s < ex.sets.count - 1 {
+                    Rectangle().fill(FG.border.opacity(0.6)).frame(height: 1)
+                }
             }
+
             Button {
                 store.addSet(to: i)
             } label: {
-                Text("+ Add set")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(FG.ember)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 38)
-                    .background(RoundedRectangle(cornerRadius: 10).fill(FG.secondary.opacity(0.6)))
+                HStack(spacing: 6) {
+                    Image(systemName: "plus").font(.system(size: 12, weight: .semibold))
+                    Text("Add set").font(.system(size: 13, weight: .medium))
+                }
+                .foregroundStyle(.white.opacity(0.85))
+                .frame(maxWidth: .infinity)
+                .frame(height: 40)
+                .background(RoundedRectangle(cornerRadius: 10).fill(FG.secondary.opacity(0.7)))
             }
             .buttonStyle(.plain)
+            .padding(.top, 10)
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 14).fill(FG.card))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(FG.border, lineWidth: 1))
     }
 
-    // MARK: set row — tap-to-type, no steppers (PWA convention)
-
     private func setRow(exIdx: Int, setIdx: Int) -> some View {
         let set = store.exercises[exIdx].sets[setIdx]
-        return HStack(spacing: 10) {
+        return HStack(spacing: 8) {
             Text("\(setIdx + 1)")
-                .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                .font(.system(size: 14, weight: .semibold).monospacedDigit())
+                .foregroundStyle(set.warmup ? FG.ember : FG.muted)
+                .frame(width: 26, alignment: .leading)
+
+            Text(set.previous ?? "–")
+                .font(.system(size: 13).monospacedDigit())
                 .foregroundStyle(FG.muted)
-                .frame(width: 18)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             valueField(
-                id: "\(exIdx)-\(setIdx)-w",
-                unit: "kg",
-                keyboard: .decimalPad,
-                get: { trim(store.exercises[exIdx].sets[setIdx].weight) },
+                id: "\(exIdx)-\(setIdx)-w", width: 58, placeholder: "kg", keyboard: .decimalPad,
+                get: { store.exercises[exIdx].sets[setIdx].weight.map(trim) ?? "" },
                 set: { txt in
-                    if let v = Double(txt.replacingOccurrences(of: ",", with: ".")) {
-                        store.exercises[exIdx].sets[setIdx].weight = v
-                    }
+                    store.exercises[exIdx].sets[setIdx].weight =
+                        Double(txt.replacingOccurrences(of: ",", with: "."))
                 }
             )
 
             valueField(
-                id: "\(exIdx)-\(setIdx)-r",
-                unit: "reps",
-                keyboard: .numberPad,
-                get: { "\(store.exercises[exIdx].sets[setIdx].reps)" },
-                set: { txt in
-                    if let v = Int(txt) { store.exercises[exIdx].sets[setIdx].reps = v }
-                }
+                id: "\(exIdx)-\(setIdx)-r", width: 48,
+                placeholder: set.amrap ? "\(set.reps ?? 0)+" : "reps", keyboard: .numberPad,
+                get: { store.exercises[exIdx].sets[setIdx].reps.map(String.init) ?? "" },
+                set: { txt in store.exercises[exIdx].sets[setIdx].reps = Int(txt) }
             )
-
-            Spacer(minLength: 0)
 
             Menu {
                 Button("warm-up \(set.warmup ? "✓" : "")") { store.exercises[exIdx].sets[setIdx].warmup.toggle() }
@@ -213,18 +233,19 @@ struct ActiveWorkoutView: View {
                     Button("RPE \(trim(r)) \(set.rpe == r ? "✓" : "")") { store.exercises[exIdx].sets[setIdx].rpe = r }
                 }
                 if set.rpe != nil {
-                    Button("clear RPE") { store.exercises[exIdx].sets[setIdx].rpe = nil }
+                    Button("clear") { store.exercises[exIdx].sets[setIdx].rpe = nil }
                 }
             } label: {
-                Text(set.warmup ? "W" : set.rpe.map { "@\(trim($0))" } ?? "…")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(set.warmup || set.rpe != nil ? FG.ember : FG.muted)
-                    .frame(width: 38, height: 40)
-                    .background(RoundedRectangle(cornerRadius: 10).fill(FG.secondary))
+                Text(set.rpe.map { "@\(trim($0))" } ?? "RPE")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(set.rpe != nil ? FG.ember : FG.muted)
+                    .frame(width: 44, height: 38)
+                    .overlay(RoundedRectangle(cornerRadius: 9).stroke(FG.border, lineWidth: 1))
             }
 
             Button {
                 let wasDone = set.done
+                guard store.exercises[exIdx].sets[setIdx].reps != nil else { return }
                 store.exercises[exIdx].sets[setIdx].done.toggle()
                 if !wasDone {
                     focusedField = nil
@@ -234,32 +255,81 @@ struct ActiveWorkoutView: View {
                                workoutName: store.name)
                 }
             } label: {
-                Image(systemName: set.done ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 26))
-                    .foregroundStyle(set.done ? FG.ember : FG.muted.opacity(0.5))
+                Image(systemName: "checkmark")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(set.done ? .black.opacity(0.8) : FG.muted.opacity(0.6))
+                    .frame(width: 38, height: 38)
+                    .background(RoundedRectangle(cornerRadius: 9).fill(set.done ? FG.ember : .clear))
+                    .overlay(RoundedRectangle(cornerRadius: 9).stroke(set.done ? FG.ember : FG.border, lineWidth: 1))
             }
             .buttonStyle(.plain)
         }
+        .padding(.vertical, 7)
     }
 
-    private func valueField(id: String, unit: String, keyboard: UIKeyboardType,
+    private func valueField(id: String, width: CGFloat, placeholder: String, keyboard: UIKeyboardType,
                             get: @escaping () -> String, set: @escaping (String) -> Void) -> some View {
-        VStack(spacing: 1) {
-            TextField("", text: Binding(get: get, set: set))
-                .keyboardType(keyboard)
-                .multilineTextAlignment(.center)
-                .font(.system(size: 16, weight: .semibold).monospacedDigit())
-                .foregroundStyle(.white)
-                .focused($focusedField, equals: id)
-            Text(unit).font(.system(size: 8)).foregroundStyle(FG.muted)
+        TextField(placeholder, text: Binding(get: get, set: set))
+            .keyboardType(keyboard)
+            .multilineTextAlignment(.center)
+            .font(.system(size: 15, weight: .semibold).monospacedDigit())
+            .foregroundStyle(.white)
+            .focused($focusedField, equals: id)
+            .frame(width: width, height: 38)
+            .background(RoundedRectangle(cornerRadius: 9).fill(FG.background))
+            .overlay(
+                RoundedRectangle(cornerRadius: 9)
+                    .stroke(focusedField == id ? FG.ember : FG.border, lineWidth: focusedField == id ? 1.5 : 1)
+            )
+    }
+
+    // MARK: discard modal — family style, not the system sheet
+
+    private var discardModal: some View {
+        ZStack {
+            Color.black.opacity(0.6).ignoresSafeArea()
+                .onTapGesture { confirmDiscard = false }
+            VStack(spacing: 6) {
+                Text("Discard workout?")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.white)
+                Text("Everything logged in this session will be lost.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(FG.muted)
+                    .multilineTextAlignment(.center)
+                HStack(spacing: 10) {
+                    Button {
+                        confirmDiscard = false
+                    } label: {
+                        Text("Keep going")
+                            .font(.system(size: 15, weight: .medium))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .background(RoundedRectangle(cornerRadius: 12).fill(FG.secondary))
+                            .foregroundStyle(.white)
+                    }
+                    Button {
+                        Task {
+                            await store.discard()
+                            onEnd()
+                        }
+                    } label: {
+                        Text("Discard")
+                            .font(.system(size: 15, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .background(RoundedRectangle(cornerRadius: 12).fill(FG.destructive))
+                            .foregroundStyle(.white)
+                    }
+                }
+                .padding(.top, 14)
+            }
+            .padding(20)
+            .frame(maxWidth: 340)
+            .background(RoundedRectangle(cornerRadius: 16).fill(FG.card))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(FG.border, lineWidth: 1))
+            .padding(24)
         }
-        .frame(width: 74, height: 40)
-        .background(RoundedRectangle(cornerRadius: 10).fill(FG.secondary))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(focusedField == id ? FG.ember : .clear, lineWidth: 1.5)
-        )
-        .onTapGesture { focusedField = id }
     }
 
     // MARK: rest bar
@@ -303,7 +373,7 @@ struct ActiveWorkoutView: View {
         finishing = true
         postError = nil
         do {
-            try await ForgeAPI.log(store.buildLog())
+            try await ForgeAPI.sync(store.buildSync(finished: true))
             rest.stop()
             finished = true
         } catch {

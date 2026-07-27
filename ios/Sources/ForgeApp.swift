@@ -20,6 +20,7 @@ enum FG {
     static let emberSoft = Color(red: 0.871, green: 0.518, blue: 0.310).opacity(0.16)
     static let gold = Color(red: 0.765, green: 0.604, blue: 0.333)       // #c39a55
     static let success = Color(red: 0.435, green: 0.718, blue: 0.537)
+    static let destructive = Color(red: 1.0, green: 0.396, blue: 0.341)  // #ff6557
 }
 
 struct RootView: View {

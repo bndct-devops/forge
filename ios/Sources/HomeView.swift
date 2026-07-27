@@ -2,8 +2,10 @@ import SwiftUI
 
 struct HomeView: View {
     @State private var routines: [Routine] = []
+    @State private var programs: [Program] = []
     @State private var loading = true
     @State private var error: String?
+    @State private var startingProgram = false
     @State private var activeStore: WorkoutStore?
     @State private var showWorkout = false
     @AppStorage("forge_base_url") private var storedURL = ""
@@ -37,17 +39,61 @@ struct HomeView: View {
                     }
                     .padding(.top, 6)
 
-                    Text("ROUTINES")
-                        .font(.system(size: 11, weight: .semibold))
-                        .tracking(0.6)
-                        .foregroundStyle(FG.muted)
-                        .padding(.top, 10)
-
                     if loading {
                         ProgressView().tint(FG.ember).frame(maxWidth: .infinity).padding(.vertical, 30)
                     } else if let error {
                         Text(error).font(.system(size: 13)).foregroundStyle(.red)
                     }
+
+                    if !programs.isEmpty {
+                        Text("PROGRAMS")
+                            .font(.system(size: 11, weight: .semibold))
+                            .tracking(0.6)
+                            .foregroundStyle(FG.muted)
+                            .padding(.top, 10)
+
+                        ForEach(programs) { p in
+                            Button {
+                                Task { await startProgram(p) }
+                            } label: {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack {
+                                        Text(p.name).font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)
+                                        Text("W\(p.next?.week ?? p.current_week)")
+                                            .font(.system(size: 10, weight: .semibold))
+                                            .foregroundStyle(FG.ember)
+                                            .padding(.horizontal, 6).padding(.vertical, 2)
+                                            .background(Capsule().fill(FG.emberSoft))
+                                        Spacer()
+                                        if startingProgram {
+                                            ProgressView().tint(FG.ember)
+                                        } else {
+                                            Image(systemName: "play.fill").font(.system(size: 13)).foregroundStyle(FG.ember)
+                                        }
+                                    }
+                                    if let next = p.next {
+                                        Text("next: \(next.exercise_name)")
+                                            .font(.system(size: 13, weight: .medium))
+                                            .foregroundStyle(.white.opacity(0.9))
+                                        Text(next.sets.map { "\(trim($0.weight))×\($0.reps)\($0.amrap ? "+" : "")" }.joined(separator: " · "))
+                                            .font(.system(size: 12).monospacedDigit())
+                                            .foregroundStyle(FG.muted)
+                                    }
+                                }
+                                .padding(14)
+                                .background(RoundedRectangle(cornerRadius: 14).fill(FG.card))
+                                .overlay(RoundedRectangle(cornerRadius: 14).stroke(FG.border, lineWidth: 1))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(startingProgram || activeStore != nil)
+                        }
+                    }
+
+                    Text("ROUTINES")
+                        .font(.system(size: 11, weight: .semibold))
+                        .tracking(0.6)
+                        .foregroundStyle(FG.muted)
+                        .padding(.top, 10)
 
                     ForEach(routines) { r in
                         Button {
@@ -146,9 +192,23 @@ struct HomeView: View {
         }
     }
 
+    private func startProgram(_ p: Program) async {
+        startingProgram = true
+        error = nil
+        do {
+            let server = try await ForgeAPI.startProgramWorkout(programId: p.id)
+            activeStore = WorkoutStore(server: server)
+            showWorkout = true
+        } catch {
+            self.error = error.localizedDescription
+        }
+        startingProgram = false
+    }
+
     private func load() async {
         do {
             routines = try await ForgeAPI.routines()
+            programs = (try? await ForgeAPI.programs()) ?? []
             error = nil
             if CommandLine.arguments.contains("-demo-start"), let first = routines.first {
                 start(first)

@@ -68,6 +68,97 @@ struct LogWorkout: Codable {
     var exercises: [LogExercise]
 }
 
+// MARK: - programs
+
+struct Program: Codable, Identifiable {
+    let id: Int
+    let name: String
+    let scheme_name: String
+    let current_week: Int
+    let next: ProgramNext?
+}
+
+struct ProgramNext: Codable {
+    let lift_id: Int
+    let exercise_id: Int
+    let exercise_name: String
+    let week: Int
+    let sets: [PrescribedSet]
+}
+
+struct PrescribedSet: Codable {
+    let weight: Double
+    let reps: Int
+    let amrap: Bool
+}
+
+// MARK: - server workout (program start / active flow)
+
+struct ServerWorkout: Codable {
+    let id: Int
+    let name: String
+    let program_id: Int?
+    let program_lift_id: Int?
+    let exercises: [ServerExercise]
+    let program: ProgramStartInfo?
+}
+
+struct ProgramStartInfo: Codable {
+    let week: Int
+    let sets: [PrescribedSet]
+}
+
+struct ServerExercise: Codable {
+    let exercise_id: Int
+    let name: String
+    let muscle_group: String?
+    let rest_seconds: Int?
+    let superset_with_next: Bool?
+    let rep_min: Int?
+    let rep_max: Int?
+    let previous_sets: [RecentSet]?
+    let sets: [ServerSet]
+}
+
+struct ServerSet: Codable {
+    let weight: Double?
+    let reps: Int?
+    let is_warmup: Bool?
+}
+
+// MARK: - sync document (the PWA's offline finish path — advances programs)
+
+struct SyncSet: Codable {
+    var weight: Double?
+    var reps: Int
+    var is_completed: Bool
+    var is_warmup: Bool
+    var set_type: String?
+    var rpe: Double?
+}
+
+struct SyncExercise: Codable {
+    var exercise_id: Int
+    var position: Int
+    var rest_seconds: Int?
+    var superset_with_next: Bool
+    var rep_min: Int?
+    var rep_max: Int?
+    var sets: [SyncSet]
+}
+
+struct SyncWorkout: Codable {
+    var id: Int?
+    var client_id: String
+    var name: String
+    var notes: String?
+    var started_at: String
+    var finished_at: String?
+    var program_id: Int?
+    var program_lift_id: Int?
+    var exercises: [SyncExercise]
+}
+
 // MARK: - client
 
 enum APIError: LocalizedError {
@@ -121,5 +212,23 @@ struct ForgeAPI {
     static func log(_ workout: LogWorkout) async throws {
         let body = try JSONEncoder().encode(workout)
         _ = try await request("/api/workouts/log", method: "POST", body: body)
+    }
+
+    static func programs() async throws -> [Program] {
+        try JSONDecoder().decode([Program].self, from: await request("/api/programs"))
+    }
+
+    static func startProgramWorkout(programId: Int) async throws -> ServerWorkout {
+        try JSONDecoder().decode(ServerWorkout.self,
+                                 from: await request("/api/programs/\(programId)/start-workout", method: "POST"))
+    }
+
+    static func deleteWorkout(id: Int) async throws {
+        _ = try await request("/api/workouts/\(id)", method: "DELETE")
+    }
+
+    static func sync(_ doc: SyncWorkout) async throws {
+        let body = try JSONEncoder().encode(doc)
+        _ = try await request("/api/workouts/sync", method: "PUT", body: body)
     }
 }
