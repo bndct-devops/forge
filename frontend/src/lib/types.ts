@@ -92,7 +92,7 @@ export interface WorkoutExercise {
   rep_min: number | null
   rep_max: number | null
   suggested_weight: number | null
-  suggestion_kind?: 'progress' | 'deload' | null
+  suggestion_kind?: 'progress' | 'deload' | 'target' | null
   sets: SetEntry[]
   previous_sets: PastSet[]
 }

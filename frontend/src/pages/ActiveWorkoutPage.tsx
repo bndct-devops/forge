@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Calculator, Check, ChevronDown, CloudOff, Flag, Flame, GripVertical, Link2, MoreHorizontal, Plus, StickyNote, Timer, Trash2, TrendingDown, TrendingUp, Trophy, Unlink2, X } from 'lucide-react'
+import { ArrowLeftRight, Calculator, Check, ChevronDown, CloudOff, Flag, Flame, GripVertical, Link2, MoreHorizontal, Plus, StickyNote, Timer, Trash2, TrendingDown, TrendingUp, Unlink2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ConfirmSheet from '../components/ConfirmSheet'

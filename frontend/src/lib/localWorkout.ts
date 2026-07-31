@@ -29,7 +29,7 @@ export interface SyncPayload {
       reps: number | null
       is_completed: boolean
       is_warmup: boolean
-      set_type: 'drop' | 'failure' | null
+      set_type: 'drop' | 'failure' | 'amrap' | null
       rpe: number | null
       completed_at: string | null
     }[]
