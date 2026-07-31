@@ -86,7 +86,7 @@ struct ActiveWorkoutView: View {
                                 Image(systemName: "square.and.pencil")
                                     .font(.system(size: 12)).foregroundStyle(FG.muted)
                                     .padding(.top, 3)
-                                TextField("Session notes — how today felt, niggles, conditions",
+                                TextField("Session notes — how today felt, aches, anything off",
                                           text: $store.notes, axis: .vertical)
                                     .font(.system(size: 13))
                                     .foregroundStyle(.white)
