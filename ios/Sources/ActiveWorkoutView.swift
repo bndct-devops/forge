@@ -323,7 +323,7 @@ struct ActiveWorkoutView: View {
                     // sits on the card's content edge like everything below it
                     Image(systemName: "ellipsis").font(.system(size: 13)).foregroundStyle(FG.muted)
                         .padding(6)
-                        .padding(.trailing, -6)
+                        .padding(.trailing, -10)
                 }
             }
             if ex.supersetWithNext {
@@ -393,6 +393,9 @@ struct ActiveWorkoutView: View {
                 .padding(.horizontal, 10).padding(.vertical, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(RoundedRectangle(cornerRadius: 10).fill(FG.gold.opacity(0.10)))
+                // a filled block needs air under the header — it was sitting
+                // flush against the rest-timer pill
+                .padding(.top, 10)
                 .padding(.bottom, 8)
             }
 
