@@ -353,14 +353,27 @@ struct ActiveWorkoutView: View {
                     .padding(.bottom, 6)
                 }
             }
-            if let amrap = ex.amrapHint {
-                HStack(spacing: 5) {
-                    Image(systemName: "trophy.fill").font(.system(size: 11)).foregroundStyle(FG.gold)
-                    (Text("\(trim(amrap.weight)) kg × \(amrap.beatReps)+ ").foregroundColor(.white).fontWeight(.medium)
-                        + Text("on the top set beats your best").foregroundColor(FG.muted))
+            // An AMRAP set is the point of the session — say so as an
+            // instruction, not as a trophy notification.
+            if ex.sets.contains(where: \.amrap) {
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "flame.fill").font(.system(size: 11)).foregroundStyle(FG.gold)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Last set is AMRAP — as many reps as possible")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(FG.gold)
+                        if let amrap = ex.amrapHint {
+                            Text("beat \(amrap.beatReps) reps at \(trim(amrap.weight)) kg to top your best")
+                                .font(.system(size: 12))
+                                .foregroundStyle(FG.muted)
+                        }
+                    }
                 }
-                .font(.system(size: 12))
-                .padding(.bottom, 6)
+                .padding(.horizontal, 10).padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 10).fill(FG.gold.opacity(0.12)))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(FG.gold.opacity(0.35), lineWidth: 1))
+                .padding(.bottom, 8)
             }
 
             if let note = ex.note {
@@ -425,14 +438,25 @@ struct ActiveWorkoutView: View {
         return HStack(spacing: 8) {
             Text("\(setIdx + 1)")
                 .font(.system(size: 14, weight: .semibold).monospacedDigit())
-                .foregroundStyle(set.warmup ? FG.ember : FG.muted)
+                .foregroundStyle(set.amrap ? FG.gold : (set.warmup ? FG.ember : FG.muted))
                 .frame(width: 26, alignment: .leading)
 
-            Text(set.previous ?? "–")
-                .font(.system(size: 13).monospacedDigit())
-                .foregroundStyle(FG.muted)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 5) {
+                if set.amrap {
+                    Text("AMRAP")
+                        .font(.system(size: 9, weight: .bold)).tracking(0.5)
+                        .foregroundStyle(FG.gold)
+                        .lineLimit(1)
+                        .fixedSize()
+                        .padding(.horizontal, 5).padding(.vertical, 2)
+                        .background(RoundedRectangle(cornerRadius: 4).fill(FG.gold.opacity(0.18)))
+                }
+                Text(set.previous ?? "–")
+                    .font(.system(size: 13).monospacedDigit())
+                    .foregroundStyle(FG.muted)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             valueField(
                 id: "\(exIdx)-\(setIdx)-w", width: 58,
@@ -449,10 +473,12 @@ struct ActiveWorkoutView: View {
                 id: "\(exIdx)-\(setIdx)-r", width: 48,
                 placeholder: {
                     let ex = store.exercises[exIdx]
+                    if set.amrap { return set.plannedReps.map { "\($0)+" } ?? "max" }
                     if let lo = ex.repMin, let hi = ex.repMax { return "\(lo)–\(hi)" }
                     return ex.repMin.map(String.init) ?? "reps"
                 }(),
                 keyboard: .numberPad,
+                accent: set.amrap,
                 get: { store.exercises[exIdx].sets[setIdx].reps.map(String.init) ?? "" },
                 set: { txt in store.exercises[exIdx].sets[setIdx].reps = Int(txt) }
             )
@@ -545,6 +571,7 @@ struct ActiveWorkoutView: View {
     }
 
     private func valueField(id: String, width: CGFloat, placeholder: String, keyboard: UIKeyboardType,
+                            accent: Bool = false,
                             get: @escaping () -> String, set: @escaping (String) -> Void) -> some View {
         TextField(placeholder, text: Binding(get: get, set: set))
             .keyboardType(keyboard)
@@ -554,10 +581,11 @@ struct ActiveWorkoutView: View {
             .focused($focusedField, equals: id)
             .selectAllOnFocus()
             .frame(width: width, height: 38)
-            .background(RoundedRectangle(cornerRadius: 9).fill(FG.background))
+            .background(RoundedRectangle(cornerRadius: 9).fill(accent ? FG.gold.opacity(0.10) : FG.background))
             .overlay(
                 RoundedRectangle(cornerRadius: 9)
-                    .stroke(focusedField == id ? FG.ember : FG.border, lineWidth: focusedField == id ? 1.5 : 1)
+                    .stroke(focusedField == id ? FG.ember : (accent ? FG.gold.opacity(0.55) : FG.border),
+                            lineWidth: focusedField == id ? 1.5 : (accent ? 1.5 : 1))
             )
     }
 

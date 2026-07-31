@@ -14,6 +14,9 @@ struct DraftSet: Identifiable, Codable {
     var rpe: Double?
     var done = false
     var amrap = false
+    /// AMRAP sets: the prescribed floor, shown as a "3+" placeholder. The reps
+    /// field itself starts EMPTY so the real number has to be entered.
+    var plannedReps: Int?
     var previous: String?    // per-set reference column ("25 kg × 12" / prescription)
 }
 
@@ -132,11 +135,15 @@ final class WorkoutStore: ObservableObject {
                 } else {
                     prevText = nil
                 }
+                // The AMRAP set must not arrive pre-answered — prefilling its
+                // prescribed floor makes "stop at 3" one tap away.
+                let isAmrap = i < prescribed.count ? prescribed[i].amrap : false
                 sets.append(DraftSet(
                     weight: s.weight,
-                    reps: s.reps,
+                    reps: isAmrap ? nil : s.reps,
                     warmup: s.is_warmup ?? false,
-                    amrap: i < prescribed.count ? prescribed[i].amrap : false,
+                    amrap: isAmrap,
+                    plannedReps: isAmrap ? s.reps : nil,
                     previous: prevText
                 ))
             }
@@ -330,6 +337,8 @@ final class WorkoutStore: ObservableObject {
             guard let setIdx = exercises[exIdx].sets.firstIndex(where: { !$0.done }) else { continue }
             let ex = exercises[exIdx]
             var set = ex.sets[setIdx]
+            // an AMRAP set's rep count is the whole point — never guess it
+            if set.amrap, set.reps == nil { return }
             let prevDone = ex.sets[..<setIdx].last { $0.done && $0.reps != nil }
             if set.reps == nil {
                 set.reps = prevDone?.reps ?? ex.repMin

@@ -91,6 +91,8 @@ enum DraftFallback {
             for (si, var set) in sets.enumerated() {
                 let done = set["done"] as? Bool ?? false
                 guard !done else { continue }
+                // an AMRAP set's rep count is the whole point — never guess it
+                if set["amrap"] as? Bool == true, set["reps"] as? Int == nil { break outer }
                 // fill blanks from the previous done set / plan, like the app
                 let prevDone = sets[..<si].last {
                     ($0["done"] as? Bool ?? false) && $0["reps"] is Int
