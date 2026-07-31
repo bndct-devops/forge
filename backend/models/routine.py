@@ -43,3 +43,6 @@ class RoutineExercise(Base):
     rep_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
     rep_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
     increment: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Per-set markers aligned to positions, comma-separated with blanks for
+    # plain working sets: ",,amrap" = a 3-set slot whose last set is an AMRAP.
+    set_types: Mapped[str | None] = mapped_column(String(128), nullable=True)

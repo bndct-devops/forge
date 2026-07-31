@@ -196,12 +196,17 @@ export default function SetRow({
   // Progression suggestion beats the raw previous weight — that's the point
   const fallbackWeight =
     progression?.weight ?? previous?.weight ?? suggested?.weight ?? (bodyweight ? 0 : null)
-  const fallbackReps =
-    (progression?.weight != null ? progression.repMin : null) ??
-    previous?.reps ??
-    suggested?.reps ??
-    progression?.repMin ??
-    null
+  // An AMRAP set's rep count IS the measurement — never fall back to the
+  // previous session or a prescribed floor, or completing it logs a number
+  // nobody performed.
+  const isAmrap = set.set_type === 'amrap'
+  const fallbackReps = isAmrap
+    ? null
+    : ((progression?.weight != null ? progression.repMin : null) ??
+      previous?.reps ??
+      suggested?.reps ??
+      progression?.repMin ??
+      null)
   const effectiveWeight = weight !== '' ? parseNum(weight) : fallbackWeight
   const effectiveReps = reps !== '' ? parseNum(reps) : fallbackReps
   const canComplete = effectiveWeight != null && effectiveReps != null
@@ -309,13 +314,18 @@ export default function SetRow({
           inputMode="numeric"
           enterKeyHint="done"
           placeholder={
-            fallbackReps != null
-              ? String(fallbackReps)
-              : progression?.repMin != null && progression?.repMax != null
-                ? `${progression.repMin}–${progression.repMax}`
-                : 'reps'
+            isAmrap
+              ? 'max'
+              : fallbackReps != null
+                ? String(fallbackReps)
+                : progression?.repMin != null && progression?.repMax != null
+                  ? `${progression.repMin}–${progression.repMax}`
+                  : 'reps'
           }
-          className="tnum h-9 rounded-md border border-input bg-background px-1 text-center text-base font-medium outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-ring"
+          className={cn(
+            'tnum h-9 rounded-md border border-input bg-background px-1 text-center text-base font-medium outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-ring',
+            isAmrap && 'border-record/60 bg-record/5',
+          )}
         />
         {rpeEnabled && (
           <input

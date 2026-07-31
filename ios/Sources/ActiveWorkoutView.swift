@@ -64,6 +64,22 @@ struct ActiveWorkoutView: View {
                             ForEach(store.exercises.indices, id: \.self) { i in
                                 exerciseCard(i)
                             }
+
+                            // Session notes — what happened TODAY. The pinned
+                            // exercise note (⋯ on a card) is the other thing.
+                            HStack(alignment: .top, spacing: 8) {
+                                Image(systemName: "square.and.pencil")
+                                    .font(.system(size: 12)).foregroundStyle(FG.muted)
+                                    .padding(.top, 3)
+                                TextField("Session notes — how today felt, niggles, conditions",
+                                          text: $store.notes, axis: .vertical)
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(.white)
+                                    .lineLimit(1...4)
+                            }
+                            .padding(12)
+                            .background(RoundedRectangle(cornerRadius: 12).fill(FG.card))
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(FG.border, lineWidth: 1))
                             Button {
                                 showPicker = true
                             } label: {
@@ -302,7 +318,11 @@ struct ActiveWorkoutView: View {
                         Label("Remove exercise", systemImage: "trash")
                     }
                 } label: {
-                    Image(systemName: "ellipsis").font(.system(size: 13)).foregroundStyle(FG.muted).padding(6)
+                    // padded for the tap target, pulled back out so the glyph
+                    // sits on the card's content edge like everything below it
+                    Image(systemName: "ellipsis").font(.system(size: 13)).foregroundStyle(FG.muted)
+                        .padding(6)
+                        .padding(.trailing, -6)
                 }
             }
             if ex.supersetWithNext {
@@ -570,7 +590,9 @@ struct ActiveWorkoutView: View {
         .background(RoundedRectangle(cornerRadius: 8)
             .fill(set.done
                   ? FG.ember.opacity(flashedSetId == set.id ? 0.32 : 0.14)
-                  : (set.amrap ? FG.gold.opacity(0.07) : .clear)))
+                  : (set.amrap ? FG.gold.opacity(0.07) : .clear))
+            // inset so a tinted row never butts against the row separator
+            .padding(.vertical, 2))
         .padding(.horizontal, -6)
         .animation(.easeOut(duration: 0.25), value: set.done)
     }

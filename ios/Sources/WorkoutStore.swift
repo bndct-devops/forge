@@ -49,6 +49,7 @@ struct DraftExercise: Identifiable, Codable {
 /// Snapshot written to disk so an app kill mid-workout loses nothing.
 struct PersistedDraft: Codable {
     var name: String
+    var notes: String?
     var startedAt: Date
     var finishIntent: Date?
     var clientId: String
@@ -61,6 +62,9 @@ struct PersistedDraft: Codable {
 @MainActor
 final class WorkoutStore: ObservableObject {
     @Published var name: String
+    /// Session notes — what happened today. Distinct from the pinned exercise
+    /// note, which persists across every future session of that exercise.
+    @Published var notes: String = ""
     @Published var exercises: [DraftExercise] = []
     @Published var loading = true
     private(set) var startedAt = Date()
@@ -187,6 +191,7 @@ final class WorkoutStore: ObservableObject {
 
     init(restored draft: PersistedDraft) {
         self.name = draft.name
+        self.notes = draft.notes ?? ""
         self.startedAt = draft.startedAt
         self.finishIntent = draft.finishIntent
         self.clientId = draft.clientId
@@ -225,7 +230,7 @@ final class WorkoutStore: ObservableObject {
     private func persist() {
         guard !loading else { return }
         let draft = PersistedDraft(
-            name: name, startedAt: startedAt, finishIntent: finishIntent,
+            name: name, notes: notes, startedAt: startedAt, finishIntent: finishIntent,
             clientId: clientId,
             serverId: serverId, programId: programId, programLiftId: programLiftId,
             exercises: exercises
@@ -398,7 +403,8 @@ final class WorkoutStore: ObservableObject {
             finishIntent = Date()
         }
         return SyncWorkout(
-            id: serverId, client_id: clientId, name: name, notes: nil,
+            id: serverId, client_id: clientId, name: name,
+            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : notes,
             started_at: iso.string(from: startedAt),
             finished_at: finished ? iso.string(from: finishIntent ?? Date()) : nil,
             program_id: programId, program_lift_id: programLiftId,

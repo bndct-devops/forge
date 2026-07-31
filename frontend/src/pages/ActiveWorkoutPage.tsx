@@ -331,17 +331,25 @@ export default function ActiveWorkoutPage() {
                       <span className="whitespace-pre-wrap">{we.note}</span>
                     </p>
                   )}
-                  {workout.amrap_target?.we_id === we.id && (
-                    <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Trophy size={13} className="shrink-0 text-record" />
-                      <span>
-                        <span className="tnum font-medium text-foreground">
-                          {workout.amrap_target.weight} {user?.unit ?? 'kg'} ×{' '}
-                          {workout.amrap_target.beat_reps}+
-                        </span>{' '}
-                        on the top set beats your best
-                      </span>
-                    </p>
+                  {/* An AMRAP set is the point of the session — state it as an
+                      instruction, not as a passing trophy notification. */}
+                  {we.sets.some((s) => s.set_type === 'amrap') && (
+                    <div className="mt-1.5 rounded-lg bg-record/10 px-2.5 py-2">
+                      <p className="flex items-start gap-1.5">
+                        <Flame size={13} className="mt-0.5 shrink-0 text-record" />
+                        <span>
+                          <span className="block text-xs font-semibold text-record">
+                            Last set is AMRAP — as many reps as possible
+                          </span>
+                          {workout.amrap_target?.we_id === we.id && (
+                            <span className="tnum block text-xs text-muted-foreground">
+                              beat {workout.amrap_target.beat_reps} reps at{' '}
+                              {workout.amrap_target.weight} {user?.unit ?? 'kg'} to top your best
+                            </span>
+                          )}
+                        </span>
+                      </p>
+                    </div>
                   )}
 
                   <div

@@ -8,6 +8,7 @@ reference — screens are ported, not reinterpreted. Status: ✅ done · 🟡 pa
 |---|---|---|
 | **WorkoutHomePage** | 🟡 | title/hero/programs-first/templates ✅ · template create/edit/delete via menu ✅ · Log-weight quick row ✅ · Plans library ❌ (PWA) · template drag-reorder ❌ |
 | **ActiveWorkoutPage** | 🟡 | table, prev column, ghosts, hints, trophy, types, RPE, rest bar, LA timer ✅ · plate calculator ✅ (per-side diagram, warm-up ramp, bar/plate config synced) · exercise reorder ✅ (move up/down) · per-exercise rest editing ✅ (tap the rest chip) · superset toggle with next ✅ (rest deferred to pair end) · set swipe-delete ✅ (left swipe, menu also works) · two-stage superset picker ❌ · swap exercise ✅ (keeps sets, refreshes ghosts) · add-warm-up-sets shortcut ✅ · exercise note editing in menu ✅ · recent-sessions peek from menu ✅ |
+| Session notes | ✅ | free-text note on the active workout, lands on the workout (distinct from the pinned exercise note) |
 | — draft persistence | ✅ | draft snapshots to disk (debounced) and restores on launch; cleared on finish/discard |
 | **Program preview/detail** | 🟡 | cycle click-through + start ✅ · program editing ✅ (name, rounding, TMs, increments, accessory routine, add/remove lifts via pencil) · program creation ❌ (PWA) |
 | **ExercisesPage** | 🟡 | grouped searchable list ✅ · create custom exercise ✅ (+ button, form sheet) · variant grouping under parents ✅ (count chip expands family) |

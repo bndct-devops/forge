@@ -11,6 +11,7 @@ struct Routine: Codable, Identifiable {
 }
 
 struct RoutineExercise: Codable, Identifiable {
+    let set_types: [String]?
     var id: Int { exercise_id }
     let exercise_id: Int
     let name: String
@@ -25,6 +26,8 @@ struct RoutineExercise: Codable, Identifiable {
 }
 
 struct RoutinePayloadExercise: Codable {
+    /// Per-set markers aligned to positions; "" = plain working set.
+    var set_types: [String]?
     var exercise_id: Int
     var set_count: Int
     var rest_seconds: Int?

@@ -96,6 +96,10 @@ class RoutineExerciseIn(BaseModel):
     rep_min: int | None = Field(default=None, ge=1, le=100)
     rep_max: int | None = Field(default=None, ge=1, le=100)
     increment: float | None = Field(default=None, gt=0, le=50)
+    # Per-set markers aligned to positions; None/"" = plain working set
+    set_types: list[Literal["drop", "failure", "amrap"] | None] | None = Field(
+        default=None, max_length=20
+    )
 
 
 class RoutineIn(BaseModel):

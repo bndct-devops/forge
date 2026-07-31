@@ -67,3 +67,4 @@ def run_migrations() -> None:
     )
     _ensure_column("users", "weigh_in_hour", "weigh_in_hour INTEGER NOT NULL DEFAULT 7")
     _ensure_column("users", "weigh_in_sent_at", "weigh_in_sent_at DATETIME")
+    _ensure_column("routine_exercises", "set_types", "set_types VARCHAR(128)")

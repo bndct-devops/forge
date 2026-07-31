@@ -29,6 +29,7 @@ def _serialize(db: Session, routine: Routine, last_performed=None) -> dict:
                 "rep_min": re_.rep_min,
                 "rep_max": re_.rep_max,
                 "increment": re_.increment,
+                "set_types": (re_.set_types or "").split(",") if re_.set_types else None,
             }
         )
     return {
@@ -85,6 +86,7 @@ def create_routine(
             rep_min=e.rep_min,
             rep_max=e.rep_max,
             increment=e.increment,
+            set_types=",".join(t or "" for t in e.set_types) if e.set_types else None,
         )
         for i, e in enumerate(body.exercises)
     ]
@@ -142,6 +144,7 @@ def update_routine(
             rep_min=e.rep_min,
             rep_max=e.rep_max,
             increment=e.increment,
+            set_types=",".join(t or "" for t in e.set_types) if e.set_types else None,
         )
         for i, e in enumerate(body.exercises)
     ]

@@ -1,4 +1,4 @@
-import { ChevronLeft, GripVertical, Link2, Minus, Plus, Trash2 } from 'lucide-react'
+import { ChevronLeft, Flame, GripVertical, Link2, Minus, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import ConfirmSheet from '../components/ConfirmSheet'
@@ -19,6 +19,7 @@ interface DraftExercise {
   rep_min: number | null
   rep_max: number | null
   increment: number | null
+  amrap_last_set: boolean
 }
 
 const REST_OPTIONS = [0, 30, 45, 60, 90, 120, 150, 180, 240, 300]
@@ -55,6 +56,7 @@ export default function RoutineEditorPage() {
               rep_min: e.rep_min,
               rep_max: e.rep_max,
               increment: e.increment,
+              amrap_last_set: (e.set_types ?? []).at(-1) === 'amrap',
             })),
           )
         })
@@ -92,6 +94,7 @@ export default function RoutineEditorPage() {
         rep_min: null,
         rep_max: null,
         increment: null,
+        amrap_last_set: false,
       },
     ])
     setPickerOpen(false)
@@ -116,6 +119,9 @@ export default function RoutineEditorPage() {
           rep_min: e.rep_min,
           rep_max: e.rep_max,
           increment: e.rep_max != null ? (e.increment ?? (user?.unit === 'lb' ? 5 : 2.5)) : null,
+          set_types: e.amrap_last_set
+            ? Array.from({ length: e.set_count }, (_, j) => (j === e.set_count - 1 ? 'amrap' : ''))
+            : null,
         })),
       }
       if (editing) await api(`/routines/${id}`, { method: 'PUT', body })
@@ -257,6 +263,17 @@ export default function RoutineEditorPage() {
                 </label>
               )}
             </div>
+            <button
+              onClick={() => update(i, { amrap_last_set: !exercise.amrap_last_set })}
+              className={
+                exercise.amrap_last_set
+                  ? 'touch-feedback mt-2.5 mr-2 flex items-center gap-1.5 rounded-lg bg-record/15 px-2.5 py-1.5 text-xs font-semibold text-record'
+                  : 'touch-feedback mt-2.5 mr-2 flex items-center gap-1.5 rounded-lg bg-secondary px-2.5 py-1.5 text-xs font-semibold text-muted-foreground'
+              }
+            >
+              <Flame size={13} />
+              {exercise.amrap_last_set ? 'Last set AMRAP' : 'Last set AMRAP?'}
+            </button>
             {i < exercises.length - 1 && (
               <button
                 onClick={() => update(i, { superset_with_next: !exercise.superset_with_next })}

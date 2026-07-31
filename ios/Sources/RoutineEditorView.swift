@@ -17,6 +17,7 @@ struct RoutineEditorView: View {
         var repMin: Int?
         var repMax: Int?
         var increment: Double?
+        var amrapLastSet: Bool
     }
 
     @State private var name = ""
@@ -108,7 +109,8 @@ struct RoutineEditorView: View {
                 exercises.append(EditorExercise(
                     exerciseId: ex.id, name: ex.name, setCount: 3,
                     restSeconds: nil, supersetWithNext: false,
-                    repMin: nil, repMax: nil, increment: nil
+                    repMin: nil, repMax: nil, increment: nil,
+                    amrapLastSet: false
                 ))
             }
         }
@@ -233,22 +235,40 @@ struct RoutineEditorView: View {
                 }
             }
 
-            if i < exercises.count - 1 {
+            HStack(spacing: 8) {
                 Button {
                     dirty = true
-                    exercises[i].supersetWithNext.toggle()
+                    exercises[i].amrapLastSet.toggle()
                 } label: {
                     HStack(spacing: 5) {
-                        Image(systemName: "link").font(.system(size: 11, weight: .semibold))
-                        Text(ex.supersetWithNext ? "Superset with next" : "Superset with next?")
+                        Image(systemName: "flame").font(.system(size: 11, weight: .semibold))
+                        Text(ex.amrapLastSet ? "Last set AMRAP" : "Last set AMRAP?")
                     }
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(ex.supersetWithNext ? FG.ember : FG.muted)
+                    .foregroundStyle(ex.amrapLastSet ? FG.gold : FG.muted)
                     .padding(.horizontal, 10).padding(.vertical, 7)
                     .background(RoundedRectangle(cornerRadius: 9)
-                        .fill(ex.supersetWithNext ? FG.emberSoft : FG.secondary))
+                        .fill(ex.amrapLastSet ? FG.gold.opacity(0.16) : FG.secondary))
                 }
                 .buttonStyle(.plain)
+                if i < exercises.count - 1 {
+                    Button {
+                        dirty = true
+                        exercises[i].supersetWithNext.toggle()
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "link").font(.system(size: 11, weight: .semibold))
+                            Text(ex.supersetWithNext ? "Superset" : "Superset?")
+                        }
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(ex.supersetWithNext ? FG.ember : FG.muted)
+                        .padding(.horizontal, 10).padding(.vertical, 7)
+                        .background(RoundedRectangle(cornerRadius: 9)
+                            .fill(ex.supersetWithNext ? FG.emberSoft : FG.secondary))
+                    }
+                    .buttonStyle(.plain)
+                }
+                Spacer(minLength: 0)
             }
         }
         .padding(14)
@@ -355,7 +375,8 @@ struct RoutineEditorView: View {
                     EditorExercise(
                         exerciseId: $0.exercise_id, name: $0.name, setCount: $0.set_count,
                         restSeconds: $0.rest_seconds, supersetWithNext: $0.superset_with_next,
-                        repMin: $0.rep_min, repMax: $0.rep_max, increment: $0.increment
+                        repMin: $0.rep_min, repMax: $0.rep_max, increment: $0.increment,
+                        amrapLastSet: ($0.set_types ?? []).last == "amrap"
                     )
                 }
             } else {
@@ -368,19 +389,30 @@ struct RoutineEditorView: View {
     private func save() async {
         busy = true
         error = nil
+        let lastIndex = exercises.count - 1
+        var wire: [RoutinePayloadExercise] = []
+        for (i, e) in exercises.enumerated() {
+            var markers: [String]?
+            if e.amrapLastSet {
+                var out = Array(repeating: "", count: max(1, e.setCount))
+                out[out.count - 1] = "amrap"
+                markers = out
+            }
+            let increment: Double? = e.repMax != nil ? (e.increment ?? 2.5) : nil
+            wire.append(RoutinePayloadExercise(
+                set_types: markers,
+                exercise_id: e.exerciseId,
+                set_count: e.setCount,
+                rest_seconds: e.restSeconds,
+                superset_with_next: i < lastIndex && e.supersetWithNext,
+                rep_min: e.repMin,
+                rep_max: e.repMax,
+                increment: increment
+            ))
+        }
         let payload = RoutinePayload(
             name: name.trimmingCharacters(in: .whitespaces),
-            exercises: exercises.enumerated().map { i, e in
-                RoutinePayloadExercise(
-                    exercise_id: e.exerciseId,
-                    set_count: e.setCount,
-                    rest_seconds: e.restSeconds,
-                    superset_with_next: i < exercises.count - 1 && e.supersetWithNext,
-                    rep_min: e.repMin,
-                    rep_max: e.repMax,
-                    increment: e.repMax != nil ? (e.increment ?? 2.5) : nil
-                )
-            }
+            exercises: wire
         )
         do {
             try await ForgeAPI.saveRoutine(id: routineId, payload)

@@ -47,6 +47,7 @@ export interface RoutineExercise {
   rep_min: number | null
   rep_max: number | null
   increment: number | null
+  set_types?: (string | null)[] | null
 }
 
 export interface Routine {

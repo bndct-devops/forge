@@ -464,7 +464,15 @@ def seed_from_routine(
             suggested_weight=suggestion,
             suggestion_kind=kind,
         )
-        we.sets = [SetEntry(position=i) for i in range(re_.set_count)]
+        # Template-defined per-set markers (",,amrap" = last set is an AMRAP)
+        markers = (re_.set_types or "").split(",") if re_.set_types else []
+        we.sets = [
+            SetEntry(
+                position=i,
+                set_type=(markers[i] or None) if i < len(markers) else None,
+            )
+            for i in range(re_.set_count)
+        ]
         exercises.append(we)
     return exercises
 
