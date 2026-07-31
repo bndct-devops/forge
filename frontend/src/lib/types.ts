@@ -63,7 +63,7 @@ export interface SetEntry {
   reps: number | null
   is_completed: boolean
   is_warmup: boolean
-  set_type?: 'drop' | 'failure' | null
+  set_type?: 'drop' | 'failure' | 'amrap' | null
   is_pr: boolean
   rpe?: number | null
   // Stamped client-side so offline sessions keep accurate rest analytics

@@ -417,10 +417,17 @@ def start_program_workout(
         program_lift_id=lift.id,
     )
     we = WorkoutExercise(exercise_id=lift.exercise_id, position=0)
-    # Weight AND reps prefilled: logging a prescribed set is one tap; the
-    # AMRAP set's reps get corrected upward by whatever actually happened.
+    # Straight sets are prefilled so logging one is a tap. The AMRAP set is
+    # marked and deliberately left with NO reps: its rep count is the
+    # measurement the whole cycle turns on, so it must be entered, never
+    # confirmed from a prefilled floor.
     we.sets = [
-        SetEntry(position=i, weight=s["weight"], reps=s["reps"])
+        SetEntry(
+            position=i,
+            weight=s["weight"],
+            reps=None if s.get("amrap") else s["reps"],
+            set_type="amrap" if s.get("amrap") else None,
+        )
         for i, s in enumerate(sets)
     ]
     w.exercises = [we]

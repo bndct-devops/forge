@@ -371,8 +371,7 @@ struct ActiveWorkoutView: View {
                 }
                 .padding(.horizontal, 10).padding(.vertical, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 10).fill(FG.gold.opacity(0.12)))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(FG.gold.opacity(0.35), lineWidth: 1))
+                .background(RoundedRectangle(cornerRadius: 10).fill(FG.gold.opacity(0.10)))
                 .padding(.bottom, 8)
             }
 
@@ -441,22 +440,14 @@ struct ActiveWorkoutView: View {
                 .foregroundStyle(set.amrap ? FG.gold : (set.warmup ? FG.ember : FG.muted))
                 .frame(width: 26, alignment: .leading)
 
-            HStack(spacing: 5) {
-                if set.amrap {
-                    Text("AMRAP")
-                        .font(.system(size: 9, weight: .bold)).tracking(0.5)
-                        .foregroundStyle(FG.gold)
-                        .lineLimit(1)
-                        .fixedSize()
-                        .padding(.horizontal, 5).padding(.vertical, 2)
-                        .background(RoundedRectangle(cornerRadius: 4).fill(FG.gold.opacity(0.18)))
-                }
-                Text(set.previous ?? "–")
-                    .font(.system(size: 13).monospacedDigit())
-                    .foregroundStyle(FG.muted)
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            // No AMRAP badge here — it truncated the previous value, which is
+            // exactly the number being chased. The gold set number, the gold
+            // empty reps field and the banner carry it without breaking the grid.
+            Text(set.previous ?? "–")
+                .font(.system(size: 13).monospacedDigit())
+                .foregroundStyle(set.amrap ? FG.gold.opacity(0.85) : FG.muted)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             valueField(
                 id: "\(exIdx)-\(setIdx)-w", width: 58,
@@ -492,9 +483,20 @@ struct ActiveWorkoutView: View {
                     store.exercises[exIdx].sets[setIdx].setType = set.setType == "drop" ? nil : "drop"
                     store.exercises[exIdx].sets[setIdx].warmup = false
                 }
-                Button("failure \(set.setType == "failure" ? "✓" : "")") {
+                Button("to failure \(set.setType == "failure" ? "✓" : "")") {
                     store.exercises[exIdx].sets[setIdx].setType = set.setType == "failure" ? nil : "failure"
                     store.exercises[exIdx].sets[setIdx].warmup = false
+                }
+                Button("AMRAP — max reps \(set.amrap ? "✓" : "")") {
+                    let becomingAmrap = set.setType != "amrap"
+                    store.exercises[exIdx].sets[setIdx].setType = becomingAmrap ? "amrap" : nil
+                    store.exercises[exIdx].sets[setIdx].warmup = false
+                    // an AMRAP set is answered by doing it, not by a prefill
+                    if becomingAmrap {
+                        store.exercises[exIdx].sets[setIdx].plannedReps =
+                            store.exercises[exIdx].sets[setIdx].reps
+                        store.exercises[exIdx].sets[setIdx].reps = nil
+                    }
                 }
                 Divider()
                 ForEach([7.0, 8, 8.5, 9, 9.5, 10], id: \.self) { r in
@@ -556,7 +558,9 @@ struct ActiveWorkoutView: View {
         .padding(.vertical, 7)
         .padding(.horizontal, 6)
         .background(RoundedRectangle(cornerRadius: 8)
-            .fill(set.done ? FG.ember.opacity(flashedSetId == set.id ? 0.32 : 0.14) : .clear))
+            .fill(set.done
+                  ? FG.ember.opacity(flashedSetId == set.id ? 0.32 : 0.14)
+                  : (set.amrap ? FG.gold.opacity(0.07) : .clear)))
         .padding(.horizontal, -6)
         .animation(.easeOut(duration: 0.25), value: set.done)
     }
@@ -566,6 +570,7 @@ struct ActiveWorkoutView: View {
         if set.warmup { parts.append("W") }
         if set.setType == "drop" { parts.append("D") }
         if set.setType == "failure" { parts.append("F") }
+        if set.amrap { parts.append("A") }
         if let r = set.rpe { parts.append("@\(trim(r))") }
         return parts.isEmpty ? "RPE" : parts.joined(separator: " ")
     }

@@ -152,7 +152,7 @@ class SetUpdate(BaseModel):
     reps: int | None = Field(default=None, ge=0)
     is_completed: bool | None = None
     is_warmup: bool | None = None
-    set_type: Literal["drop", "failure"] | None = None
+    set_type: Literal["drop", "failure", "amrap"] | None = None
     rpe: float | None = Field(default=None, ge=1, le=10)
 
 
@@ -164,7 +164,7 @@ class SetRestore(BaseModel):
     reps: int | None = Field(default=None, ge=0)
     is_completed: bool = False
     is_warmup: bool = False
-    set_type: Literal["drop", "failure"] | None = None
+    set_type: Literal["drop", "failure", "amrap"] | None = None
     rpe: float | None = Field(default=None, ge=1, le=10)
 
 
@@ -213,7 +213,7 @@ class SyncSetIn(BaseModel):
     reps: int | None = Field(default=None, ge=0)
     is_completed: bool = False
     is_warmup: bool = False
-    set_type: Literal["drop", "failure"] | None = None
+    set_type: Literal["drop", "failure", "amrap"] | None = None
     rpe: float | None = Field(default=None, ge=1, le=10)
     completed_at: datetime | None = None
 
@@ -249,7 +249,7 @@ class LogSetIn(BaseModel):
     weight: float | None = Field(default=None, ge=0)
     reps: int = Field(ge=1, le=1000)
     is_warmup: bool = False
-    set_type: Literal["drop", "failure"] | None = None
+    set_type: Literal["drop", "failure", "amrap"] | None = None
     rpe: float | None = Field(default=None, ge=1, le=10)
 
 

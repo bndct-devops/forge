@@ -148,8 +148,12 @@ class TestProgramWorkouts:
         p = make_program(db, user, [bench], tms=(100.0,))
         data = start_program_workout(p.id, user=user, db=db)
         assert data["name"] == "Test 531 — Bench Press (W1)"
-        sets = db.query(SetEntry).all()
-        assert [(s.weight, s.reps) for s in sets] == [(65.0, 5), (75.0, 5), (85.0, 5)]
+        sets = db.query(SetEntry).order_by(SetEntry.position).all()
+        # Straight sets arrive ready to tap; the AMRAP set is marked and left
+        # rep-less on purpose — its rep count is the cycle's measurement, so it
+        # must be entered rather than confirmed from a prefilled floor.
+        assert [(s.weight, s.reps) for s in sets] == [(65.0, 5), (75.0, 5), (85.0, None)]
+        assert [s.set_type for s in sets] == [None, None, "amrap"]
         assert data["program"]["sets"][2]["amrap"] is True
 
     def test_start_appends_the_accessory_routine(self, db, user):

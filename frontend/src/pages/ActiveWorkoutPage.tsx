@@ -492,6 +492,7 @@ export default function ActiveWorkoutPage() {
                 { label: 'Warm-up', hint: 'Excluded from PRs and volume', warmup: true, type: null },
                 { label: 'Drop set', hint: 'Reduced weight straight after a working set', warmup: false, type: 'drop' as const },
                 { label: 'To failure', hint: 'Taken to technical failure', warmup: false, type: 'failure' as const },
+                { label: 'AMRAP — max reps', hint: 'This set is the measurement: go as far as you can', warmup: false, type: 'amrap' as const },
               ] as const
             ).map((opt) => {
               const active =
@@ -501,7 +502,13 @@ export default function ActiveWorkoutPage() {
                   key={opt.label}
                   onClick={async () => {
                     setMarkerSet(null)
-                    await updateSet(markerSet.id, { is_warmup: opt.warmup, set_type: opt.type })
+                    // An AMRAP set is answered by doing it — never leave a
+                    // prescribed floor sitting in the field to be confirmed.
+                    await updateSet(markerSet.id, {
+                      is_warmup: opt.warmup,
+                      set_type: opt.type,
+                      ...(opt.type === 'amrap' && !markerSet.is_completed ? { reps: null } : {}),
+                    })
                   }}
                   className={cn(
                     'touch-feedback flex items-center justify-between rounded-lg px-3 py-3 text-left hover:bg-secondary',

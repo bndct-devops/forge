@@ -203,23 +203,7 @@ struct HomeView: View {
             // debug hook: `-demo-amrap` builds a mock program session locally
             // (start-workout needs a write token) to eyeball the AMRAP row
             if CommandLine.arguments.contains("-demo-amrap"), let p = programs.first, let n = p.next {
-                let mock = ServerWorkout(
-                    id: -1, name: "5/3/1 — \(n.exercise_name) (W\(n.week))",
-                    program_id: p.id, program_lift_id: n.lift_id,
-                    exercises: [ServerExercise(
-                        id: -1, exercise_id: n.exercise_id, name: n.exercise_name,
-                        muscle_group: "Shoulders", rest_seconds: 150,
-                        superset_with_next: false, rep_min: nil, rep_max: nil,
-                        suggested_weight: nil, suggestion_kind: nil, note: nil,
-                        previous_sets: [RecentSet(weight: 60, reps: 8, is_pr: false, rpe: nil),
-                                        RecentSet(weight: 70, reps: 8, is_pr: false, rpe: nil),
-                                        RecentSet(weight: 80, reps: 9, is_pr: true, rpe: nil)],
-                        sets: n.sets.map { ServerSet(weight: $0.weight, reps: $0.reps, is_warmup: false) }
-                    )],
-                    program: ProgramStartInfo(week: n.week, sets: n.sets),
-                    amrap_target: AmrapTarget(we_id: -1, weight: n.sets.last?.weight ?? 0, beat_reps: 10)
-                )
-                state.activeStore = WorkoutStore(server: mock)
+                state.activeStore = WorkoutStore(server: mockProgramSession(p, n))
                 state.showWorkout = true
             }
         }
@@ -415,4 +399,34 @@ struct WeightQuickLogView: View {
         busy = false
         await load()
     }
+}
+
+/// Debug-only: a program session built locally, so the AMRAP treatment can be
+/// eyeballed without a write token to call start-workout.
+func mockProgramSession(_ p: Program, _ n: ProgramNext) -> ServerWorkout {
+    let serverSets: [ServerSet] = n.sets.map { s in
+        ServerSet(weight: s.weight,
+                  reps: s.amrap ? nil : s.reps,
+                  is_warmup: false,
+                  set_type: s.amrap ? "amrap" : nil)
+    }
+    let previous: [RecentSet] = [
+        RecentSet(weight: 60, reps: 8, is_pr: false, rpe: nil),
+        RecentSet(weight: 70, reps: 8, is_pr: false, rpe: nil),
+        RecentSet(weight: 80, reps: 9, is_pr: true, rpe: nil),
+    ]
+    let exercise = ServerExercise(
+        id: -1, exercise_id: n.exercise_id, name: n.exercise_name,
+        muscle_group: "Shoulders", rest_seconds: 150,
+        superset_with_next: false, rep_min: nil, rep_max: nil,
+        suggested_weight: nil, suggestion_kind: nil, note: nil,
+        previous_sets: previous, sets: serverSets
+    )
+    return ServerWorkout(
+        id: -1, name: "5/3/1 — \(n.exercise_name) (W\(n.week))",
+        program_id: p.id, program_lift_id: n.lift_id,
+        exercises: [exercise],
+        program: ProgramStartInfo(week: n.week, sets: n.sets),
+        amrap_target: AmrapTarget(we_id: -1, weight: n.sets.last?.weight ?? 0, beat_reps: 10)
+    )
 }

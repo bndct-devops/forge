@@ -273,6 +273,8 @@ export default function SetRow({
             <span className="text-primary">D</span>
           ) : set.set_type === 'failure' ? (
             <span className="text-destructive">F</span>
+          ) : set.set_type === 'amrap' ? (
+            <span className="text-record">A</span>
           ) : (
             number
           )}

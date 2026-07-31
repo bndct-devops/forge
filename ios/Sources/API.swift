@@ -166,6 +166,7 @@ struct ServerSet: Codable {
     let weight: Double?
     let reps: Int?
     let is_warmup: Bool?
+    let set_type: String?
 }
 
 // MARK: - sync document (the PWA's offline finish path — advances programs)
