@@ -65,6 +65,21 @@ struct ActiveWorkoutView: View {
                                 exerciseCard(i)
                             }
 
+                            Button {
+                                showPicker = true
+                            } label: {
+                                HStack {
+                                    Image(systemName: "plus")
+                                    Text("Add exercise")
+                                }
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(FG.muted)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 44)
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(FG.border, style: StrokeStyle(lineWidth: 1, dash: [5, 4])))
+                            }
+                            .buttonStyle(.plain)
+
                             // Session notes — what happened TODAY. The pinned
                             // exercise note (⋯ on a card) is the other thing.
                             HStack(alignment: .top, spacing: 8) {
@@ -80,20 +95,6 @@ struct ActiveWorkoutView: View {
                             .padding(12)
                             .background(RoundedRectangle(cornerRadius: 12).fill(FG.card))
                             .overlay(RoundedRectangle(cornerRadius: 12).stroke(FG.border, lineWidth: 1))
-                            Button {
-                                showPicker = true
-                            } label: {
-                                HStack {
-                                    Image(systemName: "plus")
-                                    Text("Add exercise")
-                                }
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(FG.muted)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 44)
-                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(FG.border, style: StrokeStyle(lineWidth: 1, dash: [5, 4])))
-                            }
-                            .buttonStyle(.plain)
                             Color.clear.frame(height: 80)
                         }
                         .padding(16)
