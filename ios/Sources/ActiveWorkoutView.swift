@@ -435,10 +435,47 @@ struct ActiveWorkoutView: View {
     private func setRowContent(exIdx: Int, setIdx: Int) -> some View {
         let set = store.exercises[exIdx].sets[setIdx]
         return HStack(spacing: 8) {
-            Text("\(setIdx + 1)")
-                .font(.system(size: 14, weight: .semibold).monospacedDigit())
-                .foregroundStyle(set.amrap ? FG.gold : (set.warmup ? FG.ember : FG.muted))
-                .frame(width: 26, alignment: .leading)
+            // Front marker — the row declares what kind of set it is before
+            // the numbers, and tapping it is how you change that (PWA model).
+            Menu {
+                Button("working set \(set.plain ? "✓" : "")") {
+                    store.exercises[exIdx].sets[setIdx].warmup = false
+                    store.exercises[exIdx].sets[setIdx].setType = nil
+                }
+                Button("warm-up \(set.warmup ? "✓" : "")") {
+                    store.exercises[exIdx].sets[setIdx].warmup.toggle()
+                    store.exercises[exIdx].sets[setIdx].setType = nil
+                }
+                Button("drop set \(set.setType == "drop" ? "✓" : "")") {
+                    store.exercises[exIdx].sets[setIdx].setType = set.setType == "drop" ? nil : "drop"
+                    store.exercises[exIdx].sets[setIdx].warmup = false
+                }
+                Button("to failure \(set.setType == "failure" ? "✓" : "")") {
+                    store.exercises[exIdx].sets[setIdx].setType = set.setType == "failure" ? nil : "failure"
+                    store.exercises[exIdx].sets[setIdx].warmup = false
+                }
+                Button("AMRAP — max reps \(set.amrap ? "✓" : "")") {
+                    let becomingAmrap = set.setType != "amrap"
+                    store.exercises[exIdx].sets[setIdx].setType = becomingAmrap ? "amrap" : nil
+                    store.exercises[exIdx].sets[setIdx].warmup = false
+                    // an AMRAP set is answered by doing it, not by a prefill
+                    if becomingAmrap {
+                        store.exercises[exIdx].sets[setIdx].plannedReps =
+                            store.exercises[exIdx].sets[setIdx].reps
+                        store.exercises[exIdx].sets[setIdx].reps = nil
+                    }
+                }
+                Divider()
+                Button("Remove set", role: .destructive) {
+                    withAnimation(.spring(duration: 0.3)) { store.removeSet(exIdx: exIdx, setIdx: setIdx) }
+                }
+            } label: {
+                Text(setMarker(set, number: setIdx + 1))
+                    .font(.system(size: 14, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(markerColor(set))
+                    .frame(width: 26, height: 38, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
 
             // No AMRAP badge here — it truncated the previous value, which is
             // exactly the number being chased. The gold set number, the gold
@@ -474,45 +511,18 @@ struct ActiveWorkoutView: View {
                 set: { txt in store.exercises[exIdx].sets[setIdx].reps = Int(txt) }
             )
 
+            // Effort column — RPE only now, so it matches its header
             Menu {
-                Button("warm-up \(set.warmup ? "✓" : "")") {
-                    store.exercises[exIdx].sets[setIdx].warmup.toggle()
-                    store.exercises[exIdx].sets[setIdx].setType = nil
-                }
-                Button("drop set \(set.setType == "drop" ? "✓" : "")") {
-                    store.exercises[exIdx].sets[setIdx].setType = set.setType == "drop" ? nil : "drop"
-                    store.exercises[exIdx].sets[setIdx].warmup = false
-                }
-                Button("to failure \(set.setType == "failure" ? "✓" : "")") {
-                    store.exercises[exIdx].sets[setIdx].setType = set.setType == "failure" ? nil : "failure"
-                    store.exercises[exIdx].sets[setIdx].warmup = false
-                }
-                Button("AMRAP — max reps \(set.amrap ? "✓" : "")") {
-                    let becomingAmrap = set.setType != "amrap"
-                    store.exercises[exIdx].sets[setIdx].setType = becomingAmrap ? "amrap" : nil
-                    store.exercises[exIdx].sets[setIdx].warmup = false
-                    // an AMRAP set is answered by doing it, not by a prefill
-                    if becomingAmrap {
-                        store.exercises[exIdx].sets[setIdx].plannedReps =
-                            store.exercises[exIdx].sets[setIdx].reps
-                        store.exercises[exIdx].sets[setIdx].reps = nil
-                    }
-                }
-                Divider()
                 ForEach([7.0, 8, 8.5, 9, 9.5, 10], id: \.self) { r in
                     Button("RPE \(trim(r)) \(set.rpe == r ? "✓" : "")") { store.exercises[exIdx].sets[setIdx].rpe = r }
                 }
                 if set.rpe != nil {
                     Button("clear RPE") { store.exercises[exIdx].sets[setIdx].rpe = nil }
                 }
-                Divider()
-                Button("Remove set", role: .destructive) {
-                    withAnimation(.spring(duration: 0.3)) { store.removeSet(exIdx: exIdx, setIdx: setIdx) }
-                }
             } label: {
-                Text(setBadge(set))
+                Text(set.rpe.map { "@\(trim($0))" } ?? "RPE")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(set.warmup || set.setType != nil || set.rpe != nil ? FG.ember : FG.muted)
+                    .foregroundStyle(set.rpe != nil ? FG.ember : FG.muted)
                     .frame(width: 44, height: 38)
                     .overlay(RoundedRectangle(cornerRadius: 9).stroke(FG.border, lineWidth: 1))
             }
@@ -565,14 +575,22 @@ struct ActiveWorkoutView: View {
         .animation(.easeOut(duration: 0.25), value: set.done)
     }
 
-    private func setBadge(_ set: DraftSet) -> String {
-        var parts: [String] = []
-        if set.warmup { parts.append("W") }
-        if set.setType == "drop" { parts.append("D") }
-        if set.setType == "failure" { parts.append("F") }
-        if set.amrap { parts.append("A") }
-        if let r = set.rpe { parts.append("@\(trim(r))") }
-        return parts.isEmpty ? "RPE" : parts.joined(separator: " ")
+    /// Front-of-row glyph: the set's kind, or its number when it's a plain
+    /// working set.
+    private func setMarker(_ set: DraftSet, number: Int) -> String {
+        if set.warmup { return "W" }
+        if set.setType == "drop" { return "D" }
+        if set.setType == "failure" { return "F" }
+        if set.amrap { return "A" }
+        return "\(number)"
+    }
+
+    private func markerColor(_ set: DraftSet) -> Color {
+        if set.amrap { return FG.gold }
+        if set.warmup { return FG.ember }
+        if set.setType == "drop" { return FG.ember }
+        if set.setType == "failure" { return FG.destructive }
+        return FG.muted
     }
 
     private func valueField(id: String, width: CGFloat, placeholder: String, keyboard: UIKeyboardType,

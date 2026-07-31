@@ -16,6 +16,8 @@ struct DraftSet: Identifiable, Codable {
     /// AMRAP is a set TYPE ("amrap"), persisted like drop/failure — so history
     /// knows which set was the measurement instead of inferring it.
     var amrap: Bool { setType == "amrap" }
+    /// A plain working set — no marker of any kind.
+    var plain: Bool { !warmup && setType == nil }
     /// The prescribed floor, shown as a "3+" placeholder. The reps field itself
     /// stays EMPTY so the real number has to be entered.
     var plannedReps: Int?
