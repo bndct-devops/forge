@@ -744,7 +744,9 @@ struct RecordsListView: View {
     @State private var query = ""
 
     private var filtered: [RecordEntry] {
-        query.isEmpty ? entries : entries.filter { $0.name.localizedCaseInsensitiveContains(query) }
+        guard !query.isEmpty else { return entries }
+        let match = ExerciseSearch.matcher(for: query)
+        return entries.filter { match($0.name) }
     }
 
     var body: some View {

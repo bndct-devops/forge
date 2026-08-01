@@ -24,7 +24,8 @@ struct ExercisesView: View {
     /// their family head (PWA semantics).
     private var grouped: [(String, [Family])] {
         if !query.isEmpty {
-            let filtered = all.filter { $0.name.localizedCaseInsensitiveContains(query) }
+            let match = ExerciseSearch.matcher(for: query)
+            let filtered = all.filter { match($0.name) }
             let dict = Dictionary(grouping: filtered) { $0.muscle_group ?? "Other" }
             return dict.sorted { $0.key < $1.key }.map { group, exs in
                 (group, exs.map { Family(head: $0, variants: []) })

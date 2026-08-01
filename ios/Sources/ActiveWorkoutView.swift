@@ -843,7 +843,9 @@ struct ExercisePicker: View {
     @State private var query = ""
 
     var filtered: [LibraryExercise] {
-        query.isEmpty ? all : all.filter { $0.name.localizedCaseInsensitiveContains(query) }
+        guard !query.isEmpty else { return all }
+        let match = ExerciseSearch.matcher(for: query)
+        return all.filter { match($0.name) }
     }
 
     var body: some View {
