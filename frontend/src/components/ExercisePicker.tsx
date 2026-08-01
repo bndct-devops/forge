@@ -3,6 +3,7 @@ import EquipmentGlyph from './EquipmentGlyph'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../lib/api'
 import { fetchExercises, getCachedExercises } from '../lib/exerciseCache'
+import { makeMatcher } from '../lib/search'
 import type { Exercise } from '../lib/types'
 import { cn } from '../lib/utils'
 import ExerciseForm, { MUSCLE_GROUPS, type ExerciseFields } from './ExerciseForm'
@@ -214,9 +215,8 @@ export default function ExercisePicker({
   const searching = query.trim().length > 0
 
   const families = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const matches = (e: Exercise) =>
-      (!group || e.muscle_group === group) && (!q || e.name.toLowerCase().includes(q))
+    const match = makeMatcher(query)
+    const matches = (e: Exercise) => (!group || e.muscle_group === group) && match(e.name)
     const map = new Map<number, Exercise[]>()
     for (const e of exercises) {
       if (!matches(e)) continue

@@ -7,6 +7,7 @@ import Sheet from '../components/Sheet'
 import Skeleton from '../components/Skeleton'
 import { api } from '../lib/api'
 import { fetchExercises, getCachedExercises } from '../lib/exerciseCache'
+import { makeMatcher } from '../lib/search'
 import type { Exercise } from '../lib/types'
 import { cn } from '../lib/utils'
 
@@ -30,10 +31,9 @@ export default function ExercisesPage() {
   const searching = query.trim().length > 0
 
   const families = useMemo(() => {
-    const q = query.trim().toLowerCase()
+    const match = makeMatcher(query)
     const byId = new Map(exercises.map((e) => [e.id, e]))
-    const matches = (e: Exercise) =>
-      (!group || e.muscle_group === group) && (!q || e.name.toLowerCase().includes(q))
+    const matches = (e: Exercise) => (!group || e.muscle_group === group) && match(e.name)
     const map = new Map<number, Exercise[]>()
     for (const e of exercises) {
       if (!matches(e)) continue

@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
 import { useCachedState } from '../lib/dataCache'
 import { formatRelativeDate } from '../lib/format'
+import { makeMatcher } from '../lib/search'
 
 interface RecordRow {
   exercise_id: number
@@ -29,8 +30,8 @@ export default function RecordsPage() {
   }, [])
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return (records ?? []).filter((r) => !q || r.name.toLowerCase().includes(q))
+    const match = makeMatcher(query)
+    return (records ?? []).filter((r) => match(r.name))
   }, [records, query])
 
   return (
