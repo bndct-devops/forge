@@ -244,6 +244,8 @@ struct FinishComparison: Codable {
 struct FinishMusic: Codable {
     let songs: Int?
     let top_artist: String?
+    /// "Title — Artist" of the song playing when a PR went down
+    let pr_song: String?
 }
 
 struct FinishSummary: Codable {

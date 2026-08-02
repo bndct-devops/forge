@@ -128,6 +128,8 @@ def test_sync_music_lands_and_none_never_wipes(db, user):
 
     ex = make_exercise(db)
     doc = _doc(ex, finished=True)
+    # First set (the 100 kg weight PR) lands inside Silvera's play window
+    doc.exercises[0].sets[0].completed_at = FROZEN_NOW + timedelta(minutes=1)
     doc.music = [
         SyncSongIn(position=0, title="Silvera", artist="Gojira",
                    apple_id="1440848087", started_at=FROZEN_NOW,
@@ -137,7 +139,9 @@ def test_sync_music_lands_and_none_never_wipes(db, user):
                    source="inferred"),
     ]
     res = sync_workout(doc, user, db)
-    assert res["finish"]["music"] == {"songs": 2, "top_artist": "Gojira"}
+    assert res["finish"]["music"] == {
+        "songs": 2, "top_artist": "Gojira", "pr_song": "Silvera — Gojira",
+    }
 
     w = db.execute(
         select(Workout).where(Workout.owner_id == user.id, Workout.finished_at.is_not(None))

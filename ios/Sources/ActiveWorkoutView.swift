@@ -164,7 +164,8 @@ struct ActiveWorkoutView: View {
                         workout_number: 8, week_workouts: 1,
                         comparison: FinishComparison(prev_volume: 6900, prev_sets: 14,
                                                      prev_date: "2026-07-25T20:28:00"),
-                        music: FinishMusic(songs: 12, top_artist: "Gojira")
+                        music: FinishMusic(songs: 12, top_artist: "Gojira",
+                                           pr_song: "Silvera — Gojira")
                     )
                     finished = true
                 }

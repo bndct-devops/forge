@@ -26,24 +26,66 @@ function parseNum(value: string): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-/** What was happening while the song ran: exercises whose sets were checked
- *  off inside its play window, else the wall-clock start. Mirrors the iOS
- *  companion's songContext. */
-function songContext(song: WorkoutSong, workout: Workout): string {
-  const start = parseUTC(song.started_at).getTime()
-  const end = song.ended_at ? parseUTC(song.ended_at).getTime() : start
-  const names: string[] = []
-  for (const we of workout.exercises) {
-    const hit = we.sets.some((s) => {
-      if (!s.completed_at) return false
-      const t = parseUTC(s.completed_at).getTime()
-      return t >= start && t <= end
-    })
-    if (hit && !names.includes(we.name)) names.push(we.name)
+interface SongEntry {
+  song: WorkoutSong
+  pr: boolean
+}
+
+/** Tracklist grouped by what you were lifting: a song's exercise = most set
+ *  ✓s inside its play window; songs with no overlap stay with the current
+ *  block. Mirrors the iOS companion's soundtrackGroups. */
+function groupSoundtrack(music: WorkoutSong[], workout: Workout) {
+  const groups: { exercise: string | null; songs: SongEntry[] }[] = []
+  let current: string | null = null
+  for (const song of music) {
+    const start = parseUTC(song.started_at).getTime()
+    const end = song.ended_at ? parseUTC(song.ended_at).getTime() : start
+    const counts = new Map<string, number>()
+    let pr = false
+    for (const we of workout.exercises) {
+      for (const s of we.sets) {
+        if (!s.completed_at) continue
+        const t = parseUTC(s.completed_at).getTime()
+        if (t < start || t > end) continue
+        counts.set(we.name, (counts.get(we.name) ?? 0) + 1)
+        if (s.is_pr) pr = true
+      }
+    }
+    let primary: string | null = current
+    let best = 0
+    for (const [name, n] of counts) if (n > best) [primary, best] = [name, n]
+    if (groups.length === 0 || primary !== current) {
+      groups.push({ exercise: primary, songs: [{ song, pr }] })
+    } else {
+      groups[groups.length - 1].songs.push({ song, pr })
+    }
+    current = primary
   }
-  if (names.length === 0) return formatTime(song.started_at)
-  if (names.length > 2) return `${names.slice(0, 2).join(' · ')} · …`
-  return names.join(' · ')
+  return groups
+}
+
+/** The finish screen's music summary, rebuilt from the stored soundtrack. */
+function musicSummary(workout: Workout) {
+  const music = workout.music
+  if (!music || music.length === 0) return undefined
+  const counts = new Map<string, number>()
+  for (const m of music) if (m.artist) counts.set(m.artist, (counts.get(m.artist) ?? 0) + 1)
+  let top: string | null = null
+  let best = 0
+  for (const [artist, n] of counts) if (n > best) [top, best] = [artist, n]
+  const prTimes = workout.exercises.flatMap((we) =>
+    we.sets.filter((s) => s.is_pr && s.completed_at).map((s) => parseUTC(s.completed_at!).getTime()),
+  )
+  const prSong = music.find((m) => {
+    const start = parseUTC(m.started_at).getTime()
+    const end = m.ended_at ? parseUTC(m.ended_at).getTime() : start
+    return prTimes.some((t) => t >= start && t <= end)
+  })
+  return {
+    songs: music.length,
+    top_artist: top,
+    pr_song: prSong ? `${prSong.title}${prSong.artist ? ` — ${prSong.artist}` : ''}` : null,
+  }
 }
 
 interface EditSetRowProps {
@@ -264,6 +306,7 @@ export default function WorkoutDetailPage() {
           total_sets: workout.total_sets ?? 0,
           prs,
           date: parseUTC(workout.started_at),
+          music: musicSummary(workout),
         },
         unit,
       )
@@ -525,7 +568,7 @@ export default function WorkoutDetailPage() {
         )}
 
         {!editing && workout.music && workout.music.length > 0 && (
-          <section className="animate-card-appear rounded-xl border bg-card p-4 md:col-span-2">
+          <section className="animate-card-appear rounded-xl border bg-card p-4">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
                 <Music size={13} /> Soundtrack
@@ -534,23 +577,33 @@ export default function WorkoutDetailPage() {
                 {workout.music.length} song{workout.music.length === 1 ? '' : 's'}
               </span>
             </div>
-            <div className="mt-2.5 flex flex-col gap-2">
-              {workout.music.map((song, i) => (
-                <div key={i} className="flex items-baseline justify-between gap-3 text-sm">
-                  <span className="min-w-0">
-                    <span className="block truncate font-medium">{song.title}</span>
-                    {song.artist && (
-                      <span className="block truncate text-xs text-muted-foreground">{song.artist}</span>
-                    )}
-                  </span>
-                  <span className="shrink-0 truncate text-right text-xs text-muted-foreground">
-                    {/* ≈ marks a song Apple Music remembered but the app never saw play */}
-                    {song.source === 'inferred' ? '≈ ' : ''}
-                    {songContext(song, workout)}
-                  </span>
+            {groupSoundtrack(workout.music, workout).map((group, gi) => (
+              <div key={gi} className="mt-3">
+                {group.exercise && (
+                  <div className="mb-1.5 text-[10px] font-semibold tracking-wide text-primary/85 uppercase">
+                    {group.exercise}
+                  </div>
+                )}
+                <div className="flex flex-col gap-1.5">
+                  {group.songs.map(({ song, pr }, i) => (
+                    <div key={i} className="flex items-baseline justify-between gap-3 text-sm">
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium">{song.title}</span>
+                        {song.artist && (
+                          <span className="block truncate text-xs text-muted-foreground">{song.artist}</span>
+                        )}
+                      </span>
+                      <span className="tnum flex shrink-0 items-baseline gap-1.5 text-xs text-muted-foreground">
+                        {pr && <Trophy size={12} className="self-center text-record" />}
+                        {/* ≈ marks a song Apple Music remembered but the app never saw play */}
+                        {song.source === 'inferred' ? '≈ ' : ''}
+                        {formatTime(song.started_at)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </section>
         )}
       </div>

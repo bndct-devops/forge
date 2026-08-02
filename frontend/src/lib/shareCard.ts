@@ -11,6 +11,7 @@ export interface ShareCardData {
   prs: { exercise_name: string; kind: string; value: number; reps: number }[]
   comparison?: { prev_volume: number; prev_date: string } | null
   date?: Date
+  music?: { songs: number; top_artist: string | null; pr_song: string | null }
 }
 
 // Tome/Forge dark tokens, hex-approximated for canvas
@@ -39,9 +40,11 @@ function drawCard(summary: ShareCardData, unit: string): HTMLCanvasElement {
   // Height grows with content so a PR-less card isn't mostly empty space
   const nameLines = Math.min(2, Math.ceil(summary.name.length / 22))
   const prCount = Math.min(5, summary.prs.length)
+  const musicLines = summary.music?.songs ? (summary.music.pr_song ? 2 : 1) : 0
   const H = Math.max(
     760,
-    240 + nameLines * 108 + 24 + 190 + 48 + 76 + (prCount ? 56 + prCount * 112 : 0) + 180,
+    240 + nameLines * 108 + 24 + 190 + 48 + 76 + (prCount ? 56 + prCount * 112 : 0)
+      + (musicLines ? 40 + musicLines * 54 : 0) + 180,
   )
   const canvas = document.createElement('canvas')
   canvas.width = W
@@ -175,6 +178,31 @@ function drawCard(summary: ShareCardData, unit: string): HTMLCanvasElement {
       ctx.fillText(value, W - PAD - 32, y + 32)
       ctx.textAlign = 'left'
       y += rowH + 16
+    }
+  }
+
+  // Soundtrack
+  if (summary.music && summary.music.songs > 0) {
+    y += 24
+    ctx.fillStyle = EMBER
+    ctx.font = "600 34px 'Onest', sans-serif"
+    ctx.fillText('♪', PAD, y)
+    ctx.fillStyle = INK
+    ctx.font = "500 34px 'Onest', sans-serif"
+    const line =
+      `${summary.music.songs} song${summary.music.songs === 1 ? '' : 's'}` +
+      (summary.music.top_artist ? ` · mostly ${summary.music.top_artist}` : '')
+    ctx.fillText(line, PAD + 52, y)
+    y += 54
+    if (summary.music.pr_song) {
+      ctx.fillStyle = RECORD
+      ctx.font = "600 32px 'Onest', sans-serif"
+      const pr =
+        summary.music.pr_song.length > 42
+          ? `${summary.music.pr_song.slice(0, 41)}…`
+          : summary.music.pr_song
+      ctx.fillText(`PR song: ${pr}`, PAD + 52, y)
+      y += 54
     }
   }
 

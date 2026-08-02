@@ -293,8 +293,12 @@ struct WorkoutDetailView: View {
 
     // MARK: soundtrack
 
+    /// Tracklist grouped by what you were lifting: an exercise header, then
+    /// the songs that ran through it. A song's exercise = most set ✓s inside
+    /// its play window; songs with no overlap stay with the current block.
     private func soundtrackCard(_ music: [WorkoutSongOut], _ w: WorkoutFull) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let groups = soundtrackGroups(music, w)
+        return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: "music.note")
                     .font(.system(size: 12, weight: .semibold))
@@ -307,28 +311,43 @@ struct WorkoutDetailView: View {
                     .font(.system(size: 11).monospacedDigit())
                     .foregroundStyle(FG.muted)
             }
-            ForEach(Array(music.enumerated()), id: \.offset) { _, song in
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(song.title)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                        if let artist = song.artist {
-                            Text(artist)
-                                .font(.system(size: 11))
-                                .foregroundStyle(FG.muted)
-                                .lineLimit(1)
+            ForEach(Array(groups.enumerated()), id: \.offset) { gi, group in
+                VStack(alignment: .leading, spacing: 7) {
+                    if let name = group.exercise {
+                        Text(name.uppercased())
+                            .font(.system(size: 10, weight: .semibold)).tracking(0.6)
+                            .foregroundStyle(FG.ember.opacity(0.85))
+                            .padding(.top, gi == 0 ? 2 : 6)
+                    }
+                    ForEach(Array(group.songs.enumerated()), id: \.offset) { _, entry in
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(entry.song.title)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(.white)
+                                    .lineLimit(1)
+                                if let artist = entry.song.artist {
+                                    Text(artist)
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(FG.muted)
+                                        .lineLimit(1)
+                                }
+                            }
+                            Spacer(minLength: 12)
+                            if entry.pr {
+                                Image(systemName: "trophy.fill")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(FG.gold)
+                            }
+                            // ≈ = Apple Music remembered it, the app never
+                            // saw it play — placement is approximate
+                            if let t = parseISOUTC(entry.song.started_at) {
+                                Text((entry.song.source == "inferred" ? "≈ " : "") + hhmm(t))
+                                    .font(.system(size: 11).monospacedDigit())
+                                    .foregroundStyle(FG.muted)
+                            }
                         }
                     }
-                    Spacer(minLength: 12)
-                    // ≈ marks a song Apple Music remembered but the app
-                    // never saw play — its placement is approximate
-                    Text((song.source == "inferred" ? "≈ " : "") + songContext(song, in: w))
-                        .font(.system(size: 11))
-                        .foregroundStyle(FG.muted)
-                        .lineLimit(1)
-                        .multilineTextAlignment(.trailing)
                 }
             }
         }
@@ -338,28 +357,44 @@ struct WorkoutDetailView: View {
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(FG.border, lineWidth: 1))
     }
 
-    /// What was happening while the song ran: the exercises whose sets were
-    /// checked off inside its play window, else the wall-clock start.
-    private func songContext(_ song: WorkoutSongOut, in w: WorkoutFull) -> String {
-        guard let start = parseISOUTC(song.started_at) else { return "" }
-        let end = parseISOUTC(song.ended_at) ?? start
-        var names: [String] = []
-        for ex in w.exercises {
-            let hit = ex.sets.contains { s in
-                guard let t = parseISOUTC(s.completed_at) else { return false }
-                return t >= start && t <= end
+    private struct SongEntry {
+        let song: WorkoutSongOut
+        let pr: Bool
+    }
+
+    private func soundtrackGroups(
+        _ music: [WorkoutSongOut], _ w: WorkoutFull
+    ) -> [(exercise: String?, songs: [SongEntry])] {
+        var groups: [(exercise: String?, songs: [SongEntry])] = []
+        var current: String?
+        for song in music {
+            var counts: [String: Int] = [:]
+            var pr = false
+            if let start = parseISOUTC(song.started_at) {
+                let end = parseISOUTC(song.ended_at) ?? start
+                for ex in w.exercises {
+                    for s in ex.sets {
+                        guard let t = parseISOUTC(s.completed_at), t >= start, t <= end else { continue }
+                        counts[ex.name, default: 0] += 1
+                        if s.is_pr == true { pr = true }
+                    }
+                }
             }
-            if hit, !names.contains(ex.name) { names.append(ex.name) }
+            let primary = counts.max { $0.value < $1.value }?.key ?? current
+            if groups.isEmpty || primary != current {
+                groups.append((primary, [SongEntry(song: song, pr: pr)]))
+            } else {
+                groups[groups.count - 1].songs.append(SongEntry(song: song, pr: pr))
+            }
+            current = primary
         }
-        if names.isEmpty {
-            let f = DateFormatter()
-            f.dateFormat = "HH:mm"
-            return f.string(from: start)
-        }
-        if names.count > 2 {
-            return names.prefix(2).joined(separator: " · ") + " · …"
-        }
-        return names.joined(separator: " · ")
+        return groups
+    }
+
+    private func hhmm(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f.string(from: d)
     }
 
     private func headStat(_ value: String, _ unit: String, gold: Bool = false) -> some View {
@@ -394,6 +429,26 @@ struct WorkoutDetailView: View {
                 ))
             }
         }
+        // Rebuild the finish screen's music summary from the stored soundtrack
+        var music: FinishMusic?
+        if let songs = w.music, !songs.isEmpty {
+            let artists = songs.compactMap(\.artist)
+            let top = Dictionary(grouping: artists) { $0 }
+                .max { $0.value.count < $1.value.count }?.key
+            let prTimes = w.exercises.flatMap { ex in
+                ex.sets.filter { $0.is_pr == true }.compactMap { parseISOUTC($0.completed_at) }
+            }
+            let prSong = songs.first { song in
+                guard let start = parseISOUTC(song.started_at) else { return false }
+                let end = parseISOUTC(song.ended_at) ?? start
+                return prTimes.contains { $0 >= start && $0 <= end }
+            }
+            music = FinishMusic(
+                songs: songs.count,
+                top_artist: top,
+                pr_song: prSong.map { "\($0.title)\($0.artist.map { " — \($0)" } ?? "")" }
+            )
+        }
         return renderShareCard(ShareCard(
             name: w.name,
             date: date,
@@ -401,7 +456,8 @@ struct WorkoutDetailView: View {
             sets: w.total_sets ?? 0,
             minutes: (w.duration_seconds ?? 0) / 60,
             prs: prs,
-            workoutNumber: nil
+            workoutNumber: nil,
+            music: music
         ))
     }
 

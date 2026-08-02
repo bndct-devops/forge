@@ -126,12 +126,30 @@ def _finish_summary(db: Session, user: User, workout: Workout, prs: list) -> dic
             "prev_date": previous_same.started_at,
         }
 
-    # "12 songs · mostly Gojira" on the finish screen
+    # "12 songs · mostly Gojira" on the finish screen — plus the song that
+    # was playing when a PR went down, which is the line people share
     music = None
     if workout.songs:
         artists = [s.artist for s in workout.songs if s.artist]
         top_artist = max(set(artists), key=artists.count) if artists else None
-        music = {"songs": len(workout.songs), "top_artist": top_artist}
+
+        def _naive(dt):
+            return dt.replace(tzinfo=None) if dt.tzinfo else dt
+
+        pr_times = [
+            _naive(s.completed_at)
+            for we in workout.exercises
+            for s in we.sets
+            if s.is_pr and s.completed_at is not None
+        ]
+        pr_song = None
+        for song in workout.songs:
+            start = _naive(song.started_at)
+            end = _naive(song.ended_at) if song.ended_at else start
+            if any(start <= t <= end for t in pr_times):
+                pr_song = song.title + (f" — {song.artist}" if song.artist else "")
+                break
+        music = {"songs": len(workout.songs), "top_artist": top_artist, "pr_song": pr_song}
 
     return {
         "id": workout.id,

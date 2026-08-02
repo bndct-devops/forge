@@ -44,17 +44,10 @@ struct FinishSummaryView: View {
                 VStack(spacing: 14) {
                     header
                     statTiles
-                    if let m = summary?.music, let count = m.songs, count > 0 {
-                        HStack(spacing: 5) {
-                            Image(systemName: "music.note").font(.system(size: 11))
-                            Text("\(count) song\(count == 1 ? "" : "s")"
-                                 + (m.top_artist.map { " · mostly \($0)" } ?? ""))
-                                .font(.system(size: 12))
-                        }
-                        .foregroundStyle(FG.muted)
-                        .stagger(3, appeared)
-                    }
                     if !prs.isEmpty { prCard }
+                    if let m = summary?.music, let count = m.songs, count > 0 {
+                        musicCard(m, count).stagger(4, appeared)
+                    }
                     if let c = summary?.comparison { comparisonCard(c) }
                     breakdown
                     Color.clear.frame(height: 8)
@@ -152,6 +145,40 @@ struct FinishSummaryView: View {
         .background(RoundedRectangle(cornerRadius: 14).fill(FG.gold.opacity(0.10)))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(FG.gold.opacity(0.35), lineWidth: 1))
         .stagger(4, appeared)
+    }
+
+    // MARK: soundtrack
+
+    private func musicCard(_ m: FinishMusic, _ count: Int) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 7) {
+                Image(systemName: "music.note")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(FG.ember)
+                (Text("\(count) song\(count == 1 ? "" : "s")")
+                    .fontWeight(.semibold).foregroundStyle(.white)
+                 + Text(m.top_artist.map { " · mostly \($0)" } ?? "")
+                    .foregroundStyle(FG.muted))
+                    .font(.system(size: 13))
+                    .lineLimit(1)
+                Spacer()
+            }
+            if let pr = m.pr_song {
+                HStack(spacing: 7) {
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(FG.gold)
+                    (Text(pr).fontWeight(.medium).foregroundStyle(.white)
+                     + Text(" carried a PR").foregroundStyle(FG.muted))
+                        .font(.system(size: 12))
+                        .lineLimit(1)
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 13).fill(FG.card))
+        .overlay(RoundedRectangle(cornerRadius: 13).stroke(FG.border, lineWidth: 1))
     }
 
     // MARK: comparison
@@ -264,7 +291,8 @@ struct FinishSummaryView: View {
             prs: prs,
             workoutNumber: summary?.workout_number,
             comparisonDelta: (summary?.comparison?.prev_volume).map { volume - $0 },
-            comparisonLabel: "vs last \(summary?.name ?? "session")"
+            comparisonLabel: "vs last \(summary?.name ?? "session")",
+            music: summary?.music
         ))
     }
 
@@ -325,6 +353,7 @@ struct ShareCard: View {
     let workoutNumber: Int?
     var comparisonDelta: Double?
     var comparisonLabel: String?
+    var music: FinishMusic?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -395,6 +424,34 @@ struct ShareCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(RoundedRectangle(cornerRadius: 13).fill(FG.gold.opacity(0.10)))
                 .overlay(RoundedRectangle(cornerRadius: 13).stroke(FG.gold.opacity(0.35), lineWidth: 1))
+            }
+
+            if let m = music, let count = m.songs, count > 0 {
+                HStack(spacing: 8) {
+                    Image(systemName: "music.note")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(FG.ember)
+                        .frame(width: 26, height: 26)
+                        .background(RoundedRectangle(cornerRadius: 7).fill(FG.ember.opacity(0.15)))
+                    VStack(alignment: .leading, spacing: 2) {
+                        (Text("\(count) song\(count == 1 ? "" : "s")")
+                            .fontWeight(.semibold).foregroundStyle(.white)
+                         + Text(m.top_artist.map { " · mostly \($0)" } ?? "")
+                            .foregroundStyle(FG.muted))
+                            .font(.system(size: 12))
+                            .lineLimit(1)
+                        if let pr = m.pr_song {
+                            (Text("PR song  ").foregroundStyle(FG.gold)
+                             + Text(pr).foregroundStyle(.white))
+                                .font(.system(size: 11, weight: .medium))
+                                .lineLimit(1)
+                        }
+                    }
+                    Spacer()
+                }
+                .padding(10)
+                .background(RoundedRectangle(cornerRadius: 13).fill(FG.card))
+                .overlay(RoundedRectangle(cornerRadius: 13).stroke(FG.border, lineWidth: 1))
             }
 
             if let delta = comparisonDelta {
