@@ -97,6 +97,18 @@ export interface WorkoutExercise {
   previous_sets: PastSet[]
 }
 
+/** One song's play window during a workout — captured by the iOS companion
+ *  from the system player; the PWA only displays it. */
+export interface WorkoutSong {
+  title: string
+  artist: string | null
+  album: string | null
+  apple_id: string | null
+  started_at: string
+  ended_at: string | null
+  source?: string
+}
+
 export interface Workout {
   id: number
   name: string
@@ -113,6 +125,7 @@ export interface Workout {
   // Reps on the program main lift's top set that would set a new e1RM best
   amrap_target?: { we_id: number; weight: number; beat_reps: number } | null
   exercises: WorkoutExercise[]
+  music?: WorkoutSong[]
   duration_seconds?: number
   total_volume?: number
   total_sets?: number

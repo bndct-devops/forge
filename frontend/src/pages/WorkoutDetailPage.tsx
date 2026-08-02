@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, Clock, Pencil, Plus, RotateCcw, Share, Trash2, Trophy, Weight, X } from 'lucide-react'
+import { Check, ChevronLeft, Clock, Music, Pencil, Plus, RotateCcw, Share, Trash2, Trophy, Weight, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import ExercisePicker from '../components/ExercisePicker'
@@ -17,13 +17,33 @@ import {
 } from '../lib/format'
 import { shareWorkoutCard } from '../lib/shareCard'
 import { toast } from '../lib/toast'
-import type { SetEntry, Workout, WorkoutExercise } from '../lib/types'
+import type { SetEntry, Workout, WorkoutExercise, WorkoutSong } from '../lib/types'
 import { cn } from '../lib/utils'
 import Skeleton, { CardListSkeleton } from '../components/Skeleton'
 
 function parseNum(value: string): number | null {
   const n = parseFloat(value.replace(',', '.'))
   return Number.isFinite(n) ? n : null
+}
+
+/** What was happening while the song ran: exercises whose sets were checked
+ *  off inside its play window, else the wall-clock start. Mirrors the iOS
+ *  companion's songContext. */
+function songContext(song: WorkoutSong, workout: Workout): string {
+  const start = parseUTC(song.started_at).getTime()
+  const end = song.ended_at ? parseUTC(song.ended_at).getTime() : start
+  const names: string[] = []
+  for (const we of workout.exercises) {
+    const hit = we.sets.some((s) => {
+      if (!s.completed_at) return false
+      const t = parseUTC(s.completed_at).getTime()
+      return t >= start && t <= end
+    })
+    if (hit && !names.includes(we.name)) names.push(we.name)
+  }
+  if (names.length === 0) return formatTime(song.started_at)
+  if (names.length > 2) return `${names.slice(0, 2).join(' · ')} · …`
+  return names.join(' · ')
 }
 
 interface EditSetRowProps {
@@ -502,6 +522,34 @@ export default function WorkoutDetailPage() {
           >
             <Plus size={18} /> Add exercise
           </button>
+        )}
+
+        {!editing && workout.music && workout.music.length > 0 && (
+          <section className="animate-card-appear rounded-xl border bg-card p-4 md:col-span-2">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                <Music size={13} /> Soundtrack
+              </span>
+              <span className="tnum text-xs text-muted-foreground">
+                {workout.music.length} song{workout.music.length === 1 ? '' : 's'}
+              </span>
+            </div>
+            <div className="mt-2.5 flex flex-col gap-2">
+              {workout.music.map((song, i) => (
+                <div key={i} className="flex items-baseline justify-between gap-3 text-sm">
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{song.title}</span>
+                    {song.artist && (
+                      <span className="block truncate text-xs text-muted-foreground">{song.artist}</span>
+                    )}
+                  </span>
+                  <span className="shrink-0 truncate text-right text-xs text-muted-foreground">
+                    {songContext(song, workout)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
         )}
       </div>
 
