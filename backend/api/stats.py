@@ -19,6 +19,7 @@ from backend.models import (
     User,
     Workout,
     WorkoutExercise,
+    WorkoutSong,
 )
 from backend.program_schemes import SCHEMES
 from backend.serializers import epley_1rm, workout_totals
@@ -118,6 +119,93 @@ def records(user: User = Depends(get_current_user), db: Session = Depends(get_db
         )
     result.sort(key=lambda r: r["name"].lower())
     return result
+
+
+@router.get("/music")
+def music_stats(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Train-time listening: what plays while you lift and what plays when
+    PRs go down. Song identity = apple_id, falling back to title|artist, so
+    the same track streamed and local aggregates together."""
+    rows = db.execute(
+        select(WorkoutSong, Workout)
+        .join(Workout, WorkoutSong.workout_id == Workout.id)
+        .where(Workout.owner_id == user.id, Workout.finished_at.is_not(None))
+        .order_by(Workout.started_at)
+    ).all()
+    empty = {
+        "workouts": 0, "songs": 0, "unique_songs": 0, "artists": 0,
+        "top_artists": [], "top_songs": [], "pr_songs": [],
+        "sources": {"live": 0, "inferred": 0},
+    }
+    if not rows:
+        return empty
+
+    def _naive(dt):
+        return dt.replace(tzinfo=None) if dt is not None and dt.tzinfo else dt
+
+    # PR set completion times per workout — a song "carried" a PR when the
+    # completion lands inside its play window
+    workout_ids = {w.id for _, w in rows}
+    pr_times: dict[int, list] = defaultdict(list)
+    for completed_at, workout_id in db.execute(
+        select(SetEntry.completed_at, WorkoutExercise.workout_id)
+        .join(WorkoutExercise, SetEntry.workout_exercise_id == WorkoutExercise.id)
+        .where(
+            WorkoutExercise.workout_id.in_(workout_ids),
+            SetEntry.is_pr.is_(True),
+            SetEntry.completed_at.is_not(None),
+        )
+    ).all():
+        pr_times[workout_id].append(_naive(completed_at))
+
+    artists: dict[str, dict] = {}
+    songs: dict[str, dict] = {}
+    sources = {"live": 0, "inferred": 0}
+    for song, workout in rows:
+        sources[song.source if song.source in sources else "live"] += 1
+        if song.artist:
+            a = artists.setdefault(song.artist, {"plays": 0, "workouts": set()})
+            a["plays"] += 1
+            a["workouts"].add(workout.id)
+        key = song.apple_id or f"{song.title}|{song.artist or ''}"
+        s = songs.setdefault(
+            key,
+            {"title": song.title, "artist": song.artist, "plays": 0, "prs": 0,
+             "workouts": set(), "last_played": None},
+        )
+        s["plays"] += 1
+        s["workouts"].add(workout.id)
+        s["last_played"] = workout.started_at
+        start = _naive(song.started_at)
+        end = _naive(song.ended_at) or start
+        s["prs"] += sum(1 for t in pr_times.get(workout.id, []) if start <= t <= end)
+
+    def song_row(s):
+        return {
+            "title": s["title"], "artist": s["artist"], "plays": s["plays"],
+            "prs": s["prs"], "workouts": len(s["workouts"]),
+            "last_played": s["last_played"],
+        }
+
+    return {
+        "workouts": len(workout_ids),
+        "songs": len(rows),
+        "unique_songs": len(songs),
+        "artists": len(artists),
+        "top_artists": [
+            {"artist": name, "plays": a["plays"], "workouts": len(a["workouts"])}
+            for name, a in sorted(artists.items(), key=lambda kv: -kv[1]["plays"])[:10]
+        ],
+        "top_songs": [
+            song_row(s) for s in sorted(songs.values(), key=lambda s: -s["plays"])[:10]
+        ],
+        "pr_songs": [
+            song_row(s)
+            for s in sorted(songs.values(), key=lambda s: (-s["prs"], -s["plays"]))
+            if s["prs"] > 0
+        ][:10],
+        "sources": sources,
+    }
 
 
 @router.get("")

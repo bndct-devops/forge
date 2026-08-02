@@ -163,6 +163,16 @@ def test_sync_music_lands_and_none_never_wipes(db, user):
     db.expire_all()
     assert len(w.songs) == 2
 
+    # The stats aggregation sees the same story
+    from backend.api.stats import music_stats
+
+    agg = music_stats(user, db)
+    assert (agg["workouts"], agg["songs"], agg["artists"]) == (1, 2, 1)
+    assert agg["top_artists"][0] == {"artist": "Gojira", "plays": 2, "workouts": 1}
+    assert agg["pr_songs"][0]["title"] == "Silvera"
+    assert agg["pr_songs"][0]["prs"] == 1
+    assert agg["sources"] == {"live": 1, "inferred": 1}
+
 
 class TestSyncProgramSessions:
     def _program(self, db, user, exercise):

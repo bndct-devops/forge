@@ -345,6 +345,37 @@ struct WorkoutFullSet: Codable {
     let completed_at: String?
 }
 
+// MARK: - music stats
+
+struct MusicStats: Codable {
+    let workouts: Int?
+    let songs: Int?
+    let unique_songs: Int?
+    let artists: Int?
+    let top_artists: [MusicArtistRow]?
+    let top_songs: [MusicSongRow]?
+    let pr_songs: [MusicSongRow]?
+    let sources: MusicSources?
+}
+
+struct MusicArtistRow: Codable {
+    let artist: String
+    let plays: Int
+    let workouts: Int?
+}
+
+struct MusicSongRow: Codable {
+    let title: String
+    let artist: String?
+    let plays: Int?
+    let prs: Int?
+}
+
+struct MusicSources: Codable {
+    let live: Int?
+    let inferred: Int?
+}
+
 // MARK: - exercise detail stats
 
 struct ExerciseStats: Codable {
@@ -1088,5 +1119,9 @@ struct ForgeAPI {
 
     static func records() async throws -> [RecordEntry] {
         try JSONDecoder().decode([RecordEntry].self, from: await request("/api/stats/records"))
+    }
+
+    static func musicStats() async throws -> MusicStats {
+        try JSONDecoder().decode(MusicStats.self, from: await request("/api/stats/music"))
     }
 }

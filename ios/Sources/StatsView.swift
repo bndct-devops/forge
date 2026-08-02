@@ -230,17 +230,25 @@ struct StatsView: View {
     }
 
     private var recordsLink: some View {
-        HStack(spacing: 10) {
-            NavigationLink {
-                RecordsListView(entries: recordEntries)
-            } label: {
-                navTile("trophy", "Records", "all-time bests")
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                NavigationLink {
+                    RecordsListView(entries: recordEntries)
+                } label: {
+                    navTile("trophy", "Records", "all-time bests")
+                }
+                .buttonStyle(Pressable())
+                NavigationLink {
+                    MeasureListView()
+                } label: {
+                    navTile("ruler", "Measurements", "body tracking")
+                }
+                .buttonStyle(Pressable())
             }
-            .buttonStyle(Pressable())
             NavigationLink {
-                MeasureListView()
+                MusicStatsView()
             } label: {
-                navTile("ruler", "Measurements", "body tracking")
+                navTile("music.note", "Music", "what plays while you lift · PR songs")
             }
             .buttonStyle(Pressable())
         }

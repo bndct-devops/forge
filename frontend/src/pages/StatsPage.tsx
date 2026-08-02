@@ -1,4 +1,4 @@
-import { CalendarDays, Dumbbell, Flame, Hourglass, Moon, Repeat, Ruler, Timer, TrendingDown, TrendingUp, Trophy, Weight } from 'lucide-react'
+import { CalendarDays, Dumbbell, Flame, Hourglass, Moon, Music, Repeat, Ruler, Timer, TrendingDown, TrendingUp, Trophy, Weight } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import {
   Bar,
@@ -565,6 +565,20 @@ export default function StatsPage() {
               <div className="min-w-0">
                 <div className="truncate text-sm font-semibold">Measurements</div>
                 <div className="truncate text-xs text-muted-foreground">body tracking</div>
+              </div>
+            </button>
+            <button
+              onClick={() => navigate('/stats/music', { viewTransition: true })}
+              className="touch-feedback col-span-2 flex items-center gap-2.5 rounded-xl border bg-card p-3.5 text-left"
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-primary">
+                <Music size={18} />
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold">Music</div>
+                <div className="truncate text-xs text-muted-foreground">
+                  what plays while you lift · PR songs
+                </div>
               </div>
             </button>
           </div>

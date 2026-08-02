@@ -19,6 +19,7 @@ import SettingsPage from './pages/SettingsPage'
 import SetupPage from './pages/SetupPage'
 import StatsPage from './pages/StatsPage'
 import { MeasureDetailPage, MeasureListPage } from './pages/MeasurePage'
+import MusicStatsPage from './pages/MusicStatsPage'
 import RecordsPage from './pages/RecordsPage'
 import WorkoutDetailPage from './pages/WorkoutDetailPage'
 import WorkoutHomePage from './pages/WorkoutHomePage'
@@ -101,6 +102,7 @@ export default function App() {
             <Route path="/exercises/:id" element={<ExerciseDetailPage />} />
             <Route path="/stats" element={<StatsPage />} />
             <Route path="/records" element={<RecordsPage />} />
+            <Route path="/stats/music" element={<MusicStatsPage />} />
             <Route path="/measure" element={<MeasureListPage />} />
             <Route path="/measure/:kind" element={<MeasureDetailPage />} />
             <Route path="/settings" element={<SettingsPage />} />
