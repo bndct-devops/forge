@@ -13,6 +13,9 @@ struct DraftSet: Identifiable, Codable {
     var setType: String?   // "drop" | "failure"
     var rpe: Double?
     var done = false
+    /// When the ✓ was tapped — feeds completed_at so songs and stats can
+    /// attribute to individual sets. Cleared when the set is un-done.
+    var doneAt: Date?
     /// AMRAP is a set TYPE ("amrap"), persisted like drop/failure — so history
     /// knows which set was the measurement instead of inferring it.
     var amrap: Bool { setType == "amrap" }
@@ -57,6 +60,7 @@ struct PersistedDraft: Codable {
     var programId: Int?
     var programLiftId: Int?
     var exercises: [DraftExercise]
+    var musicEvents: [MusicEvent]?
 }
 
 @MainActor
@@ -76,6 +80,9 @@ final class WorkoutStore: ObservableObject {
     var programId: Int?
     var programLiftId: Int?
     let rest = RestTimer()  // lives with the workout so minimizing keeps the timer + Live Activity
+    /// Watches the system player for the session soundtrack — armed for the
+    /// whole workout like the rest timer, so minimizing keeps it listening.
+    let music = MusicTracker()
     private var persistCancellable: AnyCancellable?
 
     // MARK: from a routine (local draft, created at finish via sync)
@@ -83,6 +90,7 @@ final class WorkoutStore: ObservableObject {
     init(routine: Routine?) {
         self.name = routine?.name ?? "Workout"
         startPersisting()
+        startMusic()
         Task { await load(routine: routine) }
     }
 
@@ -185,6 +193,7 @@ final class WorkoutStore: ObservableObject {
         exercises = out
         loading = false
         startPersisting()
+        startMusic()
     }
 
     // MARK: from a persisted draft (app was killed mid-workout)
@@ -201,6 +210,13 @@ final class WorkoutStore: ObservableObject {
         self.exercises = draft.exercises
         self.loading = false
         startPersisting()
+        startMusic(restoring: draft.musicEvents ?? [])
+    }
+
+    private func startMusic(restoring events: [MusicEvent] = []) {
+        music.start(restoring: events)
+        // events aren't @Published — nudge the persistence debounce ourselves
+        music.onEvent = { [weak self] in self?.objectWillChange.send() }
     }
 
     // MARK: persistence
@@ -233,7 +249,8 @@ final class WorkoutStore: ObservableObject {
             name: name, notes: notes, startedAt: startedAt, finishIntent: finishIntent,
             clientId: clientId,
             serverId: serverId, programId: programId, programLiftId: programLiftId,
-            exercises: exercises
+            exercises: exercises,
+            musicEvents: music.events.isEmpty ? nil : music.events
         )
         let dir = Self.draftURL.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -362,8 +379,10 @@ final class WorkoutStore: ObservableObject {
                 set.weight = prevDone?.weight ?? ex.suggestedWeight
             }
             set.done = true
+            set.doneAt = Date()
             exercises[exIdx].sets[setIdx] = set
             finishIntent = nil
+            music.snapshot()
             if !ex.supersetWithNext, ex.restSeconds > 0 {
                 rest.start(seconds: ex.restSeconds, exercise: ex.name,
                            nextSet: setIdx + 2, workoutName: name)
@@ -381,6 +400,9 @@ final class WorkoutStore: ObservableObject {
     // MARK: finish / discard
 
     func buildSync(finished: Bool) -> SyncWorkout {
+        if finished {
+            music.snapshot()  // last look before the document is sealed
+        }
         let iso = ISO8601DateFormatter()
         var exs: [SyncExercise] = []
         for (i, ex) in exercises.enumerated() {
@@ -389,7 +411,8 @@ final class WorkoutStore: ObservableObject {
                 guard s.done, let reps = s.reps else { continue }
                 sets.append(SyncSet(position: sets.count, weight: s.weight, reps: reps,
                                     is_completed: true, is_warmup: s.warmup,
-                                    set_type: s.setType, rpe: s.rpe))
+                                    set_type: s.setType, rpe: s.rpe,
+                                    completed_at: s.doneAt.map { iso.string(from: $0) }))
             }
             if !sets.isEmpty {
                 exs.append(SyncExercise(
@@ -402,18 +425,23 @@ final class WorkoutStore: ObservableObject {
         if finished, finishIntent == nil {
             finishIntent = Date()
         }
+        // Tracking off or never authorized -> nil, so the server keeps
+        // whatever another device may have recorded
+        let events = music.events
         return SyncWorkout(
             id: serverId, client_id: clientId, name: name,
             notes: notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : notes,
             started_at: iso.string(from: startedAt),
             finished_at: finished ? iso.string(from: finishIntent ?? Date()) : nil,
             program_id: programId, program_lift_id: programLiftId,
-            exercises: exs
+            exercises: exs,
+            music: events.isEmpty ? nil : MusicTracker.segments(from: events)
         )
     }
 
     func discard() async {
         rest.stop()
+        music.stop()
         Self.clearPersisted()
         if let serverId {
             try? await ForgeAPI.deleteWorkout(id: serverId)

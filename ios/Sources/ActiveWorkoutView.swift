@@ -163,7 +163,8 @@ struct ActiveWorkoutView: View {
                                        value: 75, reps: 8)],
                         workout_number: 8, week_workouts: 1,
                         comparison: FinishComparison(prev_volume: 6900, prev_sets: 14,
-                                                     prev_date: "2026-07-25T20:28:00")
+                                                     prev_date: "2026-07-25T20:28:00"),
+                        music: FinishMusic(songs: 12, top_artist: "Gojira")
                     )
                     finished = true
                 }
@@ -557,9 +558,11 @@ struct ActiveWorkoutView: View {
                 withAnimation(.easeOut(duration: 0.2)) {
                     store.exercises[exIdx].sets[setIdx].done.toggle()
                 }
+                store.exercises[exIdx].sets[setIdx].doneAt = wasDone ? nil : Date()
                 if !wasDone {
                     // still training — a stale finish attempt no longer marks the end
                     store.finishIntent = nil
+                    store.music.snapshot()
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     focusedField = nil
                     // PWA set flash: brighter ember that settles into the done tint
@@ -773,6 +776,7 @@ struct ActiveWorkoutView: View {
         do {
             finishSummary = try await ForgeAPI.sync(doc)
             rest.stop()
+            store.music.stop()
             WorkoutStore.clearPersisted()
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             finished = true
@@ -783,6 +787,7 @@ struct ActiveWorkoutView: View {
             // offline: queue it, it syncs automatically when the network is back
             SyncQueue.shared.enqueue(doc)
             rest.stop()
+            store.music.stop()
             WorkoutStore.clearPersisted()
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             queuedOffline = true

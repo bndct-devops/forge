@@ -44,6 +44,16 @@ struct FinishSummaryView: View {
                 VStack(spacing: 14) {
                     header
                     statTiles
+                    if let m = summary?.music, let count = m.songs, count > 0 {
+                        HStack(spacing: 5) {
+                            Image(systemName: "music.note").font(.system(size: 11))
+                            Text("\(count) song\(count == 1 ? "" : "s")"
+                                 + (m.top_artist.map { " · mostly \($0)" } ?? ""))
+                                .font(.system(size: 12))
+                        }
+                        .foregroundStyle(FG.muted)
+                        .stagger(3, appeared)
+                    }
                     if !prs.isEmpty { prCard }
                     if let c = summary?.comparison { comparisonCard(c) }
                     breakdown

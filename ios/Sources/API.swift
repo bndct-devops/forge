@@ -182,6 +182,9 @@ struct SyncSet: Codable {
     var is_warmup: Bool
     var set_type: String?
     var rpe: Double?
+    /// When the ✓ was tapped — the anchor that lets songs and stats attribute
+    /// to individual sets instead of everything landing on the finish time.
+    var completed_at: String?
 }
 
 struct SyncExercise: Codable {
@@ -194,6 +197,16 @@ struct SyncExercise: Codable {
     var sets: [SyncSet]
 }
 
+struct SyncSong: Codable {
+    var position: Int
+    var title: String
+    var artist: String?
+    var album: String?
+    var apple_id: String?
+    var started_at: String
+    var ended_at: String?
+}
+
 struct SyncWorkout: Codable {
     var id: Int?
     var client_id: String
@@ -204,6 +217,9 @@ struct SyncWorkout: Codable {
     var program_id: Int?
     var program_lift_id: Int?
     var exercises: [SyncExercise]
+    /// nil = this client can't see playback; the server then leaves any
+    /// previously synced soundtrack untouched
+    var music: [SyncSong]?
 }
 
 // MARK: - finish summary (sync response)
@@ -222,6 +238,11 @@ struct FinishComparison: Codable {
     let prev_date: String?
 }
 
+struct FinishMusic: Codable {
+    let songs: Int?
+    let top_artist: String?
+}
+
 struct FinishSummary: Codable {
     let id: Int?
     let name: String?
@@ -232,6 +253,7 @@ struct FinishSummary: Codable {
     let workout_number: Int?
     let week_workouts: Int?
     let comparison: FinishComparison?
+    let music: FinishMusic?
 }
 
 struct SyncResponse: Codable {
@@ -286,6 +308,16 @@ struct WorkoutFull: Codable {
     let total_sets: Int?
     let pr_count: Int?
     let exercises: [WorkoutFullExercise]
+    let music: [WorkoutSongOut]?
+}
+
+struct WorkoutSongOut: Codable {
+    let title: String
+    let artist: String?
+    let album: String?
+    let apple_id: String?
+    let started_at: String?
+    let ended_at: String?
 }
 
 struct WorkoutFullExercise: Codable {
@@ -304,6 +336,7 @@ struct WorkoutFullSet: Codable {
     let is_pr: Bool?
     let set_type: String?
     let rpe: Double?
+    let completed_at: String?
 }
 
 // MARK: - exercise detail stats

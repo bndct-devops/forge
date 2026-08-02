@@ -34,6 +34,7 @@ struct SettingsView: View {
                         insightsCard
                         remindersCard
                         healthCard
+                        musicCard
                         serverCard
                         unpairButton
                         Color.clear.frame(height: 30)
@@ -108,6 +109,37 @@ struct SettingsView: View {
             divider
             toggleRow("Weekly digest", "a summary notification once a week",
                       $weeklyDigest, field: "weekly_digest")
+        }
+    }
+
+    @State private var musicTracking = MusicTracker.enabled
+
+    private var musicCard: some View {
+        card("Apple Music") {
+            Toggle(isOn: Binding(
+                get: { musicTracking },
+                set: { on in
+                    musicTracking = on
+                    MusicTracker.enabled = on
+                    if on {
+                        Task {
+                            if await !MusicTracker.requestAuthorization() {
+                                musicTracking = false
+                                MusicTracker.enabled = false
+                            }
+                        }
+                    }
+                }
+            )) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Log music during workouts")
+                        .font(.system(size: 14, weight: .medium)).foregroundStyle(.white)
+                    Text("each session remembers its soundtrack — nothing leaves your Forge")
+                        .font(.system(size: 12)).foregroundStyle(FG.muted)
+                }
+            }
+            .tint(FG.ember)
+            .padding(.vertical, 9)
         }
     }
 

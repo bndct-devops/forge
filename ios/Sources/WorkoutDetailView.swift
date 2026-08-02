@@ -146,6 +146,10 @@ struct WorkoutDetailView: View {
                             .overlay(RoundedRectangle(cornerRadius: 14).stroke(FG.border, lineWidth: 1))
                         }
 
+                        if let music = w.music, !music.isEmpty {
+                            soundtrackCard(music, w)
+                        }
+
                         Color.clear.frame(height: 40)
                     }
                     .padding(.horizontal, 18)
@@ -287,6 +291,75 @@ struct WorkoutDetailView: View {
         .padding(.top, 8)
     }
 
+    // MARK: soundtrack
+
+    private func soundtrackCard(_ music: [WorkoutSongOut], _ w: WorkoutFull) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "music.note")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(FG.muted)
+                Text("Soundtrack")
+                    .font(.system(size: 11, weight: .semibold)).tracking(0.8)
+                    .foregroundStyle(FG.muted)
+                Spacer()
+                Text("\(music.count) song\(music.count == 1 ? "" : "s")")
+                    .font(.system(size: 11).monospacedDigit())
+                    .foregroundStyle(FG.muted)
+            }
+            ForEach(Array(music.enumerated()), id: \.offset) { _, song in
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(song.title)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                        if let artist = song.artist {
+                            Text(artist)
+                                .font(.system(size: 11))
+                                .foregroundStyle(FG.muted)
+                                .lineLimit(1)
+                        }
+                    }
+                    Spacer(minLength: 12)
+                    Text(songContext(song, in: w))
+                        .font(.system(size: 11))
+                        .foregroundStyle(FG.muted)
+                        .lineLimit(1)
+                        .multilineTextAlignment(.trailing)
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 14).fill(FG.card))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(FG.border, lineWidth: 1))
+    }
+
+    /// What was happening while the song ran: the exercises whose sets were
+    /// checked off inside its play window, else the wall-clock start.
+    private func songContext(_ song: WorkoutSongOut, in w: WorkoutFull) -> String {
+        guard let start = parseISOUTC(song.started_at) else { return "" }
+        let end = parseISOUTC(song.ended_at) ?? start
+        var names: [String] = []
+        for ex in w.exercises {
+            let hit = ex.sets.contains { s in
+                guard let t = parseISOUTC(s.completed_at) else { return false }
+                return t >= start && t <= end
+            }
+            if hit, !names.contains(ex.name) { names.append(ex.name) }
+        }
+        if names.isEmpty {
+            let f = DateFormatter()
+            f.dateFormat = "HH:mm"
+            return f.string(from: start)
+        }
+        if names.count > 2 {
+            return names.prefix(2).joined(separator: " · ") + " · …"
+        }
+        return names.joined(separator: " · ")
+    }
+
     private func headStat(_ value: String, _ unit: String, gold: Bool = false) -> some View {
         HStack(spacing: 3) {
             Text(value).font(.system(size: 17, weight: .semibold).monospacedDigit())
@@ -420,6 +493,13 @@ private struct EditableSetRow: View {
             await onChanged()
         }
     }
+}
+
+/// Server timestamps are UTC, sometimes with an offset suffix, sometimes
+/// naive — prefix(19)+Z normalises both (same trick as fmtDateLong).
+func parseISOUTC(_ iso: String?) -> Date? {
+    guard let iso, iso.count >= 19 else { return nil }
+    return ISO8601DateFormatter().date(from: String(iso.prefix(19)) + "Z")
 }
 
 func fmtDateLong(_ iso: String) -> String {

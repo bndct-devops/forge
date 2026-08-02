@@ -15,6 +15,7 @@ reference — screens are ported, not reinterpreted. Status: ✅ done · 🟡 pa
 | **ExerciseDetailPage** | ✅ | muscle map, variation chips (+family toggle), pinned note, record tiles incl. best-set-volume, 1RM/weight/volume chart with 3M/1Y/ALL, training %, history ✅ · custom-exercise edit/delete ✅ (pencil on custom exercises) · avg-RPE overlay on 1RM chart ✅ (RPE mapped onto the metric scale, dashed) |
 | **HistoryPage** | ✅ | list + calendar views, load-more |
 | **WorkoutDetailPage** | ✅ | view, rename, delete, exercise links ✅ · Edit sets mode: inline weight/reps PATCH, warm-up toggle, delete set, add set, remove exercise ✅ |
+| Workout soundtrack | ✅ | captured natively (MediaPlayer snapshots: song changes, foregrounding, every set ✓) with per-set timestamps; synced as play windows; Soundtrack card in both detail views with exercise attribution; capture is native-only — the PWA displays what the phone recorded |
 | **StatsPage** | 🟡 | Overview (streak+goal, nudges, stalls, tiles, highlights, calendar heatmap, year review) ✅ · Trends core (weekly volume, training days, rep ranges, PRs/month, muscle split w/ per-group trend, push/pull) ✅ · deep trends ✅ (block-vs-last, form&fatigue, top lifts, TM headroom, cycles, cycle report, velocity, relative, standards, trajectory, recovery, detraining, pacing, time-of-day) · RPE overlay on weekly volume ✅ |
 | **RecordsPage** | ✅ | searchable records page pushed from Stats overview |
 | **MeasurePage** | ✅ | kinds list, trend tiles, logged-vs-trend chart, add/delete entries (Stats overview + Home log-weight row) |
