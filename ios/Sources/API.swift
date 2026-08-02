@@ -205,6 +205,9 @@ struct SyncSong: Codable {
     var apple_id: String?
     var started_at: String
     var ended_at: String?
+    /// "live" = observed playing; "inferred" = from Apple Music's
+    /// recently-played (HomePod/Watch playback, locked-phone gaps)
+    var source: String = "live"
 }
 
 struct SyncWorkout: Codable {
@@ -318,6 +321,7 @@ struct WorkoutSongOut: Codable {
     let apple_id: String?
     let started_at: String?
     let ended_at: String?
+    let source: String?
 }
 
 struct WorkoutFullExercise: Codable {

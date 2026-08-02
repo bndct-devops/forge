@@ -243,6 +243,9 @@ class SyncSongIn(BaseModel):
     apple_id: str | None = Field(default=None, max_length=32)
     started_at: datetime
     ended_at: datetime | None = None
+    # 'live' = the running app saw it play; 'inferred' = reconstructed from
+    # Apple Music's recently-played after the fact (HomePod/Watch, locked phone)
+    source: Literal["live", "inferred"] = "live"
 
 
 class WorkoutSyncIn(BaseModel):

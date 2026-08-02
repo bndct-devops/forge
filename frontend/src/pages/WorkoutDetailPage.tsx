@@ -544,6 +544,8 @@ export default function WorkoutDetailPage() {
                     )}
                   </span>
                   <span className="shrink-0 truncate text-right text-xs text-muted-foreground">
+                    {/* ≈ marks a song Apple Music remembered but the app never saw play */}
+                    {song.source === 'inferred' ? '≈ ' : ''}
                     {songContext(song, workout)}
                   </span>
                 </div>

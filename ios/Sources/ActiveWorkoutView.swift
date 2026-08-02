@@ -772,6 +772,10 @@ struct ActiveWorkoutView: View {
     private func finish() async {
         finishing = true
         postError = nil
+        // Ask Apple Music for anything the live snapshots missed (HomePod,
+        // Watch, locked phone) before the document is sealed — silent no-op
+        // offline or without the MusicKit app service.
+        await store.music.reconcile(since: store.startedAt)
         let doc = store.buildSync(finished: true)
         do {
             finishSummary = try await ForgeAPI.sync(doc)

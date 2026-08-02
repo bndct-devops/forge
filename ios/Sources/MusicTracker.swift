@@ -1,5 +1,6 @@
 import Foundation
 import MediaPlayer
+import MusicKit
 import UIKit
 
 /// One observation of the system player: what was playing at `ts`, and how
@@ -31,14 +32,22 @@ final class MusicTracker {
     static var authorized: Bool { MPMediaLibrary.authorizationStatus() == .authorized }
 
     static func requestAuthorization() async -> Bool {
-        await withCheckedContinuation { cont in
+        let media = await withCheckedContinuation { cont in
             MPMediaLibrary.requestAuthorization { status in
                 cont.resume(returning: status == .authorized)
             }
         }
+        // MusicKit consent rides the same opt-in moment (recently-played
+        // gap-fill); denying it only loses the gap-fill, so it can't veto
+        _ = await MusicAuthorization.request()
+        return media
     }
 
     private(set) var events: [MusicEvent] = []
+    /// Songs Apple Music's recently-played knows about that the live
+    /// snapshots never saw — HomePod/Watch playback, locked-phone gaps.
+    /// Kept separate so the two capture paths stay comparable in the data.
+    private(set) var inferred: [SyncSong] = []
     /// Fires after a new event lands so the owning store can persist.
     var onEvent: (() -> Void)?
 
@@ -102,6 +111,47 @@ final class MusicTracker {
 
     private func identity(_ e: MusicEvent) -> String {
         e.appleId ?? "\(e.title)|\(e.artist ?? "")"
+    }
+
+    /// Ask Apple Music what played since the workout started and keep what
+    /// the live snapshots missed. Requires the MusicKit app service on the
+    /// App ID and an Apple Music subscription — every failure path is a
+    /// silent no-op, so live capture never depends on this.
+    func reconcile(since workoutStart: Date) async {
+        guard Self.enabled else { return }
+        var status = MusicAuthorization.currentStatus
+        if status == .notDetermined {
+            status = await MusicAuthorization.request()
+        }
+        guard status == .authorized else { return }
+        var request = MusicRecentlyPlayedRequest<Song>()
+        request.limit = 30
+        guard let response = try? await request.response() else { return }
+
+        var known = Set(events.map(identity))
+        events.forEach { known.insert("\($0.title)|\($0.artist ?? "")") }
+        let iso = ISO8601DateFormatter()
+        var found: [SyncSong] = []
+        for song in response.items {
+            // Without a per-play timestamp there is no honest way to place
+            // the song inside the workout — skip rather than guess.
+            guard let played = song.lastPlayedDate, played >= workoutStart else { continue }
+            let key = song.id.rawValue
+            let altKey = "\(song.title)|\(song.artistName)"
+            guard !known.contains(key), !known.contains(altKey) else { continue }
+            known.insert(key)
+            found.append(SyncSong(
+                position: 0,  // merged + renumbered at sync
+                title: song.title,
+                artist: song.artistName,
+                album: song.albumTitle,
+                apple_id: key,
+                started_at: iso.string(from: played),
+                ended_at: nil,
+                source: "inferred"
+            ))
+        }
+        inferred = found
     }
 
     /// Collapse the event stream into per-song play windows for sync.

@@ -322,7 +322,9 @@ struct WorkoutDetailView: View {
                         }
                     }
                     Spacer(minLength: 12)
-                    Text(songContext(song, in: w))
+                    // ≈ marks a song Apple Music remembered but the app
+                    // never saw play — its placement is approximate
+                    Text((song.source == "inferred" ? "≈ " : "") + songContext(song, in: w))
                         .font(.system(size: 11))
                         .foregroundStyle(FG.muted)
                         .lineLimit(1)

@@ -425,9 +425,12 @@ final class WorkoutStore: ObservableObject {
         if finished, finishIntent == nil {
             finishIntent = Date()
         }
-        // Tracking off or never authorized -> nil, so the server keeps
-        // whatever another device may have recorded
-        let events = music.events
+        // Live snapshots and MusicKit gap-fill merged chronologically —
+        // ISO strings sort correctly. Tracking off or never authorized ->
+        // nil, so the server keeps whatever another device may have recorded.
+        var songs = MusicTracker.segments(from: music.events) + music.inferred
+        songs.sort { $0.started_at < $1.started_at }
+        for i in songs.indices { songs[i].position = i }
         return SyncWorkout(
             id: serverId, client_id: clientId, name: name,
             notes: notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : notes,
@@ -435,7 +438,7 @@ final class WorkoutStore: ObservableObject {
             finished_at: finished ? iso.string(from: finishIntent ?? Date()) : nil,
             program_id: programId, program_lift_id: programLiftId,
             exercises: exs,
-            music: events.isEmpty ? nil : MusicTracker.segments(from: events)
+            music: songs.isEmpty ? nil : songs
         )
     }
 

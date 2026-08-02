@@ -133,7 +133,8 @@ def test_sync_music_lands_and_none_never_wipes(db, user):
                    apple_id="1440848087", started_at=FROZEN_NOW,
                    ended_at=FROZEN_NOW + timedelta(minutes=3)),
         SyncSongIn(position=1, title="Stranded", artist="Gojira",
-                   started_at=FROZEN_NOW + timedelta(minutes=3)),
+                   started_at=FROZEN_NOW + timedelta(minutes=3),
+                   source="inferred"),
     ]
     res = sync_workout(doc, user, db)
     assert res["finish"]["music"] == {"songs": 2, "top_artist": "Gojira"}
@@ -143,6 +144,7 @@ def test_sync_music_lands_and_none_never_wipes(db, user):
     ).scalars().first()
     assert [s.title for s in w.songs] == ["Silvera", "Stranded"]
     assert w.songs[0].apple_id == "1440848087"
+    assert [s.source for s in w.songs] == ["live", "inferred"]
 
     from backend.serializers import serialize_workout
 

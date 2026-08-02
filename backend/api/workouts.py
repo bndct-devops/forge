@@ -264,6 +264,7 @@ def sync_workout(
                 apple_id=song.apple_id,
                 started_at=song.started_at,
                 ended_at=song.ended_at,
+                source=song.source,
             )
             for i, song in enumerate(sorted(body.music, key=lambda s: s.position))
         ]
