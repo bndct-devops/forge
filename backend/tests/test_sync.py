@@ -121,6 +121,43 @@ def test_sync_adopts_server_id_workout(db, user):
     assert len(w.exercises) == 1
 
 
+def test_sync_music_lands_and_none_never_wipes(db, user):
+    """The companion sends the soundtrack; a later PWA sync (music=None)
+    must not wipe it. An explicit list replaces."""
+    from backend.schemas import SyncSongIn
+
+    ex = make_exercise(db)
+    doc = _doc(ex, finished=True)
+    doc.music = [
+        SyncSongIn(position=0, title="Silvera", artist="Gojira",
+                   apple_id="1440848087", started_at=FROZEN_NOW,
+                   ended_at=FROZEN_NOW + timedelta(minutes=3)),
+        SyncSongIn(position=1, title="Stranded", artist="Gojira",
+                   started_at=FROZEN_NOW + timedelta(minutes=3)),
+    ]
+    res = sync_workout(doc, user, db)
+    assert res["finish"]["music"] == {"songs": 2, "top_artist": "Gojira"}
+
+    w = db.execute(
+        select(Workout).where(Workout.owner_id == user.id, Workout.finished_at.is_not(None))
+    ).scalars().first()
+    assert [s.title for s in w.songs] == ["Silvera", "Stranded"]
+    assert w.songs[0].apple_id == "1440848087"
+
+    from backend.serializers import serialize_workout
+
+    data = serialize_workout(db, w, with_previous=False)
+    assert [m["title"] for m in data["music"]] == ["Silvera", "Stranded"]
+    assert data["exercises"][0]["sets"][0]["completed_at"] is not None
+
+    # Finish replay without music (a client that can't capture) keeps the rows
+    replay = _doc(ex, finished=True)
+    assert replay.music is None
+    sync_workout(replay, user, db)
+    db.expire_all()
+    assert len(w.songs) == 2
+
+
 class TestSyncProgramSessions:
     def _program(self, db, user, exercise):
         from backend.api.programs import ProgramIn, ProgramLiftIn, create_program

@@ -232,6 +232,19 @@ class SyncExerciseIn(BaseModel):
     sets: list[SyncSetIn] = Field(max_length=50)
 
 
+class SyncSongIn(BaseModel):
+    """One song's play window, captured by the companion from the system
+    music player."""
+
+    position: int = Field(ge=0)
+    title: str = Field(min_length=1, max_length=256)
+    artist: str | None = Field(default=None, max_length=256)
+    album: str | None = Field(default=None, max_length=256)
+    apple_id: str | None = Field(default=None, max_length=32)
+    started_at: datetime
+    ended_at: datetime | None = None
+
+
 class WorkoutSyncIn(BaseModel):
     """Full active-workout document pushed by an offline-capable client.
     Upserted by (owner, client_id); a set finished_at runs the finish
@@ -247,6 +260,9 @@ class WorkoutSyncIn(BaseModel):
     program_id: int | None = None
     program_lift_id: int | None = None
     exercises: list[SyncExerciseIn] = Field(max_length=50)
+    # None = client can't capture music (PWA) — existing rows stay untouched.
+    # A list, even empty, replaces the workout's soundtrack.
+    music: list[SyncSongIn] | None = Field(default=None, max_length=200)
 
 
 class LogSetIn(BaseModel):

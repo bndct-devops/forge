@@ -152,6 +152,7 @@ def serialize_workout(db: Session, workout: Workout, with_previous: bool = True)
                         "set_type": s.set_type,
                         "is_pr": s.is_pr,
                         "rpe": s.rpe,
+                        "completed_at": s.completed_at,
                     }
                     for s in we.sets
                 ],
@@ -194,6 +195,19 @@ def serialize_workout(db: Session, workout: Workout, with_previous: bool = True)
         "program_lift_id": workout.program_lift_id,
         "amrap_target": amrap_target,
         "exercises": exercises,
+        # Session soundtrack, captured by the companion from the system player
+        "music": [
+            {
+                "title": song.title,
+                "artist": song.artist,
+                "album": song.album,
+                "apple_id": song.apple_id,
+                "started_at": song.started_at,
+                "ended_at": song.ended_at,
+                "source": song.source,
+            }
+            for song in workout.songs
+        ],
     }
 
 

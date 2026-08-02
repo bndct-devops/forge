@@ -36,6 +36,38 @@ class Workout(Base):
     exercises: Mapped[List["WorkoutExercise"]] = relationship(
         cascade="all, delete-orphan", order_by="WorkoutExercise.position"
     )
+    songs: Mapped[List["WorkoutSong"]] = relationship(
+        cascade="all, delete-orphan", order_by="WorkoutSong.position"
+    )
+
+
+class WorkoutSong(Base):
+    """One song's play window during a workout — the session soundtrack.
+
+    Captured by the iOS companion from the system music player (the PWA can't
+    see playback and never sends these). started_at is usually exact: a single
+    mid-song snapshot back-computes the start from the playback position.
+    ended_at is the last moment the song was observed, so it understates."""
+
+    __tablename__ = "workout_songs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    workout_id: Mapped[int] = mapped_column(
+        ForeignKey("workouts.id", ondelete="CASCADE"), index=True
+    )
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    title: Mapped[str] = mapped_column(String(256))
+    artist: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    album: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    # Apple Music catalog id (playbackStoreID) — stable across devices for
+    # streamed tracks; null for purely local files. Aggregate by this first,
+    # falling back to (title, artist).
+    apple_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # 'live' = observed by the running app; 'inferred' = reconstructed after
+    # the fact (reserved for the MusicKit recently-played reconcile)
+    source: Mapped[str] = mapped_column(String(12), default="live")
 
 
 class WorkoutExercise(Base):

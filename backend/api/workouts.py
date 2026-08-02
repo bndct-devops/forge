@@ -12,6 +12,7 @@ from backend.models import (
     User,
     Workout,
     WorkoutExercise,
+    WorkoutSong,
 )
 from datetime import timedelta, timezone
 
@@ -125,6 +126,13 @@ def _finish_summary(db: Session, user: User, workout: Workout, prs: list) -> dic
             "prev_date": previous_same.started_at,
         }
 
+    # "12 songs · mostly Gojira" on the finish screen
+    music = None
+    if workout.songs:
+        artists = [s.artist for s in workout.songs if s.artist]
+        top_artist = max(set(artists), key=artists.count) if artists else None
+        music = {"songs": len(workout.songs), "top_artist": top_artist}
+
     return {
         "id": workout.id,
         "name": workout.name,
@@ -135,6 +143,7 @@ def _finish_summary(db: Session, user: User, workout: Workout, prs: list) -> dic
         "workout_number": workout_number,
         "week_workouts": week_workouts,
         "comparison": comparison,
+        "music": music,
     }
 
 
@@ -242,6 +251,22 @@ def sync_workout(
         ]
         exercises.append(we)
     workout.exercises = exercises
+
+    # Soundtrack: only clients that can see the system player send this
+    # (None = can't capture — never wipe what another device recorded)
+    if body.music is not None:
+        workout.songs = [
+            WorkoutSong(
+                position=i,
+                title=song.title,
+                artist=song.artist,
+                album=song.album,
+                apple_id=song.apple_id,
+                started_at=song.started_at,
+                ended_at=song.ended_at,
+            )
+            for i, song in enumerate(sorted(body.music, key=lambda s: s.position))
+        ]
 
     if body.finished_at is None:
         # Still in progress — the single-active-workout rule applies
